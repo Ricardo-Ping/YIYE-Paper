@@ -1372,7 +1372,10 @@
         const prior = before.get(job.id);
         if (prior && ["queued", "running"].includes(prior) && ["completed", "failed"].includes(job.status)) {
           const body = job.status === "completed" ? "翻译完成，可在任务列表下载结果" : `失败：${job.error || "未知原因"}`;
-          try { new Notification(`译页 · ${job.fileName}`, { body }); } catch {}
+          try {
+            const n = new Notification(`译页 · ${job.fileName}`, { body });
+            n.onclick = () => { window.focus(); n.close(); };
+          } catch {}
         }
       }
     }
@@ -1382,7 +1385,7 @@
       const wasActive = previous.some((job) => ["queued", "running"].includes(job.status));
       const stillActive = current.some((job) => ["queued", "running"].includes(job.status));
       if (wasActive && !stillActive) {
-        try { new Notification("译页 · 全部任务已处理完毕", { body: "打开任务列表查看结果" }); } catch {}
+          try { const n = new Notification("译页 · 全部任务已处理完毕", { body: "打开任务列表查看结果" }); n.onclick = () => { window.focus(); n.close(); }; } catch {}
       }
       state.hadActiveJobs = stillActive;
     }

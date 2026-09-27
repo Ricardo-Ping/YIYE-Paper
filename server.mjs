@@ -712,8 +712,7 @@ function runRevise({ translatedPdf, originalPdf, outPath, keepOriginal }) {
     let stderrTail = "";
     const timer = setTimeout(() => {
       stopChild(child);
-      reject(new Error("修订版生成超时"));
-    }, 60_000);
+      reject(new Error("修订版生成超时"));    }, 120_000);
     child.stderr.on("data", (chunk) => { stderrTail = (stderrTail + chunk).slice(-300); });
     child.once("error", (error) => { clearTimeout(timer); reject(error); });
     child.once("close", (code) => {
