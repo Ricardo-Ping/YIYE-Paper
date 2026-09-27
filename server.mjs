@@ -336,6 +336,23 @@ async function runJob(job) {
   if (job.config?.gatewayId) gatewayRegistry.delete(job.config.gatewayId);
   active = null;
   flushLog(job, apiKey);
+  secrets.delete(job.id);
+  if (job.config?.gatewayId) gatewayRegistry.delete(job.config.gatewayId);
+  active = null;
+  flushLog(job, apiKey);
+  // 从日志提取可读错误:定位最后一条含 error/错误/失败的行,拼接其后续被换行截断的片段
+  const errorFromLog = () => {
+    let idx = job.log.length - 1;
+    while (idx >= 0 && !/error|错误|失败/i.test(job.log[idx])) idx -= 1;
+    if (idx < 0) return `翻译引擎退出码：${exitCode}`;
+    const joined = job.log.slice(idx, Math.min(idx + 4, job.log.length))
+      .join(" ")
+      .replace(/\b[\w.]+\.py:\d+/g, "")
+      .replace(/\b(?:INFO|ERROR|WARNING|DEBUG)\b[:]?/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    return joined.slice(0, 300) || `翻译引擎退出码：${exitCode}`;
+  };
   if (job.cancelRequested) {
     job.status = "canceled";
     job.stage = "已取消";
@@ -350,10 +367,12 @@ async function runJob(job) {
     if (job.quality && await access(path.join(job.outputDir, reportName)).then(() => true).catch(() => false)) {
       job.outputs.push(reportName);
     }
-    if (!job.outputs.length) {
+    // 质检报告本身也是输出,必须以译文 PDF 是否存在作为完成标准
+    const hasTranslatedPdf = job.outputs.some((name) => name.toLowerCase().endsWith(".pdf"));
+    if (!hasTranslatedPdf) {
       job.status = "failed";
-      job.stage = "没有生成 PDF";
-      job.error = "翻译引擎正常退出，但没有找到输出文件。请查看任务日志。";
+      job.stage = "没有生成译文 PDF";
+      job.error = errorFromLog() || "翻译引擎正常退出，但没有生成译文 PDF。请查看任务日志。";
     } else {
       job.status = "completed";
       job.stage = "翻译完成";
@@ -367,7 +386,7 @@ async function runJob(job) {
   } else {
     job.status = "failed";
     job.stage = "翻译失败";
-    job.error = job.log.at(-1) || `翻译引擎退出码：${exitCode}`;
+    job.error = errorFromLog() + (job.stats?.scannedCheck ? "（已尝试扫描件 OCR 兼容处理，仍未能生成可翻译内容）" : "");
   }
   job.finishedAt = new Date().toISOString();
   await persistJobs();
