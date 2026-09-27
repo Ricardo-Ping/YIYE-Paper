@@ -150,6 +150,9 @@ def build_args(request: dict, api_key: str) -> list[str]:
         # 等价于 --skip-clean --dual-translate-first --disable-rich-text-translate，
         # 用画质换稳健性，供排版异常的疑难 PDF 使用
         args.append("--enhance-compatibility")
+    if config.get("ignoreCache"):
+        # 忽略翻译缓存：更换术语表/提示词后强制全部段落重新翻译
+        args.append("--ignore-cache")
     # BabelDOC 在自动术语抽取和用户术语表同时存在时只使用自动抽取结果，
     # 因此上传了自定义术语表时必须关闭自动抽取，保证用户术语生效。
     if request.get("glossaryPath"):

@@ -435,6 +435,10 @@
           <div><strong>疑难 PDF 兼容模式</strong><small>排版异常或导出异常时启用；关闭清理与富文本，用画质换成功率</small></div>
           <label class="toggle"><input id="enhance" type="checkbox"><span></span></label>
         </div>
+        <div class="setting">
+          <div><strong>忽略翻译缓存</strong><small>更换术语表/提示词后强制全部段落重翻；默认利用缓存加速重复翻译</small></div>
+          <label class="toggle"><input id="ignore-cache" type="checkbox"><span></span></label>
+        </div>
         <div class="glossary-box">
           <div class="glossary-head"><span>自定义术语表（CSV）</span><button class="link-btn" id="glossary-template" type="button">下载模板</button></div>
           <div class="glossary-body" id="glossary-empty">
@@ -1196,6 +1200,7 @@
         qps: Number($("#qps").value) || 4,
         pages: $("#pages-range").value.trim(),
         enhance: $("#enhance").checked,
+        ignoreCache: $("#ignore-cache").checked,
         ocr: $("#ocr").checked,
         table: $("#table").checked,
         glossary: $("#glossary").checked,
@@ -1216,6 +1221,7 @@
           ocr: $("#ocr").checked,
           table: $("#table").checked,
           enhance: $("#enhance").checked,
+          ignoreCache: $("#ignore-cache").checked,
         };
         // 本地与云端的地址/模型分开记忆，切换类型互不覆盖
         if (state.serviceKind === "local") {
@@ -1252,6 +1258,7 @@
       if (typeof saved.ocr === "boolean") $("#ocr").checked = saved.ocr;
       if (typeof saved.table === "boolean") $("#table").checked = saved.table;
       if (typeof saved.enhance === "boolean") $("#enhance").checked = saved.enhance;
+      if (typeof saved.ignoreCache === "boolean") $("#ignore-cache").checked = saved.ignoreCache;
       if (outputNames[saved.output]) {
         state.output = saved.output;
         document.querySelectorAll("[data-output]").forEach((item) => item.classList.toggle("selected", item.dataset.output === saved.output));
@@ -1609,7 +1616,7 @@
     $("#test-button").addEventListener("click", testProvider);
     $("#models-button").addEventListener("click", refreshModels);
     $("#run-button").addEventListener("click", startJob);
-    for (const id of ["base-url", "model", "qps", "pages-range", "target", "ocr", "table", "glossary", "enhance", "thinking"]) {
+    for (const id of ["base-url", "model", "qps", "pages-range", "target", "ocr", "table", "glossary", "enhance", "thinking", "ignore-cache"]) {
       $(`#${id}`).addEventListener("change", saveSettings);
     }
     $("#chips").addEventListener("click", (event) => {

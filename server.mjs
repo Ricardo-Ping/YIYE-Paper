@@ -65,6 +65,7 @@ export function validateConfig(input = {}) {
     model,
     pages: validatePages(input.pages),
     enhance: input.enhance === true,
+    ignoreCache: input.ignoreCache === true,
     ocr: input.ocr !== false,
     table: input.table === true,
     glossary: input.glossary !== false,
