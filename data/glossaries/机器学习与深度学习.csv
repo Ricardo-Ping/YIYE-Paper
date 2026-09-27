@@ -1,0 +1,112 @@
+source,target
+deep learning,深度学习
+machine learning,机器学习
+neural network,神经网络
+artificial neural network,人工神经网络
+convolutional neural network,卷积神经网络
+recurrent neural network,循环神经网络
+generative adversarial network,生成对抗网络
+variational autoencoder,变分自编码器
+autoencoder,自编码器
+attention mechanism,注意力机制
+self-attention,自注意力
+cross-attention,交叉注意力
+multi-head attention,多头注意力
+attention weight,注意力权重
+positional encoding,位置编码
+transfer learning,迁移学习
+supervised learning,监督学习
+unsupervised learning,无监督学习
+semi-supervised learning,半监督学习
+self-supervised learning,自监督学习
+reinforcement learning,强化学习
+federated learning,联邦学习
+contrastive learning,对比学习
+meta-learning,元学习
+few-shot learning,小样本学习
+zero-shot learning,零样本学习
+one-shot learning,单样本学习
+multi-task learning,多任务学习
+active learning,主动学习
+curriculum learning,课程学习
+pre-training,预训练
+fine-tuning,微调
+parameter-efficient fine-tuning,参数高效微调
+low-rank adaptation,低秩自适应
+instruction tuning,指令微调
+in-context learning,上下文学习
+knowledge distillation,知识蒸馏
+model compression,模型压缩
+model quantization,模型量化
+pruning,剪枝
+early stopping,早停
+label smoothing,标签平滑
+weight decay,权重衰减
+batch normalization,批归一化
+layer normalization,层归一化
+residual connection,残差连接
+skip connection,跳跃连接
+gradient descent,梯度下降
+stochastic gradient descent,随机梯度下降
+backpropagation,反向传播
+loss function,损失函数
+objective function,目标函数
+activation function,激活函数
+cross entropy,交叉熵
+mean squared error,均方误差
+overfitting,过拟合
+underfitting,欠拟合
+regularization,正则化
+hyperparameter,超参数
+hyperparameter tuning,超参数调优
+grid search,网格搜索
+bayesian optimization,贝叶斯优化
+learning rate,学习率
+learning rate warmup,学习率预热
+batch size,批大小
+checkpoint,检查点
+data augmentation,数据增强
+data labeling,数据标注
+data leakage,数据泄露
+class imbalance,类别不平衡
+feature engineering,特征工程
+feature extraction,特征提取
+dimensionality reduction,降维
+ensemble learning,集成学习
+gradient boosting,梯度提升
+random forest,随机森林
+support vector machine,支持向量机
+decision tree,决策树
+naive bayes,朴素贝叶斯
+nearest neighbor,最近邻
+k-means clustering,K 均值聚类
+principal component analysis,主成分分析
+anomaly detection,异常检测
+domain adaptation,领域自适应
+domain shift,领域偏移
+out-of-distribution,分布外
+calibration,校准
+interpretability,可解释性
+explainability,可解释性
+encoder,编码器
+decoder,解码器
+encoder-decoder,编码器-解码器
+autoregressive,自回归
+diffusion model,扩散模型
+generative model,生成模型
+discriminative model,判别模型
+mixture of experts,混合专家
+large language model,大语言模型
+chain-of-thought,思维链
+retrieval-augmented generation,检索增强生成
+reinforcement learning from human feedback,基于人类反馈的强化学习
+alignment,对齐
+graph neural network,图神经网络
+recurrent unit,循环单元
+ablation study,消融实验
+benchmark,基准测试
+baseline,基线
+inference,推断
+scaling law,缩放定律
+emergent ability,涌现能力
+hallucination,幻觉

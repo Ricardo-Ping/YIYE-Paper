@@ -1,0 +1,74 @@
+source,target
+computer vision,计算机视觉
+image classification,图像分类
+object detection,目标检测
+semantic segmentation,语义分割
+instance segmentation,实例分割
+panoptic segmentation,全景分割
+image segmentation,图像分割
+object tracking,目标跟踪
+multiple object tracking,多目标跟踪
+person re-identification,行人重识别
+feature map,特征图
+feature descriptor,特征描述子
+keypoint,关键点
+feature correspondence,特征对应
+convolution,卷积
+deconvolution,反卷积
+transposed convolution,转置卷积
+dilated convolution,空洞卷积
+depthwise convolution,深度可分离卷积
+pooling,池化
+max pooling,最大池化
+average pooling,平均池化
+receptive field,感受野
+bounding box,边界框
+anchor box,锚框
+region proposal,候选区域
+non-maximum suppression,非极大值抑制
+intersection over union,交并比
+feature pyramid,特征金字塔
+optical flow,光流
+stereo matching,立体匹配
+stereo vision,双目视觉
+depth estimation,深度估计
+monocular depth estimation,单目深度估计
+depth map,深度图
+pose estimation,姿态估计
+face recognition,人脸识别
+gait recognition,步态识别
+image generation,图像生成
+super resolution,超分辨率
+image restoration,图像修复
+image inpainting,图像修补
+neural style transfer,神经风格迁移
+denoising,去噪
+point cloud,点云
+3d reconstruction,三维重建
+simultaneous localization and mapping,同步定位与地图构建
+visual tracking,视觉跟踪
+image retrieval,图像检索
+scene understanding,场景理解
+visual question answering,视觉问答
+image captioning,图像描述生成
+saliency map,显著性图
+edge detection,边缘检测
+contour detection,轮廓检测
+hough transform,霍夫变换
+template matching,模板匹配
+histogram equalization,直方图均衡化
+morphological operation,形态学操作
+camera calibration,相机标定
+camera intrinsics,相机内参
+camera extrinsics,相机外参
+camera pose,相机位姿
+epipolar geometry,对极几何
+bundle adjustment,光束法平差
+lidar,激光雷达
+remote sensing,遥感
+satellite imagery,卫星影像
+thermal infrared,热红外
+color constancy,颜色恒常性
+photometric calibration,光度标定
+image warping,图像形变
+anchor-free,无锚框
