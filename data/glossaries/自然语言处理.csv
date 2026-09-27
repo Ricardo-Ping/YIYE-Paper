@@ -1,0 +1,76 @@
+source,target
+natural language processing,自然语言处理
+natural language understanding,自然语言理解
+natural language generation,自然语言生成
+computational linguistics,计算语言学
+pretrained language model,预训练语言模型
+masked language model,掩码语言模型
+language model,语言模型
+machine translation,机器翻译
+text classification,文本分类
+sentiment analysis,情感分析
+aspect-based sentiment analysis,基于方面的情感分析
+opinion mining,观点挖掘
+named entity recognition,命名实体识别
+part-of-speech tagging,词性标注
+dependency parsing,依存句法分析
+constituency parsing,成分句法分析
+sequence labeling,序列标注
+sequence-to-sequence,序列到序列
+word segmentation,分词
+stemming,词干提取
+lemmatization,词形还原
+stop word,停用词
+bag of words,词袋模型
+term frequency,词频
+tf-idf,词频-逆文档频率
+coreference resolution,指代消解
+word sense disambiguation,词义消歧
+information extraction,信息抽取
+relation extraction,关系抽取
+event extraction,事件抽取
+information retrieval,信息检索
+topic model,主题模型
+topic modeling,主题建模
+text summarization,文本摘要
+abstractive summarization,生成式摘要
+extractive summarization,抽取式摘要
+question answering,问答
+machine reading comprehension,机器阅读理解
+reading comprehension,阅读理解
+semantic similarity,语义相似度
+paraphrase,复述
+corpus,语料库
+annotation,标注
+annotation scheme,标注规范
+inter-annotator agreement,标注者间一致性
+speech recognition,语音识别
+speech synthesis,语音合成
+text-to-speech,语音合成
+automatic speech recognition,自动语音识别
+dialogue system,对话系统
+task-oriented dialogue,任务型对话
+cross-lingual,跨语言
+multilingual,多语言
+low-resource language,低资源语言
+word embedding,词向量
+sentence embedding,句子向量
+semantic parsing,语义解析
+text generation,文本生成
+commonsense reasoning,常识推理
+knowledge graph,知识图谱
+knowledge base,知识库
+entity linking,实体链接
+morphology,形态学
+syntax,句法
+semantics,语义
+pragmatics,语用
+lexicon,词库
+ontology,本体
+perplexity,困惑度
+byte pair encoding,字节对编码
+subword,子词
+fake news detection,虚假新闻检测
+hate speech detection,仇恨言论检测
+text normalization,文本归一化
+semantic role labeling,语义角色标注
