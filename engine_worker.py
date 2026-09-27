@@ -102,9 +102,10 @@ def build_args(request: dict, api_key: str) -> list[str]:
     config = request["config"]
     gateway_port = os.environ.get("YIYE_PORT", "4173")
     # anthropic/gemini 协议经本地网关转换为 OpenAI 协议，再交给 BabelDOC
-    if request.get("gatewayId"):
+    if request["config"].get("gatewayId"):
+        gateway_id = request["config"]["gatewayId"]
         upstream = (
-            f"http://127.0.0.1:{gateway_port}/api/llm-gateway/{request['gatewayId']}/v1",
+            f"http://127.0.0.1:{gateway_port}/api/llm-gateway/{gateway_id}/v1",
             "yiye-gateway",
         )
     else:

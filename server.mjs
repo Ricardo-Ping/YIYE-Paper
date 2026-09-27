@@ -296,11 +296,13 @@ async function runJob(job) {
     return;
   }
 
-  const child = spawn(PYTHON, [WORKER_FILE, job.requestPath], {
+  const child = spawn(PYTHON, [WORKER_FILE], {
     cwd: ROOT,
     env: { ...process.env, YIYE_API_KEY: apiKey, PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8", PYTHONUNBUFFERED: "1" },
     windowsHide: true,
   });
+  // worker 统一从 stdin 读取任务 JSON(translate 模式),路径不出现在命令行
+  child.stdin.end(JSON.stringify({ mode: "translate", requestPath: job.requestPath }), "utf8");
   active = { id: job.id, child };
   child.stdout.on("data", (chunk) => appendLog(job, chunk, apiKey));
   child.stderr.on("data", (chunk) => appendLog(job, chunk, apiKey));
@@ -439,6 +441,9 @@ async function createJob(req) {
   }
   await writeFile(inputPath, buffer);
   await renderPagePng(inputPath, path.join(dir, "input-page.png"), 0);
+  // 先注册协议网关(会写入 config.gatewayId),再落盘 request.json,
+  // 保证 worker 读到的请求里带有网关配置
+  registerGateway(config, apiKey || "ollama");
   await writeFile(requestPath, JSON.stringify({ inputPath, outputDir, glossaryPath, config }, null, 2), "utf8");
 
   const job = {
@@ -463,7 +468,7 @@ async function createJob(req) {
   };
   jobs.set(id, job);
   secrets.set(id, apiKey || "ollama");
-  registerGateway(job.config, apiKey || "ollama");
+  // registerGateway 已在写 request.json 之前完成(config.gatewayId 已就位)
   queue.push(id);
   await persistJobs();
   void pump();
@@ -606,15 +611,24 @@ async function providerTest({ baseUrl, model, apiKey, protocol = "openai" }) {
 function renderPagePng(pdfPath, outPath, pageIndex = 0) {
   // 预览用页面图,失败不影响任务本身;参数经 stdin 传入,不落命令行
   return new Promise((resolve) => {
-    const child = spawn(PYTHON, [WORKER_FILE], { cwd: ROOT, windowsHide: true });
+    const child = spawn(PYTHON, [WORKER_FILE], {
+      cwd: ROOT,
+      windowsHide: true,
+      // 统一 UTF-8:中文安装路径下,默认本地编码会导致 worker 崩溃
+      env: { ...process.env, PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8", PYTHONUNBUFFERED: "1" },
+    });
+    let stderrTail = "";
     const timer = setTimeout(() => {
       stopChild(child);
       resolve(false);
     }, 20000);
+    child.stderr.on("data", (chunk) => { stderrTail = (stderrTail + chunk).slice(-300); });
     child.once("error", () => { clearTimeout(timer); resolve(false); });
     child.once("close", (code) => {
       clearTimeout(timer);
-      resolve(code === 0 && existsSync(outPath));
+      if (code === 0 && existsSync(outPath)) return resolve(true);
+      console.warn(`[页面预览] 渲染失败(code ${code})：${stderrTail.trim() || "无 stderr"}`);
+      resolve(false);
     });
     child.stdin.end(JSON.stringify({ mode: "render", pdfPath, outPath, page: pageIndex }), "utf8");
   });
@@ -645,18 +659,27 @@ function registerGateway(config, apiKey) {
 }
 
 function runEstimate(filePath) {  return new Promise((resolve, reject) => {
-    const child = spawn(PYTHON, [WORKER_FILE], { cwd: ROOT, windowsHide: true });
+    const child = spawn(PYTHON, [WORKER_FILE], {
+      cwd: ROOT,
+      windowsHide: true,
+      // 统一 UTF-8:中文安装路径下,默认本地编码会导致 worker 崩溃
+      env: { ...process.env, PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8", PYTHONUNBUFFERED: "1" },
+    });
     let out = "";
+    let stderrTail = "";
     const timer = setTimeout(() => {
       stopChild(child);
       reject(new Error("预估超时，请重试"));
     }, 30_000);
     child.stdout.on("data", (chunk) => { out += chunk; });
+    child.stderr.on("data", (chunk) => { stderrTail = (stderrTail + chunk).slice(-300); });
     child.once("error", (error) => { clearTimeout(timer); reject(error); });
     child.once("close", (code) => {
       clearTimeout(timer);
       const match = out.match(/YIYE_ESTIMATE: (.*)/) || [];
-      if (code !== 0 || !match[1]) return reject(new Error("预估失败，请确认翻译引擎已安装"));
+      if (code !== 0 || !match[1]) {
+        return reject(new Error(`预估失败：${stderrTail.trim() || "请确认翻译引擎已安装（uv sync）"}`));
+      }
       try { resolve(JSON.parse(match[1])); } catch { reject(new Error("预估结果解析失败")); }
     });
     child.stdin.end(JSON.stringify({ mode: "estimate", pdfPath: filePath, ocr: true }), "utf8");
@@ -971,14 +994,18 @@ async function retryJob(req, res, oldJobId) {
     glossaryPath = path.join(dir, "glossary.csv");
     await copyFile(oldGlossary, glossaryPath);
   }
-  await writeFile(requestPath, JSON.stringify({ inputPath, outputDir, glossaryPath, config: oldJob.config }, null, 2), "utf8");
+  // 重试用独立的 config 副本,先注册网关(写入 gatewayId)再落盘 request.json
+  const retryConfig = JSON.parse(JSON.stringify(oldJob.config));
+  delete retryConfig.gatewayId; // 旧 gatewayId 属于上次任务,重试重新注册
+  registerGateway(retryConfig, apiKey || "ollama");
+  await writeFile(requestPath, JSON.stringify({ inputPath, outputDir, glossaryPath, config: retryConfig }, null, 2), "utf8");
 
   const job = {
     id,
     fileName: oldJob.fileName,
     inputName,
     fileSize: oldJob.fileSize,
-    config: oldJob.config,
+    config: retryConfig,
     status: "queued",
     stage: "等待执行（重试）",
     progress: 0,
@@ -997,7 +1024,7 @@ async function retryJob(req, res, oldJobId) {
   jobs.set(id, job);
   secrets.set(id, apiKey || "ollama");
   oldJob.retriedAs = id;
-  registerGateway(job.config, apiKey || "ollama");
+  // 网关已在写 request.json 前注册(retryConfig.gatewayId 已就位)
   queue.push(id);
   await persistJobs();
   void pump();

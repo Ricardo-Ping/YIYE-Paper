@@ -112,8 +112,11 @@
     .dd.disabled .dd-btn { opacity: .45; cursor: not-allowed; }
     .dd-menu { display: none; position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 40; max-height: 250px; overflow-y: auto; padding: 4px; border: 1px solid var(--line); border-radius: 12px; background: #0d1729; box-shadow: 0 18px 44px rgba(0,0,0,.5); }
     .dd-menu.open { display: block; }
-    .dd-opt { display: block; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px; color: #c9d6ea; background: transparent; text-align: left; font-size: 11px; font-weight: 600; }
+    .dd-opt { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px; color: #c9d6ea; background: transparent; text-align: left; font-size: 11px; font-weight: 600; }
+    .dd-opt .opt-id { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dd-opt .opt-meta { flex: 0 0 auto; margin-left: auto; color: #718098; font-size: 8px; font-weight: 800; }
     .dd-opt:hover { background: rgba(114,223,202,.12); color: #fff; }
+    .dd-opt:hover .opt-meta { color: var(--mint); }
     .dd-opt.selected { color: var(--mint); font-weight: 800; }
     .combobox-field { position: relative; }
     .combobox-field .dd-menu { top: 100%; }
@@ -125,8 +128,9 @@
     .service-text strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
     .service-text small { display: block; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #718098; font-size: 9px; }
     .service-action { flex: 0 0 auto; color: var(--mint); font-size: 10px; font-weight: 800; }
-    .settings-drawer { position: absolute; top: 0; right: 0; bottom: 0; width: min(480px,94vw); padding: 27px; background: #0d1729; box-shadow: -30px 0 90px rgba(0,0,0,.45); overflow-y: auto; }
-    .drawer-backdrop { display: none; position: fixed; inset: 0; z-index: 30; background: rgba(1,5,13,.7); backdrop-filter: blur(9px); }
+    .settings-drawer { position: absolute; top: 0; right: 0; bottom: 0; width: min(480px,94vw); padding: 27px; background: #0d1729; box-shadow: -30px 0 90px rgba(0,0,0,.45); overflow-y: auto; overscroll-behavior: contain; will-change: scroll-position; }
+    .drawer-backdrop { display: none; position: fixed; inset: 0; z-index: 30; background: rgba(2, 6, 14, .88); overscroll-behavior: contain; }
+    body.modal-open { overflow: hidden; }
     .drawer-backdrop.open { display: block; }
     .settings-drawer .drawer-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; }
     .settings-drawer .drawer-head h2 { margin: 5px 0 0; font-size: 21px; }
@@ -237,7 +241,7 @@
     .scan-meta { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 520px; margin-bottom: 10px; color: #a3b1c5; font-size: 10px; }
     .scan-meta strong { color: #dce7f7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .scan-meta .live-dot { display: inline-block; margin-right: 7px; }
-    .task-list { display: grid; gap: 10px; max-height: 620px; padding: 16px; overflow: auto; }
+    .task-list { display: grid; gap: 10px; max-height: 620px; padding: 16px; overflow: auto; overscroll-behavior: contain; }
     .history-empty { padding: 34px 15px; color: #718098; text-align: center; font-size: 11px; }
     .task-item { padding: 13px 14px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,255,255,.03); }
     .task-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
@@ -535,6 +539,8 @@
         // 中文译文输出通常为输入的 1.2–1.6 倍,加提示词开销后给出全程参考区间
         bits.push(`输入约 ${formatTokens(tokens)} tokens`);
         bits.push(`全程约 ${formatTokens(Math.round(tokens * 2.4))}–${formatTokens(Math.round(tokens * 3.2))} tokens`);
+        // BabelDOC 按段落调用模型,整篇无需一次放入上下文;超长文档仅提示分批控制成本
+        if (tokens > 500000) bits.push("文档较大,建议用页码范围分批控制成本与稳定性");
       }
       if (pending) bits.push("估算中…");
       const text = [...bits, ...problems].join(" · ");
@@ -694,23 +700,121 @@
       $("#error").classList.toggle("visible", Boolean(message));
     }
 
+    // 模型元数据借鉴 ZCode 的供应商设计:每个模型带上下文窗口(ctx,token 数)与思考能力(think)。
+    // ⚠ 静态快照(2026-09,来源见 docs/翻译服务接入指南.md),各厂商会频繁上下架;
+    //   实际可用性以"获取模型列表"的实时拉取为准。ctx 为官方公开规格,个别为近似值。
     const VENDORS = [
-      { id: "openai", name: "OpenAI", protocol: "openai", baseUrl: "https://api.openai.com/v1", models: ["gpt-6-astra", "gpt-5.2", "gpt-5.2-pro", "gpt-5.1", "gpt-5", "gpt-4.1"] },
-      { id: "deepseek", name: "DeepSeek", protocol: "openai", baseUrl: "https://api.deepseek.com/v1", models: ["deepseek-v4.1-flash", "deepseek-v4-flash", "deepseek-v4-pro", "deepseek-chat", "deepseek-reasoner"] },
-      { id: "dashscope", name: "阿里云百炼", protocol: "openai", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", models: ["qwen-mt-turbo", "qwen-mt-plus", "qwen-plus", "qwen-max", "qwen-flash", "qwen3-235b-a22b", "qwen3-32b", "qwen-turbo"] },
-      { id: "siliconflow", name: "硅基流动", protocol: "openai", baseUrl: "https://api.siliconflow.cn/v1", models: ["deepseek-ai/DeepSeek-V3.2", "deepseek-ai/DeepSeek-R1", "Qwen/Qwen3-235B-A22B", "Qwen/Qwen3-32B", "Qwen/Qwen2.5-72B-Instruct", "zai-org/GLM-5.3-Flash", "moonshotai/Kimi-K3"] },
-      { id: "moonshot", name: "Moonshot Kimi", protocol: "openai", baseUrl: "https://api.moonshot.cn/v1", models: ["kimi-k3", "kimi-k2.7-code", "kimi-k2.6", "kimi-k2-turbo-preview"] },
-      { id: "zhipu", name: "智谱 GLM", protocol: "openai", baseUrl: "https://open.bigmodel.cn/api/paas/v4", models: ["glm-5.3", "glm-5.1", "glm-5", "glm-4.6", "glm-4.5-air", "glm-4-flash"] },
-      { id: "anthropic", name: "Anthropic", protocol: "anthropic", baseUrl: "https://api.anthropic.com", models: ["claude-opus-5", "claude-sonnet-5", "claude-opus-4-8", "claude-opus-4-6", "claude-sonnet-4-6", "claude-3-5-haiku-latest"] },
-      { id: "gemini", name: "Google Gemini", protocol: "gemini", baseUrl: "https://generativelanguage.googleapis.com/v1beta", models: ["gemini-3.5-flash", "gemini-3.1-pro-preview", "gemini-3-flash-preview", "gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite"] },
-      { id: "openrouter", name: "OpenRouter", protocol: "openai", baseUrl: "https://openrouter.ai/api/v1", models: ["openai/gpt-6-astra", "anthropic/claude-opus-5", "google/gemini-3.1-pro-preview", "deepseek/deepseek-v4-flash", "moonshotai/kimi-k3", "qwen/qwen3-235b-a22b"] },
-      { id: "xai", name: "xAI Grok", protocol: "openai", baseUrl: "https://api.x.ai/v1", models: ["grok-4-fast", "grok-4", "grok-code-fast-1", "grok-3-mini"] },
+      { id: "openai", name: "OpenAI", protocol: "openai", baseUrl: "https://api.openai.com/v1", models: [
+        { id: "gpt-6-astra", ctx: 1050000, think: true },
+        { id: "gpt-5.2", ctx: 400000, think: true },
+        { id: "gpt-5.2-pro", ctx: 400000, think: true },
+        { id: "gpt-5.1", ctx: 400000, think: true },
+        { id: "gpt-5", ctx: 400000, think: true },
+        { id: "gpt-4.1", ctx: 1024000, think: false },
+      ] },
+      { id: "deepseek", name: "DeepSeek", protocol: "openai", baseUrl: "https://api.deepseek.com/v1", models: [
+        { id: "deepseek-v4.1-flash", ctx: 1000000, think: false },
+        { id: "deepseek-v4-flash", ctx: 163840, think: true },
+        { id: "deepseek-v4-pro", ctx: 1000000, think: true },
+        { id: "deepseek-chat", ctx: 131072, think: false },
+        { id: "deepseek-reasoner", ctx: 131072, think: true },
+      ] },
+      { id: "dashscope", name: "阿里云百炼", protocol: "openai", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", models: [
+        { id: "qwen-mt-turbo", ctx: 8192, think: false },
+        { id: "qwen-mt-plus", ctx: 8192, think: false },
+        { id: "qwen-plus", ctx: 1000000, think: true },
+        { id: "qwen-max", ctx: 32768, think: true },
+        { id: "qwen-flash", ctx: 1000000, think: true },
+        { id: "qwen3-235b-a22b", ctx: 131072, think: true },
+        { id: "qwen3-32b", ctx: 131072, think: true },
+        { id: "qwen-turbo", ctx: 1000000, think: false },
+      ] },
+      { id: "dashscope-intl", name: "百炼(国际)", protocol: "openai", baseUrl: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1", models: [
+        { id: "qwen-mt-turbo", ctx: 8192, think: false },
+        { id: "qwen-plus", ctx: 1000000, think: true },
+        { id: "qwen-max", ctx: 32768, think: true },
+      ] },
+      { id: "siliconflow", name: "硅基流动", protocol: "openai", baseUrl: "https://api.siliconflow.cn/v1", models: [
+        { id: "deepseek-ai/DeepSeek-V3.2", ctx: 163840, think: false },
+        { id: "deepseek-ai/DeepSeek-R1", ctx: 163840, think: true },
+        { id: "Qwen/Qwen3-235B-A22B", ctx: 131072, think: true },
+        { id: "Qwen/Qwen3-32B", ctx: 131072, think: true },
+        { id: "Qwen/Qwen2.5-72B-Instruct", ctx: 131072, think: false },
+        { id: "zai-org/GLM-5.3-Flash", ctx: 200704, think: true },
+        { id: "moonshotai/Kimi-K3", ctx: 1000000, think: true },
+      ] },
+      { id: "moonshot", name: "Moonshot Kimi", protocol: "openai", baseUrl: "https://api.moonshot.cn/v1", models: [
+        { id: "kimi-k3", ctx: 1000000, think: true },
+        { id: "kimi-k2.7-code", ctx: 262144, think: true },
+        { id: "kimi-k2.6", ctx: 262144, think: true },
+        { id: "kimi-k2-turbo-preview", ctx: 262144, think: true },
+      ] },
+      { id: "zhipu", name: "智谱 GLM", protocol: "openai", baseUrl: "https://open.bigmodel.cn/api/paas/v4", models: [
+        { id: "glm-5.3", ctx: 200704, think: true },
+        { id: "glm-5.1", ctx: 200704, think: true },
+        { id: "glm-5", ctx: 131072, think: true },
+        { id: "glm-4.6", ctx: 200704, think: true },
+        { id: "glm-4.5-air", ctx: 131072, think: true },
+        { id: "glm-4-flash", ctx: 131072, think: false },
+      ] },
+      { id: "zai", name: "Z.ai(国际)", protocol: "openai", baseUrl: "https://api.z.ai/api/paas/v4", models: [
+        { id: "glm-5.3", ctx: 200704, think: true },
+        { id: "glm-5.1", ctx: 200704, think: true },
+      ] },
+      { id: "anthropic", name: "Anthropic", protocol: "anthropic", baseUrl: "https://api.anthropic.com", models: [
+        { id: "claude-opus-5", ctx: 1000000, think: true },
+        { id: "claude-sonnet-5", ctx: 1000000, think: true },
+        { id: "claude-opus-4-8", ctx: 200000, think: true },
+        { id: "claude-opus-4-6", ctx: 200000, think: true },
+        { id: "claude-sonnet-4-6", ctx: 200000, think: true },
+        { id: "claude-3-5-haiku-latest", ctx: 200000, think: false },
+      ] },
+      { id: "gemini", name: "Google Gemini", protocol: "gemini", baseUrl: "https://generativelanguage.googleapis.com/v1beta", models: [
+        { id: "gemini-3.5-flash", ctx: 1048576, think: true },
+        { id: "gemini-3.1-pro-preview", ctx: 1048576, think: true },
+        { id: "gemini-3-flash-preview", ctx: 1048576, think: true },
+        { id: "gemini-2.5-pro", ctx: 1048576, think: true },
+        { id: "gemini-2.5-flash", ctx: 1048576, think: true },
+        { id: "gemini-2.5-flash-lite", ctx: 1048576, think: false },
+      ] },
+      { id: "openrouter", name: "OpenRouter", protocol: "openai", baseUrl: "https://openrouter.ai/api/v1", models: [
+        { id: "openai/gpt-6-astra", ctx: 1050000, think: true },
+        { id: "anthropic/claude-opus-5", ctx: 1000000, think: true },
+        { id: "google/gemini-3.1-pro-preview", ctx: 1048576, think: true },
+        { id: "deepseek/deepseek-v4-flash", ctx: 163840, think: true },
+        { id: "moonshotai/kimi-k3", ctx: 1000000, think: true },
+        { id: "qwen/qwen3-235b-a22b", ctx: 131072, think: true },
+      ] },
+      { id: "xai", name: "xAI Grok", protocol: "openai", baseUrl: "https://api.x.ai/v1", models: [
+        { id: "grok-4-fast", ctx: 2000000, think: true },
+        { id: "grok-4", ctx: 256000, think: true },
+        { id: "grok-code-fast-1", ctx: 256000, think: true },
+        { id: "grok-3-mini", ctx: 131072, think: true },
+      ] },
+      { id: "minimax", name: "MiniMax", protocol: "openai", baseUrl: "https://api.minimaxi.com/v1", models: [
+        { id: "MiniMax-M2", ctx: 204800, think: true },
+        { id: "MiniMax-Text-01", ctx: 1000000, think: false },
+      ] },
+      { id: "ark", name: "火山方舟(豆包)", protocol: "openai", baseUrl: "https://ark.cn-beijing.volces.com/api/v3", models: [
+        { id: "doubao-seed-1-6", ctx: 256000, think: true },
+        { id: "doubao-1-5-pro-32k", ctx: 32768, think: false },
+        { id: "deepseek-v3-1", ctx: 163840, think: false },
+      ] },
       { id: "custom", name: "自定义 / 中转", protocol: "openai", baseUrl: "", models: [], custom: true },
     ];
     const PROTOCOL_NAMES = { openai: "OpenAI 兼容", anthropic: "Anthropic", gemini: "Gemini" };
 
     function currentSelection() {
       return VENDORS.find((item) => item.id === state.vendorId) || VENDORS[0];
+    }
+
+    function modelEntries(selection) {
+      return (selection.models || []).map((m) => (typeof m === "object" ? m : { id: m }));
+    }
+
+    function ctxLabel(ctx) {
+      if (!ctx) return "";
+      return ctx >= 1000000 ? `${Math.round(ctx / 100000) / 10}M` : `${Math.round(ctx / 1000)}K`;
     }
 
     function renderVendorGrid() {
@@ -746,9 +850,10 @@
         $("#protocol").disabled = true;
       }
       $("#base-url").value = selection.baseUrl;
-      $("#model-list").innerHTML = (selection.models || []).map((model) => `<option value="${escapeHtml(model)}"></option>`).join("");
-      if (!keepModel || !(selection.models || []).includes($("#model").value)) {
-        $("#model").value = (selection.models || [])[0] || "";
+      $("#model-list").innerHTML = modelEntries(selection).map((m) =>
+        `<option value="${escapeHtml(m.id)}" ${m.ctx ? `data-ctx="${m.ctx}"` : ""} ${m.think ? 'data-think="1"' : ""}></option>`).join("");
+      if (!keepModel || !modelEntries(selection).some((m) => m.id === $("#model").value)) {
+        $("#model").value = (modelEntries(selection)[0] || {}).id || "";
       }
       $("#api-key").disabled = false;
       $("#api-hint").textContent = "保存在本机浏览器";
@@ -889,13 +994,20 @@
       field.appendChild(menu);
       function hide() { menu.classList.remove("open"); }
       function show() {
-        // 全量展示该服务的模型清单;输入文本仅用于把匹配项排到最前,不做过滤
+        // 全量展示该服务的模型清单,附上下文/思考徽标;输入仅把匹配项排前
         const filter = input.value.trim().toLowerCase();
-        const items = [...listEl.options].map((o) => o.value);
+        const entries = [...listEl.options].map((o) => ({
+          value: o.value,
+          ctx: Number(o.dataset.ctx) || 0,
+          think: o.dataset.think === "1",
+        }));
         const sorted = filter
-          ? [...items].sort((a, b) => (b.toLowerCase().includes(filter) ? 1 : 0) - (a.toLowerCase().includes(filter) ? 1 : 0))
-          : items;
-        menu.innerHTML = sorted.map((value) => `<button type="button" class="dd-opt${value === input.value ? " selected" : ""}" data-value="${escapeHtml(value)}">${escapeHtml(value)}</button>`).join("");
+          ? [...entries].sort((a, b) => (b.value.toLowerCase().includes(filter) ? 1 : 0) - (a.value.toLowerCase().includes(filter) ? 1 : 0))
+          : entries;
+        menu.innerHTML = sorted.map((m) => {
+          const meta = [m.ctx ? ctxLabel(m.ctx) : "", m.think ? "思考" : ""].filter(Boolean).join(" · ");
+          return `<button type="button" class="dd-opt${m.value === input.value ? " selected" : ""}" data-value="${escapeHtml(m.value)}"><span class="opt-id">${escapeHtml(m.value)}</span>${meta ? `<span class="opt-meta">${escapeHtml(meta)}</span>` : ""}</button>`;
+        }).join("");
         menu.classList.toggle("open", sorted.length > 0);
       }
       input.addEventListener("focus", () => show());
@@ -1471,10 +1583,10 @@
         renderTasks();
       }
     });
-    $("#tasks-open").addEventListener("click", () => { $("#tasks-backdrop").classList.add("open"); refreshJobs(); });
-    $("#tasks-close").addEventListener("click", () => $("#tasks-backdrop").classList.remove("open"));
+    $("#tasks-open").addEventListener("click", () => { $("#tasks-backdrop").classList.add("open"); refreshJobs(); syncBodyLock(); });
+    $("#tasks-close").addEventListener("click", () => { $("#tasks-backdrop").classList.remove("open"); syncBodyLock(); });
     $("#tasks-clear").addEventListener("click", clearFinishedJobs);
-    $("#tasks-backdrop").addEventListener("click", (event) => { if (event.target === event.currentTarget) event.currentTarget.classList.remove("open"); });
+    $("#tasks-backdrop").addEventListener("click", (event) => { if (event.target === event.currentTarget) { event.currentTarget.classList.remove("open"); syncBodyLock(); } });
     ["dragenter", "dragover"].forEach((name) => $("#drop").addEventListener(name, (event) => { event.preventDefault(); $("#drop").classList.add("dragging"); }));
     ["dragleave", "drop"].forEach((name) => $("#drop").addEventListener(name, (event) => { event.preventDefault(); $("#drop").classList.remove("dragging"); }));
     $("#drop").addEventListener("drop", (event) => setFiles([...event.dataTransfer.files]));
@@ -1484,6 +1596,7 @@
         closeAllMenus();
         $("#settings-backdrop").classList.remove("open");
         $("#tasks-backdrop").classList.remove("open");
+        syncBodyLock();
       }
     });
 
@@ -1495,15 +1608,21 @@
       $("#service-url").textContent = $("#base-url").value.trim();
     }
 
+    function syncBodyLock() {
+      // 任一抽屉打开时锁定页面主体滚动,防止滚轮穿透带动背后页面
+      document.body.classList.toggle("modal-open", !!document.querySelector(".drawer-backdrop.open"));
+    }
+
     function openSettings() {
       $("#settings-backdrop").classList.add("open");
       $("#test-result").textContent = "";
+      syncBodyLock();
     }
 
     $("#settings-open").addEventListener("click", openSettings);
     $("#service-open").addEventListener("click", openSettings);
-    $("#settings-close").addEventListener("click", () => $("#settings-backdrop").classList.remove("open"));
-    $("#settings-backdrop").addEventListener("click", (event) => { if (event.target === event.currentTarget) event.currentTarget.classList.remove("open"); });
+    $("#settings-close").addEventListener("click", () => { $("#settings-backdrop").classList.remove("open"); syncBodyLock(); });
+    $("#settings-backdrop").addEventListener("click", (event) => { if (event.target === event.currentTarget) { event.currentTarget.classList.remove("open"); syncBodyLock(); } });
     document.querySelectorAll(".kind-btn").forEach((button) => button.addEventListener("click", () => setServiceKind(button.dataset.kind)));
     $("#vendor-grid").addEventListener("click", (event) => {
       const button = event.target.closest("[data-vendor]");
@@ -1512,7 +1631,7 @@
       state.vendorId = button.dataset.vendor;
       applyCloudSelection();
     });
-    $("#model").addEventListener("input", renderServiceSummary);
+    $("#model").addEventListener("input", () => { renderServiceSummary(); renderEstimate(); });
     $("#api-key").addEventListener("input", () => storeKey($("#api-key").value.trim()));
     $("#key-toggle").addEventListener("click", () => {
       const input = $("#api-key");
