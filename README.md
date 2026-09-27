@@ -42,6 +42,14 @@ npm run test:e2e    # 端到端回归（独立端口与数据目录，约 1–2 
 .venv\Scripts\python.exe -m unittest discover -s test -p "test_*.py"  # 引擎参数、预检与质检测试
 ```
 
+## 验收论文集
+
+```powershell
+.venv\Scripts\python.exe test\make_validation_papers.py   # 生成到 validation-papers\
+```
+
+内置 5 篇基础验收论文生成器（调研文档 P1）：单栏文本、双栏排版、公式与引用（DOI/URL/占位符）、数据表格、无文字层扫描件。可批量拖入验收，或配合 `test/benchmark.mjs` 做多服务对比。
+
 多服务对比实测（调研文档第 9 节）：
 
 ```powershell
