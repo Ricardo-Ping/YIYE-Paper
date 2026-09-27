@@ -1267,18 +1267,21 @@
       if (!detail || !job.quality?.issueCount) return "";
       const lines = [];
       for (const output of detail.outputs || []) {
-        for (const issue of output.issues || []) lines.push(`${output.file}：${issue}`);
-        for (const page of output.pages || []) lines.push(`第 ${page.page} 页：${page.issues.join("、")}`);
+        for (const issue of output.issues || []) lines.push({ text: `${output.file}：${issue}` });
+        for (const page of output.pages || []) lines.push({ text: `第 ${page.page} 页：${page.issues.join("、")}`, page: page.page });
       }
       if (!lines.length) return "";
-      const shown = lines.slice(0, 8).map((line) => `<div class="task-issue">⚠ ${escapeHtml(line)}</div>`).join("");
+      const keepPages = state.keepOriginalPages.get(job.id) || new Set();
+      const hasTranslatedPdf = job.outputs?.some((name) => name.toLowerCase().endsWith(".pdf"));
+      const shown = lines.slice(0, 8).map((line) => {
+        if (!line.page || !hasTranslatedPdf) return `<div class="task-issue">⚠ ${escapeHtml(line.text)}</div>`;
+        const checked = keepPages.has(line.page) ? "checked" : "";
+        return `<label class="keep-toggle"><input type="checkbox" data-keep-page="${job.id}" data-page="${line.page}" ${checked}>⚠ ${escapeHtml(line.text)} · 保留原文</label>`;
+      }).join("");
       const more = lines.length > 8 ? `<div class="task-issue">…共 ${lines.length} 项，详见质检报告</div>` : "";
-      const keepOriginal = state.keepOriginalPages.get(job.id);
-      const reviseButton = keepOriginal?.size
-        ? `<button class="ghost small" data-revise="${job.id}">生成修订版（${keepOriginal.size} 页保留原文）</button>` : "";
-      const pageOneKept = keepOriginal?.has(1) ? "checked" : "";
-      const keepToggle = `<label class="keep-toggle"><input type="checkbox" data-keep-page="${job.id}" data-page="1" ${pageOneKept}>第 1 页保留原文</label>`;
-      return `<div class="task-issues">${shown}${more}</div><div class="keep-row">${keepToggle}${reviseButton}</div>`;
+      const reviseButton = keepPages.size
+        ? `<button class="ghost small" data-revise="${job.id}">生成修订版（${keepPages.size} 页保留原文）</button>` : "";
+      return `<div class="task-issues">${shown}${more}</div>${reviseButton ? `<div class="task-issue" style="margin-top:6px">${reviseButton}</div>` : ""}`;
     }
 
     function taskHtml(job) {

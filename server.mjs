@@ -85,10 +85,17 @@ export function parseHttpUrl(value) {
 export function validatePages(value) {
   const raw = String(value || "").trim().replace(/\s+/g, "");
   if (!raw) return "";
-  const valid = raw.split(",").every((part) =>
-    /^\d+$/.test(part) || (/^\d*-\d*$/.test(part) && /\d/.test(part))
-  );
-  if (!valid) throw new Error("页码范围格式不正确，示例：1-5,8,11-");
+  for (const part of raw.split(",")) {
+    // 页码从 1 起(0 不是合法页);开区间 "-3"/"3-" 合法
+    const range = part.match(/^(\d+)?-(\d+)?$/);
+    if (range) {
+      const start = range[1] !== undefined ? Number(range[1]) : 1;
+      const end = range[2] !== undefined ? Number(range[2]) : Infinity;
+      if (start < 1 || end < 1 || start > end) throw new Error("页码范围格式不正确，示例：1-5,8,11-");
+      continue;
+    }
+    if (!/^[1-9]\d*$/.test(part)) throw new Error("页码范围格式不正确，示例：1-5,8,11-");
+  }
   return raw;
 }
 

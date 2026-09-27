@@ -28,6 +28,10 @@ test("page range validation", () => {
   assert.equal(validatePages(undefined), "");
   assert.throws(() => validatePages("5-1,abc"), /页码范围/);
   assert.throws(() => validatePages("1--2"), /页码范围/);
+  // 页码从 1 起:0 不是合法页
+  assert.throws(() => validatePages("0"), /页码范围/);
+  assert.throws(() => validatePages("0-3"), /页码范围/);
+  assert.throws(() => validatePages("5-1"), /页码范围/);
 });
 
 test("glossary CSV validation", () => {
