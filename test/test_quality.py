@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pymupdf
 
-from engine_worker import quality_check, translated_page_text
+from engine_worker import quality_check, translated_page_text, typography_issues
 
 
 def make_output_pdf(path: str, pages: list[dict]) -> None:
@@ -214,6 +214,45 @@ class GlossaryConsistencyTest(unittest.TestCase):
         self.assertEqual(check["applied"], 3)
         self.assertEqual(check["suspect"], 0)
         self.assertEqual(check["unseen"], 0)
+
+
+class TypographyTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.dir = Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_small_font_flagged(self):
+        doc = pymupdf.open()
+        page = doc.new_page()
+        page.insert_textbox(pymupdf.Rect(72, 72, 540, 400), "tiny but readable footnote content" * 4, fontsize=4)
+        doc.save(str(self.dir / "small.pdf"))
+        doc.close()
+        issues = typography_issues(pymupdf.open(str(self.dir / "small.pdf"))[0])
+        self.assertIn("font_too_small", issues)
+
+    def test_text_over_image_flagged(self):
+        doc = pymupdf.open()
+        page = doc.new_page()
+        pix = pymupdf.Pixmap(pymupdf.csRGB, pymupdf.IRect(0, 0, 200, 200))
+        pix.clear_with(200)
+        page.insert_image(pymupdf.Rect(72, 72, 272, 272), pixmap=pix)
+        page.insert_textbox(pymupdf.Rect(80, 80, 264, 264), "body text covering the figure area completely" * 3, fontsize=9)
+        doc.save(str(self.dir / "overlap.pdf"))
+        doc.close()
+        issues = typography_issues(pymupdf.open(str(self.dir / "overlap.pdf"))[0])
+        self.assertIn("text_image_overlap", issues)
+
+    def test_normal_page_not_flagged(self):
+        doc = pymupdf.open()
+        page = doc.new_page()
+        page.insert_textbox(pymupdf.Rect(72, 72, 540, 400), "normal body text at a readable size" * 6, fontsize=11)
+        doc.save(str(self.dir / "normal.pdf"))
+        doc.close()
+        issues = typography_issues(pymupdf.open(str(self.dir / "normal.pdf"))[0])
+        self.assertEqual([i for i in issues if i in ("font_too_small", "text_image_overlap")], [])
 
 
 if __name__ == "__main__":

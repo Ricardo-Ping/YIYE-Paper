@@ -307,6 +307,16 @@ function stopChild(child) {
   else child.kill("SIGTERM");
 }
 
+// 所有 Python 子进程的统一入口:UTF-8 环境 + stdin JSON 任务。
+// translate 模式需要流式日志与取消,由 runJob 在此基础上自行处理。
+function spawnWorker(extraEnv = {}) {
+  return spawn(PYTHON, [WORKER_FILE], {
+    cwd: ROOT,
+    env: { ...process.env, PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8", PYTHONUNBUFFERED: "1", YIYE_API_KEY: "not-needed", ...extraEnv },
+    windowsHide: true,
+  });
+}
+
 async function runJob(job) {
   const apiKey = secrets.get(job.id) || "not-needed";
   job.status = "running";
@@ -328,11 +338,7 @@ async function runJob(job) {
     return;
   }
 
-  const child = spawn(PYTHON, [WORKER_FILE], {
-    cwd: ROOT,
-    env: { ...process.env, YIYE_API_KEY: apiKey, PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8", PYTHONUNBUFFERED: "1" },
-    windowsHide: true,
-  });
+  const child = spawnWorker({ YIYE_API_KEY: apiKey });
   // worker 统一从 stdin 读取任务 JSON(translate 模式),路径不出现在命令行
   child.stdin.end(JSON.stringify({ mode: "translate", requestPath: job.requestPath }), "utf8");
   active = { id: job.id, child };
@@ -347,10 +353,6 @@ async function runJob(job) {
     return -1;
   });
 
-  secrets.delete(job.id);
-  if (job.config?.gatewayId) gatewayRegistry.delete(job.config.gatewayId);
-  active = null;
-  flushLog(job, apiKey);
   secrets.delete(job.id);
   if (job.config?.gatewayId) gatewayRegistry.delete(job.config.gatewayId);
   active = null;
@@ -662,12 +664,7 @@ async function providerTest({ baseUrl, model, apiKey, protocol = "openai" }) {
 function renderPagePng(pdfPath, outPath, pageIndex = 0) {
   // 预览用页面图,失败不影响任务本身;参数经 stdin 传入,不落命令行
   return new Promise((resolve) => {
-    const child = spawn(PYTHON, [WORKER_FILE], {
-      cwd: ROOT,
-      windowsHide: true,
-      // 统一 UTF-8:中文安装路径下,默认本地编码会导致 worker 崩溃
-      env: { ...process.env, PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8", PYTHONUNBUFFERED: "1" },
-    });
+    const child = spawnWorker();
     let stderrTail = "";
     const timer = setTimeout(() => {
       stopChild(child);
@@ -711,7 +708,7 @@ function registerGateway(config, apiKey) {
 
 function runRevise({ translatedPdf, originalPdf, outPath, keepOriginal }) {
   return new Promise((resolve, reject) => {
-    const child = spawn(PYTHON, [WORKER_FILE], { cwd: ROOT, windowsHide: true });
+    const child = spawnWorker();
     let stderrTail = "";
     const timer = setTimeout(() => {
       stopChild(child);
@@ -748,13 +745,9 @@ async function buildRevisedPdf(res, job, body) {
   return json(res, 200, { ok: true, file: "revised-output.pdf", keptOriginalPages: pages });
 }
 
-function runEstimate(filePath) {  return new Promise((resolve, reject) => {
-    const child = spawn(PYTHON, [WORKER_FILE], {
-      cwd: ROOT,
-      windowsHide: true,
-      // 统一 UTF-8:中文安装路径下,默认本地编码会导致 worker 崩溃
-      env: { ...process.env, PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8", PYTHONUNBUFFERED: "1" },
-    });
+function runEstimate(filePath) {
+  return new Promise((resolve, reject) => {
+    const child = spawnWorker();
     let out = "";
     let stderrTail = "";
     const timer = setTimeout(() => {

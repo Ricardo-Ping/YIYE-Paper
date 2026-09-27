@@ -35,6 +35,11 @@ def build_prompt(target: str) -> str:
 
 PLACEHOLDER_PATTERNS = (re.compile(r"\{v\d+\}"), re.compile(r"<style id="))
 
+# 版式质检阈值(调研文档 P2:只报告明显问题,避免对上标/脚注误报)
+MIN_FONT_SIZE = 6.0          # 正文最小可读字号(pt)
+TEXT_IMAGE_OVERLAP = 0.30    # 文本框与图片交集面积 / 文本框面积
+MIN_TEXT_LEN = 20            # 参与重叠判定的最小文本长度
+
 
 def load_glossary_entries(glossary_path: str | None, output_dir: str) -> tuple[list[tuple[str, str]], str | None]:
     """优先加载自定义术语表，否则使用引擎自动导出的 *.glossary.csv。"""
@@ -203,6 +208,61 @@ def preflight(pdf_path: str, ocr_enabled: bool) -> tuple[list[str], list[str]]:
     return errors, warnings
 
 
+def typography_issues(page, clip=None) -> list[str]:
+    """版式排版检查(与文本提取不同,基于 span/图片几何,可可靠检出):
+
+    - font_too_small:译文 span 字号低于 MIN_FONT_SIZE
+    - text_image_overlap:文本框与图片区域大面积重叠(正文覆盖配图)
+    均为 warning 级提示,只报告明显问题。
+    """
+    import pymupdf
+
+    issues: list[str] = []
+    clip_rect = clip if clip is not None else page.rect
+    small_font = False
+    overlaps_image = False
+
+    d = page.get_text("dict", clip=clip_rect)
+    text_rects: list[tuple[float, float, float, float]] = []
+    for block in d.get("blocks", []):
+        if block.get("type") != 0:
+            continue
+        block_text = ""
+        block_rect = None
+        for line in block.get("lines", []):
+            for span in line.get("spans", []):
+                block_text += span.get("text", "")
+                if block_rect is None:
+                    block_rect = pymupdf.Rect(span["bbox"])
+                else:
+                    block_rect |= pymupdf.Rect(span["bbox"])
+                if span.get("size", 99) < MIN_FONT_SIZE and span.get("text", "").strip():
+                    small_font = True
+        if block_text.strip() and block_rect is not None:
+            text_rects.append((block_rect.x0, block_rect.y0, block_rect.x1, block_rect.y1))
+
+    if small_font:
+        issues.append("font_too_small")
+
+    image_rects = [pymupdf.Rect(info["bbox"]) for info in page.get_image_info()]
+    for tx0, ty0, tx1, ty1 in text_rects:
+        t_rect = pymupdf.Rect(tx0, ty0, tx1, ty1)
+        t_area = t_rect.get_area()
+        if t_area <= 0:
+            continue
+        for img_rect in image_rects:
+            inter = t_rect & img_rect
+            if not inter.is_empty and inter.get_area() > 0.30 * t_area:
+                overlaps_image = True
+                break
+        if overlaps_image:
+            break
+
+    if overlaps_image:
+        issues.append("text_image_overlap")
+    return issues
+
+
 def quality_check(input_path: str, output_dir: str, output_mode: str, glossary_path: str | None = None, pages_spec: str | None = None) -> dict:
     """翻译完成后的逐页渲染检查，生成 quality-report.json。
 
@@ -251,6 +311,7 @@ def quality_check(input_path: str, output_dir: str, output_mode: str, glossary_p
                     page_issues.append("疑似未翻译")
                 if any(pat.search(text) for pat in PLACEHOLDER_PATTERNS):
                     page_issues.append("占位符残留")
+                page_issues.extend(typography_issues(page, clip))
                 if page_issues:
                     entry["pages"].append({"page": i + 1, "issues": page_issues})
         entry["issueCount"] = len(entry["issues"]) + len(entry["pages"])
