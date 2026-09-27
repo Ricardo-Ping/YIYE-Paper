@@ -262,6 +262,9 @@
     .keep-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
     .keep-toggle { display: inline-flex; align-items: center; gap: 5px; color: #a9b6c9; font-size: 9px; }
     .keep-toggle input { accent-color: var(--mint); }
+    .task-issue-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .keep-view { flex: 0 0 auto; color: var(--blue); font-size: 9px; font-weight: 800; text-decoration: none; }
+    .keep-view:hover { text-decoration: underline; }
     .estimate-line { margin-top: 9px; color: #8fa0b8; font-size: 10px; line-height: 1.6; }
     .glossary-body .dd { flex: 1; min-width: 0; }
     .task-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
@@ -1281,10 +1284,12 @@
       if (!lines.length) return "";
       const keepPages = state.keepOriginalPages.get(job.id) || new Set();
       const hasTranslatedPdf = job.outputs?.some((name) => name.toLowerCase().endsWith(".pdf"));
+      const firstPdfName = (job.outputs || []).find((name) => name.toLowerCase().endsWith(".pdf"));
       const shown = lines.slice(0, 8).map((line) => {
         if (!line.page || !hasTranslatedPdf) return `<div class="task-issue">⚠ ${escapeHtml(line.text)}</div>`;
         const checked = keepPages.has(line.page) ? "checked" : "";
-        return `<label class="keep-toggle"><input type="checkbox" data-keep-page="${job.id}" data-page="${line.page}" ${checked}>⚠ ${escapeHtml(line.text)} · 保留原文</label>`;
+        const viewHref = `/api/jobs/${job.id}/result/${encodeURIComponent(firstPdfName)}?inline=1#page=${line.page}`;
+        return `<div class="task-issue-row"><label class="keep-toggle"><input type="checkbox" data-keep-page="${job.id}" data-page="${line.page}" ${checked}>⚠ ${escapeHtml(line.text)} · 保留原文</label><a class="keep-view" href="${viewHref}" target="_blank" rel="noopener">查看</a></div>`;
       }).join("");
       const more = lines.length > 8 ? `<div class="task-issue">…共 ${lines.length} 项，详见质检报告</div>` : "";
       const reviseButton = keepPages.size

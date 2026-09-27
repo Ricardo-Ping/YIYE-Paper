@@ -1057,6 +1057,12 @@ async function retryJob(req, res, oldJobId) {
   if (oldJob.config.provider === "openai" && !apiKey) {
     return json(res, 400, { error: "请在上方 API key 输入框填写后重试（key 不落盘，无法复用上次的）" });
   }
+  // 重试可继承界面上的"忽略翻译缓存"开关,强制绕过缓存重新翻译
+  let ignoreCache = false;
+  try {
+    const body = await readJsonBody(req, 4096);
+    ignoreCache = body?.ignoreCache === true;
+  } catch {}
   const id = randomUUID();
   const dir = path.join(JOBS_DIR, id);
   const outputDir = path.join(dir, "output");
@@ -1079,6 +1085,7 @@ async function retryJob(req, res, oldJobId) {
   // 重试用独立的 config 副本,先注册网关(写入 gatewayId)再落盘 request.json
   const retryConfig = JSON.parse(JSON.stringify(oldJob.config));
   delete retryConfig.gatewayId; // 旧 gatewayId 属于上次任务,重试重新注册
+  retryConfig.ignoreCache = ignoreCache === true;
   registerGateway(retryConfig, apiKey || "ollama");
   await writeFile(requestPath, JSON.stringify({ inputPath, outputDir, glossaryPath, config: retryConfig }, null, 2), "utf8");
 
