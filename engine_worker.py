@@ -425,6 +425,36 @@ def patch_progress_output() -> None:
     babeldoc_main.create_progress_handler = tqdm_progress_handler
 
 
+def revise_pdf(translated_pdf: str, original_pdf: str, out_path: str, keep_original: list[int]) -> int:
+    """生成修订版 PDF:keep_original 中的页(1-based)取原文,其余页取译文。
+
+    用于质检发现问题页后的"本页保留原文"回退 —— 人工核对后的最终交付物。
+    """
+    import pymupdf
+
+    src_t = Path(translated_pdf).resolve()
+    src_o = Path(original_pdf).resolve()
+    dst = Path(out_path).resolve()
+    allowed = _allowed_roots()
+    if not all(_is_under(p, allowed) for p in (src_t, src_o, dst)):
+        print("revise: 路径超出允许范围", file=sys.stderr)
+        return 2
+    if src_t.suffix.lower() != ".pdf" or src_o.suffix.lower() != ".pdf" or dst.suffix.lower() != ".pdf":
+        print("revise: 仅支持 .pdf 文件", file=sys.stderr)
+        return 2
+
+    keep = {int(p) for p in keep_original}
+    with pymupdf.open(src_t) as translated, pymupdf.open(src_o) as original:
+        revised = pymupdf.open()
+        for i in range(translated.page_count):
+            source = original if (i + 1) in keep else translated
+            revised.insert_pdf(source, from_page=i, to_page=i)
+        revised.save(str(dst))
+        revised.close()
+    print("YIYE_REVISE: ok", flush=True)
+    return 0
+
+
 def main() -> int:
     # 任务参数经 stdin JSON 传入(路径不出现在命令行),并由 _allowed_roots 白名单约束
     raw = sys.stdin.read()
@@ -447,6 +477,17 @@ def main() -> int:
         if code != 0:
             return code
         print("YIYE_STAGE: rendered preview page", flush=True)
+        return 0
+    if mode == "revise":
+        code = revise_pdf(
+            payload["translatedPdf"],
+            payload["originalPdf"],
+            payload["outPath"],
+            payload.get("keepOriginal", []),
+        )
+        if code != 0:
+            return code
+        print("YIYE_STAGE: revised pdf written", flush=True)
         return 0
     if mode != "translate":
         print("unknown mode", file=sys.stderr)

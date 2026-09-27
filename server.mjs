@@ -668,6 +668,45 @@ function registerGateway(config, apiKey) {
   config.gatewayId = gatewayId;
 }
 
+function runRevise({ translatedPdf, originalPdf, outPath, keepOriginal }) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(PYTHON, [WORKER_FILE], { cwd: ROOT, windowsHide: true });
+    let stderrTail = "";
+    const timer = setTimeout(() => {
+      stopChild(child);
+      reject(new Error("修订版生成超时"));
+    }, 60_000);
+    child.stderr.on("data", (chunk) => { stderrTail = (stderrTail + chunk).slice(-300); });
+    child.once("error", (error) => { clearTimeout(timer); reject(error); });
+    child.once("close", (code) => {
+      clearTimeout(timer);
+      if (code === 0 && existsSync(outPath)) return resolve(true);
+      reject(new Error(`修订版生成失败：${stderrTail.trim() || `退出码 ${code}`}`));
+    });
+    child.stdin.end(JSON.stringify({ mode: "revise", translatedPdf, originalPdf, outPath, keepOriginal }), "utf8");
+  });
+}
+
+async function buildRevisedPdf(res, job, body) {
+  if (job.status !== "completed") return json(res, 409, { error: "任务未完成，无法生成修订版" });
+  const pages = [...new Set((Array.isArray(body?.pages) ? body.pages : [])
+    .map((p) => Math.round(Number(p)))
+    .filter((p) => Number.isInteger(p) && p >= 1))].sort((a, b) => a - b);
+  if (!pages.length) return json(res, 400, { error: "请先选择要保留原文的页码" });
+  const translatedPdf = (job.outputs || []).find((name) => name.toLowerCase().endsWith(".pdf"));
+  if (!translatedPdf) return json(res, 409, { error: "任务没有可用的译文 PDF" });
+  const translatedPath = path.join(job.outputDir, translatedPdf);
+  const outPath = path.join(job.outputDir, "revised-output.pdf");
+  try {
+    await runRevise({ translatedPdf: translatedPath, originalPdf: job.inputPath, outPath, keepOriginal: pages });
+  } catch (error) {
+    return json(res, 500, { error: error.message });
+  }
+  if (!job.outputs.includes("revised-output.pdf")) job.outputs.push("revised-output.pdf");
+  await persistJobs();
+  return json(res, 200, { ok: true, file: "revised-output.pdf", keptOriginalPages: pages });
+}
+
 function runEstimate(filePath) {  return new Promise((resolve, reject) => {
     const child = spawn(PYTHON, [WORKER_FILE], {
       cwd: ROOT,
@@ -1127,6 +1166,13 @@ export async function handle(req, res) {
   const gatewayMatch = url.pathname.match(/^\/api\/llm-gateway\/([0-9a-f-]+)\/v1\/chat\/completions$/i);
   if (req.method === "POST" && gatewayMatch) {
     return gatewayChat(req, res, gatewayMatch[1]);
+  }
+  const revisedMatch = url.pathname.match(/^\/api\/jobs\/([0-9a-f-]+)\/revised-pdf$/i);
+  if (req.method === "POST" && revisedMatch) {
+    const job = jobs.get(revisedMatch[1]);
+    if (!job) return json(res, 404, { error: "任务不存在" });
+    const body = await readJsonBody(req).catch(() => ({}));
+    return buildRevisedPdf(res, job, body);
   }
   const glossaryMatch = url.pathname.match(/^\/api\/glossaries(?:\/([^/]+))?$/i);
   if (glossaryMatch && ["GET", "POST", "DELETE"].includes(req.method)) {

@@ -259,6 +259,9 @@
     .task-meta .quality-warn { color: #e8ca93; font-weight: 800; }
     .task-issues { margin-top: 8px; display: grid; gap: 3px; }
     .task-issue { color: #e8ca93; font-size: 9px; line-height: 1.5; }
+    .keep-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+    .keep-toggle { display: inline-flex; align-items: center; gap: 5px; color: #a9b6c9; font-size: 9px; }
+    .keep-toggle input { accent-color: var(--mint); }
     .estimate-line { margin-top: 9px; color: #8fa0b8; font-size: 10px; line-height: 1.6; }
     .glossary-body .dd { flex: 1; min-width: 0; }
     .task-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
@@ -475,6 +478,7 @@
       engineReady: false, jobs: [], expanded: new Set(), submitting: false,
       signature: "", pollTimer: null, estimates: new Map(), estimateSeq: 0,
       qualityDetails: new Map(), previewKey: "", previewOverride: false,
+      keepOriginalPages: new Map(),
       serviceKind: "local", vendorId: "openai",
     };
     const outputNames = { mono: "中文译文", dual: "左右对照" };
@@ -1269,7 +1273,12 @@
       if (!lines.length) return "";
       const shown = lines.slice(0, 8).map((line) => `<div class="task-issue">⚠ ${escapeHtml(line)}</div>`).join("");
       const more = lines.length > 8 ? `<div class="task-issue">…共 ${lines.length} 项，详见质检报告</div>` : "";
-      return `<div class="task-issues">${shown}${more}</div>`;
+      const keepOriginal = state.keepOriginalPages.get(job.id);
+      const reviseButton = keepOriginal?.size
+        ? `<button class="ghost small" data-revise="${job.id}">生成修订版（${keepOriginal.size} 页保留原文）</button>` : "";
+      const pageOneKept = keepOriginal?.has(1) ? "checked" : "";
+      const keepToggle = `<label class="keep-toggle"><input type="checkbox" data-keep-page="${job.id}" data-page="1" ${pageOneKept}>第 1 页保留原文</label>`;
+      return `<div class="task-issues">${shown}${more}</div><div class="keep-row">${keepToggle}${reviseButton}</div>`;
     }
 
     function taskHtml(job) {
@@ -1484,6 +1493,22 @@
       } catch (error) { showError(error.message); }
     }
 
+    async function generateRevisedPdf(jobId) {
+      const pages = [...(state.keepOriginalPages.get(jobId) || [])];
+      if (!pages.length) return showError("请先勾选要保留原文的页");
+      try {
+        const response = await fetch(`/api/jobs/${jobId}/revised-pdf`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ pages }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "修订版生成失败");
+        await refreshJobs();
+        showError(`修订版已生成：${pages.sort((a, b) => a - b).join("、")} 页保留原文，可在任务列表下载`);
+      } catch (error) { showError(error.message); }
+    }
+
     async function testProvider() {
       const button = $("#test-button");
       const result = $("#test-result");
@@ -1576,7 +1601,19 @@
       const button = event.target.closest("[data-remove]");
       if (button) { state.files.splice(Number(button.dataset.remove), 1); renderFiles(); renderEstimate(); }
     });
+    $("#task-list").addEventListener("change", (event) => {
+      const keep = event.target.closest("[data-keep-page]");
+      if (keep) {
+        const jobId = keep.dataset.keepPage;
+        const pages = state.keepOriginalPages.get(jobId) || new Set();
+        keep.checked ? pages.add(Number(keep.dataset.page)) : pages.delete(Number(keep.dataset.page));
+        state.keepOriginalPages.set(jobId, pages);
+        renderTasks();
+      }
+    });
     $("#task-list").addEventListener("click", (event) => {
+      const revise = event.target.closest("[data-revise]");
+      if (revise) return generateRevisedPdf(revise.dataset.revise);
       const cancel = event.target.closest("[data-cancel]");
       if (cancel) return cancelJob(cancel.dataset.cancel);
       const retry = event.target.closest("[data-retry]");

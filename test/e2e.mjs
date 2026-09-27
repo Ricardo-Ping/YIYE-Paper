@@ -167,6 +167,24 @@ async function main() {
       check(`${protocol} 协议经网关翻译完成`, gwFinished.status === "completed", JSON.stringify(gwFinished.error));
     }
 
+    // 6.7 修订版:把第 1 页替换为原文页
+    const revised = await fetch(`${BASE}/api/jobs/${created.id}/revised-pdf`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ pages: [1] }),
+    }).then((r) => r.json());
+    check("修订版生成", revised.ok === true && revised.file === "revised-output.pdf", JSON.stringify(revised));
+    const revisedList = await fetch(`${BASE}/api/jobs/${created.id}`).then((r) => r.json());
+    check("修订版进入任务输出", revisedList.outputs.includes("revised-output.pdf"));
+
+    // 6.8 无页码选择的修订请求应被拒绝
+    const badRevise = await fetch(`${BASE}/api/jobs/${created.id}/revised-pdf`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ pages: [] }),
+    }).then((r) => r.json());
+    check("空页码修订被拒绝", Boolean(badRevise.error));
+
     // 7. 运行中取消
     const cancelForm = new FormData();
     cancelForm.append("file", new Blob([await readFile(SAMPLE_PDF)]), "sample-paper.pdf");
