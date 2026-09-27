@@ -18,6 +18,8 @@ test("provider defaults and limits", () => {
   assert.equal(validateConfig({ target: "ja" }).target, "zh-CN");
   assert.equal(validateConfig({ target: "zh-TW" }).target, "zh-TW");
   assert.equal(validateConfig({ output: "alternate" }).output, "dual");
+  // 本地服务一律走 OpenAI 兼容协议
+  assert.equal(validateConfig({ provider: "ollama", protocol: "anthropic" }).protocol, "openai");
 });
 
 test("page range validation", () => {

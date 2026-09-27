@@ -44,6 +44,8 @@ export function validateConfig(input = {}) {
   const provider = ["openai", "ollama"].includes(input.provider) ? input.provider : "ollama";
   const protocol = ["openai", "anthropic", "gemini"].includes(input.protocol) ? input.protocol : "openai";
   const thinking = ["default", "off", "low", "medium", "high"].includes(input.thinking) ? input.thinking : "default";
+  // 本地服务一律走 OpenAI 兼容协议;anthropic/gemini 仅对云端入口有意义
+  const effectiveProtocol = provider === "ollama" ? "openai" : protocol;
   const target = ["zh-CN", "zh-TW"].includes(input.target) ? input.target : "zh-CN";
   const qps = Math.max(1, Math.min(16, Number(input.qps) || 4));
   const defaults = provider === "ollama"
@@ -55,7 +57,7 @@ export function validateConfig(input = {}) {
   return {
     output,
     provider,
-    protocol,
+    protocol: effectiveProtocol,
     thinking,
     target,
     qps,
@@ -237,7 +239,19 @@ function appendLog(job, chunk, apiKey = "") {
     const promptTokens = line.match(/Prompt tokens:\s*([\d,]+)/i);
     if (promptTokens) job.promptTokens = Number(promptTokens[1].replaceAll(",", ""));
     const completionTokens = line.match(/Completion tokens:\s*([\d,]+)/i);
-    if (completionTokens) job.completionTokens = Number(completionTokens[1].replaceAll(",", ""));
+    if (completionTokens) {
+      job.completionTokens = Number(completionTokens[1].replaceAll(",", ""));
+      job.awaitingCompletionValue = false;
+    } else if (/Completion tokens:/i.test(line)) {
+      // rich 表格把数值折到下一行的形态
+      job.awaitingCompletionValue = true;
+    } else if (job.awaitingCompletionValue) {
+      const value = line.replace(/[^\d,]/g, "").trim();
+      if (value) {
+        job.completionTokens = Number(value.replaceAll(",", ""));
+        job.awaitingCompletionValue = false;
+      }
+    }
     // BabelDOC 的进度条是分数不是百分数,解析后映射为整体进度,驱动扫描线;
     // 同时记录翻译段落数与扫描检测,供任务统计展示
     const progressEvent = parseBabeldocProgress(line);

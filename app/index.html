@@ -478,6 +478,7 @@
       engineReady: false, jobs: [], expanded: new Set(), submitting: false,
       signature: "", pollTimer: null, estimates: new Map(), estimateSeq: 0,
       qualityDetails: new Map(), previewKey: "", previewOverride: false,
+      keepOriginalPages: new Map(), hadActiveJobs: false,
       keepOriginalPages: new Map(),
       serviceKind: "local", vendorId: "openai",
     };
@@ -1369,11 +1370,22 @@
       }
     }
 
+    function notifyBatchCompletion(previous, current) {
+      if (!notifyEnabled() || !state.hadActiveJobs) return;
+      const wasActive = previous.some((job) => ["queued", "running"].includes(job.status));
+      const stillActive = current.some((job) => ["queued", "running"].includes(job.status));
+      if (wasActive && !stillActive) {
+        try { new Notification("译页 · 全部任务已处理完毕", { body: "打开任务列表查看结果" }); } catch {}
+      }
+      state.hadActiveJobs = stillActive;
+    }
+
     async function refreshJobs() {
       try {
         const jobs = await fetch("/api/jobs").then((response) => response.json());
         if (Array.isArray(jobs)) {
           notifyTransitions(state.jobs, jobs);
+          notifyBatchCompletion(state.jobs, jobs);
           state.jobs = jobs;
           // 清理已删除任务的质检明细缓存
           if (state.qualityDetails.size) {
