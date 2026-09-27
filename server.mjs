@@ -227,11 +227,21 @@ function appendLog(job, chunk, apiKey = "") {
     }
     const tokens = line.match(/Total tokens:\s*([\d,]+)/i);
     if (tokens) job.tokensUsed = Number(tokens[1].replaceAll(",", ""));
-    // BabelDOC 的进度条是分数不是百分数,解析后映射为整体进度,驱动扫描线
+    const promptTokens = line.match(/Prompt tokens:\s*([\d,]+)/i);
+    if (promptTokens) job.promptTokens = Number(promptTokens[1].replaceAll(",", ""));
+    const completionTokens = line.match(/Completion tokens:\s*([\d,]+)/i);
+    if (completionTokens) job.completionTokens = Number(completionTokens[1].replaceAll(",", ""));
+    // BabelDOC 的进度条是分数不是百分数,解析后映射为整体进度,驱动扫描线;
+    // 同时记录翻译段落数与扫描检测,供任务统计展示
     const progressEvent = parseBabeldocProgress(line);
     if (progressEvent) {
       const stagePct = stagePercent(progressEvent);
       if (stagePct !== null && stagePct > (job.progress || 0)) job.progress = Math.min(99, stagePct);
+      job.stats = job.stats || {};
+      if (progressEvent.stage === "Translate Paragraphs") {
+        job.stats.paragraphs = { done: progressEvent.current, total: progressEvent.total };
+      }
+      if (progressEvent.stage === "DetectScannedFile") job.stats.scannedCheck = true;
     }
     const clean = secret ? line.split(secret).join("[REDACTED]") : line;
     job.log.push(clean.slice(0, 1200));

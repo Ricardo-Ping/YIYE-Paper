@@ -700,9 +700,11 @@
       $("#error").classList.toggle("visible", Boolean(message));
     }
 
-    // 模型元数据借鉴 ZCode 的供应商设计:每个模型带上下文窗口(ctx,token 数)与思考能力(think)。
-    // ⚠ 静态快照(2026-09,来源见 docs/翻译服务接入指南.md),各厂商会频繁上下架;
-    //   实际可用性以"获取模型列表"的实时拉取为准。ctx 为官方公开规格,个别为近似值。
+    // 模型清单来源(2026-09 快照,以各官方文档为准;细节见 docs/翻译服务接入指南.md):
+    // OpenAI: platform.openai.com/docs/models · Anthropic: platform.claude.com/docs/en/about-claude/models
+    // Gemini: ai.google.dev/gemini-api/docs/models · DeepSeek: api-docs.deepseek.com
+    // Moonshot: platform.moonshot.ai/docs · 智谱: docs.bigmodel.cn · 百炼: help.aliyun.com/zh/model-studio
+    // 硅基流动: docs.siliconflow.cn · OpenRouter: openrouter.ai/models · xAI: docs.x.ai
     const VENDORS = [
       { id: "openai", name: "OpenAI", protocol: "openai", baseUrl: "https://api.openai.com/v1", models: [
         { id: "gpt-6-astra", ctx: 1050000, think: true },
@@ -1286,7 +1288,11 @@
         ? `<pre class="task-log open">${escapeHtml(job.log.join("\n"))}</pre>` : "";
       const metaBits = [];
       if (job.startedAt && job.finishedAt) metaBits.push(`耗时 ${Math.max(1, Math.round((new Date(job.finishedAt) - new Date(job.startedAt)) / 1000))} 秒`);
+      if (job.stats?.paragraphs) metaBits.push(`段落 ${job.stats.paragraphs.done}/${job.stats.paragraphs.total}`);
       if (job.tokensUsed) metaBits.push(`${job.tokensUsed.toLocaleString()} tokens`);
+      if (job.promptTokens) metaBits.push(`提示 ${formatTokens(job.promptTokens)}`);
+      if (job.completionTokens) metaBits.push(`补全 ${formatTokens(job.completionTokens)}`);
+      if (job.stats?.scannedCheck) metaBits.push("已扫描检测");
       let qualityHtml = "";
       if (job.quality) {
         qualityHtml = job.quality.issueCount
