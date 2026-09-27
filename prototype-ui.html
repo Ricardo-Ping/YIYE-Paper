@@ -1,0 +1,729 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>译页 YIYE · 论文翻译 UI Prototype</title>
+  <!-- PROTOTYPE: Three radically different paper-translation UIs, switchable via ?variant=A|B|C. -->
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,650&family=Noto+Sans+SC:wght@400;500;600;700&display=swap');
+
+    :root {
+      color-scheme: light;
+      --ink: #17201d;
+      --muted: #6f7773;
+      --line: rgba(23, 32, 29, 0.12);
+      --paper: #f8f6f0;
+      --white: #fff;
+      --red: #d95140;
+      --red-dark: #9f3329;
+      --green: #163f35;
+      --green-soft: #dce8df;
+      --shadow: 0 22px 70px rgba(31, 38, 34, 0.12);
+      --sans: "DM Sans", "Noto Sans SC", system-ui, sans-serif;
+      --serif: "Fraunces", "Noto Serif SC", serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body { font-family: var(--sans); color: var(--ink); background: var(--paper); }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focus-visible {
+      outline: 3px solid rgba(65, 127, 229, 0.35); outline-offset: 2px;
+    }
+
+    .prototype-note {
+      position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 40;
+      padding: 7px 12px; border-radius: 999px; color: rgba(255,255,255,.88);
+      background: rgba(18, 22, 21, .82); backdrop-filter: blur(14px);
+      font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+      box-shadow: 0 8px 26px rgba(0,0,0,.14); pointer-events: none;
+    }
+
+    .prototype-switcher {
+      position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 60;
+      display: flex; align-items: center; gap: 8px; padding: 7px;
+      color: white; background: rgba(14, 18, 17, .92); border: 1px solid rgba(255,255,255,.12);
+      border-radius: 18px; box-shadow: 0 18px 60px rgba(0,0,0,.28); backdrop-filter: blur(18px);
+    }
+    .prototype-switcher button {
+      width: 38px; height: 38px; border: 0; border-radius: 12px; color: white;
+      background: rgba(255,255,255,.08); font-size: 17px; transition: .2s ease;
+    }
+    .prototype-switcher button:hover { background: rgba(255,255,255,.18); transform: translateY(-1px); }
+    .variant-label { min-width: 180px; text-align: center; }
+    .variant-label strong { display: block; font-size: 13px; }
+    .variant-label span { display: block; margin-top: 2px; color: rgba(255,255,255,.55); font-size: 10px; }
+
+    .state-dump {
+      position: fixed; right: 18px; bottom: 22px; z-index: 55; width: 220px;
+      border: 1px solid rgba(255,255,255,.15); border-radius: 14px; color: white;
+      background: rgba(14,18,17,.9); box-shadow: 0 14px 38px rgba(0,0,0,.18); overflow: hidden;
+      font-size: 10px; backdrop-filter: blur(18px);
+    }
+    .state-dump summary { padding: 9px 12px; cursor: pointer; font-weight: 700; }
+    .state-dump pre { max-height: 260px; margin: 0; padding: 0 12px 12px; overflow: auto; color: #b9e5d8; white-space: pre-wrap; }
+
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand-mark {
+      position: relative; width: 34px; height: 38px; border-radius: 5px 10px 10px 5px;
+      background: currentColor; box-shadow: inset -6px 0 0 rgba(255,255,255,.18);
+    }
+    .brand-mark::before, .brand-mark::after {
+      content: ""; position: absolute; left: 8px; width: 15px; height: 2px; border-radius: 2px; background: white;
+    }
+    .brand-mark::before { top: 13px; }
+    .brand-mark::after { top: 20px; }
+    .brand-name { font-family: var(--serif); font-size: 22px; line-height: 1; }
+    .brand-name small { display: block; margin-top: 4px; font-family: var(--sans); font-size: 8px; letter-spacing: .2em; opacity: .58; }
+
+    .primary-button, .ghost-button {
+      border: 0; border-radius: 13px; padding: 12px 17px; font-weight: 700; transition: .2s ease;
+    }
+    .primary-button:hover, .ghost-button:hover { transform: translateY(-1px); }
+    .ghost-button { border: 1px solid var(--line); background: transparent; color: inherit; }
+    .primary-button { color: white; background: var(--green); box-shadow: 0 10px 24px rgba(22,63,53,.2); }
+    .primary-button:disabled { opacity: .6; cursor: default; transform: none; }
+
+    .pill { display: inline-flex; align-items: center; gap: 7px; padding: 7px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #41aa78; box-shadow: 0 0 0 4px rgba(65,170,120,.12); }
+    .chevron { font-size: 11px; opacity: .6; }
+    .eyebrow { font-size: 10px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+    .muted { color: var(--muted); }
+
+    .paper-page {
+      position: relative; width: 178px; aspect-ratio: .72; padding: 18px 15px;
+      border: 1px solid rgba(25, 36, 31, .1); border-radius: 3px; background: #fff;
+      box-shadow: 0 16px 34px rgba(28,34,31,.13); overflow: hidden;
+    }
+    .paper-page.translated { background: #fffdfa; }
+    .paper-kicker { width: 34%; height: 3px; margin-bottom: 8px; background: #1b211f; opacity: .28; }
+    .paper-title { width: 89%; height: 7px; margin-bottom: 6px; border-radius: 3px; background: #1c2421; }
+    .paper-title.short { width: 68%; }
+    .paper-meta { width: 55%; height: 3px; margin: 10px 0 12px; background: #9aa09d; }
+    .paper-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .paper-lines i { display: block; height: 2px; margin-bottom: 4px; border-radius: 2px; background: #a8ada9; opacity: .62; }
+    .paper-lines i:nth-child(4n+1) { width: 92%; }
+    .paper-lines i:nth-child(5n+2) { width: 80%; }
+    .paper-figure { height: 42px; margin: 7px 0 8px; border: 1px solid #b8bfba; background: linear-gradient(145deg,#ecf2ef,#fafafa); }
+    .paper-figure::after { content: ""; display: block; width: 48%; height: 18px; margin: 10px auto; border-left: 18px solid transparent; border-right: 18px solid transparent; border-bottom: 18px solid rgba(38,81,68,.32); }
+    .paper-badge { position: absolute; top: 10px; right: 10px; padding: 4px 6px; border-radius: 4px; color: white; background: #213e35; font-size: 7px; font-weight: 800; }
+
+    .option-card {
+      border: 1px solid var(--line); border-radius: 15px; background: rgba(255,255,255,.56); transition: .2s ease;
+    }
+    .option-card[data-selected="true"] { border-color: currentColor; box-shadow: 0 0 0 2px currentColor inset; }
+
+    .toggle { position: relative; width: 38px; height: 22px; flex: 0 0 auto; border-radius: 999px; background: #d4d7d4; transition: .2s; }
+    .toggle::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: white; box-shadow: 0 2px 5px rgba(0,0,0,.15); transition: .2s; }
+    .toggle.on { background: var(--green); }
+    .toggle.on::after { transform: translateX(16px); }
+
+    .progress-track { height: 7px; border-radius: 99px; background: rgba(128,128,128,.18); overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: inherit; background: currentColor; transition: width .35s ease; }
+
+    /* Variant A — Editorial studio */
+    .variant-a { min-height: 100vh; background: #f4f0e8; }
+    .a-shell { display: grid; grid-template-columns: 88px minmax(0, 1fr) 350px; min-height: 100vh; }
+    .a-rail {
+      display: flex; flex-direction: column; align-items: center; padding: 28px 0 100px;
+      color: #f7f3e9; background: #173f35;
+    }
+    .a-rail .brand-mark { width: 30px; height: 34px; color: #f7f3e9; background: #f7f3e9; }
+    .a-rail .brand-mark::before, .a-rail .brand-mark::after { background: #173f35; }
+    .a-steps { display: flex; flex-direction: column; gap: 16px; margin-top: 78px; }
+    .a-step {
+      display: grid; place-items: center; width: 42px; height: 42px; border-radius: 14px;
+      color: rgba(255,255,255,.52); background: transparent; border: 1px solid transparent; font-size: 12px; font-weight: 800;
+    }
+    .a-step.active { color: #173f35; background: #f2d36c; box-shadow: 0 10px 26px rgba(0,0,0,.22); }
+    .a-help { margin-top: auto; opacity: .54; font-size: 19px; }
+    .a-main { padding: 34px 46px 110px; overflow: hidden; }
+    .a-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+    .a-heading h1 { margin: 7px 0 0; font-family: var(--serif); font-size: clamp(30px, 4vw, 52px); font-weight: 500; letter-spacing: -.04em; }
+    .a-heading h1 em { color: var(--red); font-style: normal; }
+    .a-actions { display: flex; gap: 10px; align-items: center; }
+    .a-workspace { display: grid; grid-template-columns: minmax(260px, .75fr) minmax(360px, 1.25fr); gap: 26px; margin-top: 34px; }
+    .a-drop {
+      position: relative; min-height: 536px; padding: 24px; border: 1px dashed rgba(22,63,53,.27); border-radius: 24px;
+      background: rgba(255,255,255,.52); overflow: hidden;
+    }
+    .a-drop::before { content: ""; position: absolute; width: 260px; height: 260px; right: -120px; top: -130px; border-radius: 50%; background: #efd369; opacity: .36; }
+    .a-drop-head { position: relative; display: flex; justify-content: space-between; align-items: center; }
+    .upload-orbit { position: relative; display: grid; place-items: center; width: 132px; height: 132px; margin: 64px auto 28px; }
+    .upload-orbit::before, .upload-orbit::after { content: ""; position: absolute; border-radius: 50%; border: 1px solid rgba(22,63,53,.18); }
+    .upload-orbit::before { inset: 0; }
+    .upload-orbit::after { inset: 14px; border-style: dashed; animation: spin 18s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .upload-icon { display: grid; place-items: center; width: 62px; height: 72px; border-radius: 7px 15px 15px 7px; color: white; background: var(--red); box-shadow: 0 16px 30px rgba(217,81,64,.25); font-size: 25px; }
+    .a-drop-copy { position: relative; text-align: center; }
+    .a-drop-copy h3 { margin: 0; font-family: var(--serif); font-size: 25px; font-weight: 500; }
+    .a-drop-copy p { max-width: 300px; margin: 10px auto 20px; color: var(--muted); font-size: 12px; line-height: 1.7; }
+    .file-button { color: var(--red-dark); background: #f7dfda; box-shadow: none; }
+    .mini-proof { position: absolute; left: 22px; right: 22px; bottom: 20px; display: flex; gap: 8px; justify-content: center; }
+    .mini-proof span { padding: 6px 8px; border-radius: 7px; color: #557068; background: #e9eee9; font-size: 9px; font-weight: 700; }
+    .a-preview-card { min-height: 536px; padding: 25px; border-radius: 24px; background: #e9e4d8; box-shadow: inset 0 0 0 1px rgba(22,63,53,.07); }
+    .a-preview-head { display: flex; justify-content: space-between; align-items: center; }
+    .preview-title { font-family: var(--serif); font-size: 17px; }
+    .preview-stage { display: flex; justify-content: center; align-items: center; gap: 12px; min-height: 396px; margin-top: 18px; border-radius: 17px; background: #d9d4ca; box-shadow: inset 0 16px 45px rgba(80,75,67,.08); overflow: hidden; }
+    .preview-stage.dual .paper-page { width: min(42%, 178px); }
+    .a-preview-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 16px; font-size: 10px; }
+    .a-side { padding: 32px 25px 110px; background: rgba(255,255,255,.72); border-left: 1px solid var(--line); }
+    .a-side-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 26px; }
+    .a-side h2 { margin: 0; font-family: var(--serif); font-size: 24px; font-weight: 500; }
+    .settings-section { padding: 20px 0; border-top: 1px solid var(--line); }
+    .settings-section:first-of-type { border-top: 0; padding-top: 0; }
+    .section-label { display: flex; align-items: center; justify-content: space-between; margin-bottom: 13px; font-size: 11px; font-weight: 800; }
+    .output-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .output-grid .option-card { padding: 12px 5px; color: #486159; text-align: center; cursor: pointer; }
+    .output-grid .option-card[data-selected="true"] { color: var(--red); background: #fff; }
+    .output-icon { display: flex; gap: 2px; justify-content: center; height: 23px; margin-bottom: 7px; }
+    .output-icon i { width: 14px; border: 1px solid currentColor; border-radius: 2px; }
+    .output-grid b { display: block; font-size: 10px; }
+    .select-box { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 12px; color: inherit; background: white; }
+    .setting-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 9px 0; cursor: pointer; }
+    .setting-row span:first-child { font-size: 12px; font-weight: 600; }
+    .setting-row small { display: block; margin-top: 2px; color: var(--muted); font-size: 9px; font-weight: 400; }
+    .a-run { width: 100%; margin-top: 8px; padding: 15px; background: var(--red); box-shadow: 0 12px 28px rgba(217,81,64,.25); }
+
+    /* Variant B — Immersive flow */
+    .variant-b {
+      min-height: 100vh; color: #eff7ff;
+      background:
+        radial-gradient(circle at 15% 20%, rgba(72,112,255,.25), transparent 32%),
+        radial-gradient(circle at 80% 12%, rgba(82,219,193,.16), transparent 28%),
+        #0a1020;
+    }
+    .b-shell { min-height: 100vh; padding: 26px 38px 110px; }
+    .b-header { display: flex; justify-content: space-between; align-items: center; }
+    .b-header .brand-mark { color: #65e0c7; }
+    .b-header .brand-name { font-family: var(--sans); font-weight: 700; }
+    .b-header-actions { display: flex; align-items: center; gap: 10px; }
+    .b-history-button { color: #dfe9fb; border-color: rgba(255,255,255,.12); background: rgba(255,255,255,.045); }
+    .b-header .pill { border: 1px solid rgba(255,255,255,.1); color: #a9b6cf; background: rgba(255,255,255,.04); }
+    .avatar { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; color: #0b1222; background: #d7f09f; font-weight: 800; }
+    .b-layout { display: grid; grid-template-columns: minmax(260px,.48fr) minmax(720px,1.52fr); gap: clamp(28px,4vw,62px); max-width: 1460px; margin: 52px auto 0; align-items: start; }
+    .b-copy { padding-top: 22px; }
+    .b-copy .eyebrow { color: #66e0c8; }
+    .b-copy h1 { margin: 15px 0 20px; max-width: 560px; font-size: clamp(38px,5vw,68px); line-height: 1.02; letter-spacing: -.055em; }
+    .b-copy h1 span { color: transparent; background: linear-gradient(90deg,#7be5d1,#9db5ff); background-clip: text; }
+    .b-copy > p { max-width: 500px; color: #91a0ba; font-size: 14px; line-height: 1.8; }
+    .b-timeline { margin-top: 44px; }
+    .b-step { position: relative; display: flex; gap: 15px; padding-bottom: 26px; color: #7c899f; }
+    .b-step::after { content: ""; position: absolute; left: 14px; top: 32px; bottom: 2px; width: 1px; background: rgba(255,255,255,.1); }
+    .b-step:last-child::after { display: none; }
+    .b-step-num { display: grid; place-items: center; flex: 0 0 auto; width: 29px; height: 29px; border: 1px solid rgba(255,255,255,.14); border-radius: 50%; font-size: 10px; font-weight: 800; }
+    .b-step.active { color: #f3f7ff; }
+    .b-step.active .b-step-num { color: #071321; border-color: #69dec9; background: #69dec9; box-shadow: 0 0 24px rgba(105,222,201,.36); }
+    .b-step strong { display: block; margin: 4px 0; font-size: 12px; }
+    .b-step small { font-size: 10px; }
+    .b-workspace { display: grid; grid-template-columns: minmax(390px,.92fr) minmax(360px,1.08fr); gap: 16px; align-items: start; }
+    .b-panel {
+      position: relative; min-height: 720px; border: 1px solid rgba(255,255,255,.11); border-radius: 28px;
+      background: linear-gradient(160deg,rgba(255,255,255,.085),rgba(255,255,255,.025));
+      box-shadow: 0 40px 100px rgba(0,0,0,.32); backdrop-filter: blur(24px); overflow: hidden;
+    }
+    .b-panel::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px); background-size: 32px 32px; mask-image: linear-gradient(to bottom,black,transparent 80%); }
+    .b-panel-head { position: relative; display: flex; justify-content: space-between; align-items: center; padding: 24px 26px; border-bottom: 1px solid rgba(255,255,255,.08); }
+    .b-panel-head strong { font-size: 14px; }
+    .b-panel-head span { color: #72809a; font-size: 10px; }
+    .b-drop { position: relative; display: grid; place-items: center; min-height: 215px; margin: 22px; border: 1px dashed rgba(120,223,204,.35); border-radius: 22px; background: rgba(5,13,27,.34); text-align: center; }
+    .b-drop.dragging { border-color: #70e2cc; background: rgba(112,226,204,.08); }
+    .b-upload-icon { display: grid; place-items: center; width: 72px; height: 72px; margin: 0 auto 18px; border: 1px solid rgba(108,224,203,.42); border-radius: 22px; color: #71e0cb; background: rgba(108,224,203,.08); font-size: 28px; box-shadow: 0 0 48px rgba(108,224,203,.12); }
+    .b-drop h3 { margin: 0; font-size: 16px; }
+    .b-drop p { margin: 8px 0 17px; color: #74839c; font-size: 11px; }
+    .b-browse { border: 1px solid rgba(255,255,255,.11); color: #dce6fa; background: rgba(255,255,255,.07); }
+    .b-quick-settings { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0 22px 20px; }
+    .b-quick-card { padding: 17px; border: 1px solid rgba(255,255,255,.08); border-radius: 17px; background: rgba(3,10,23,.32); }
+    .b-quick-card label { display: block; margin-bottom: 9px; color: #7e8ca3; font-size: 9px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+    .b-quick-card select { width: 100%; border: 0; color: #eff7ff; background: transparent; font-weight: 700; }
+    .b-quick-card option { color: #17201d; }
+    .b-modes { position: relative; display: flex; gap: 8px; margin: 0 22px; }
+    .b-mode { flex: 1; padding: 12px 8px; border: 1px solid rgba(255,255,255,.08); border-radius: 13px; color: #8997ad; background: rgba(255,255,255,.025); text-align: center; font-size: 10px; font-weight: 700; }
+    .b-mode[data-selected="true"] { color: #04111d; border-color: #75e0cb; background: #75e0cb; }
+    .b-content { position: relative; margin: 18px 22px 0; padding: 4px 16px; border: 1px solid rgba(255,255,255,.08); border-radius: 17px; background: rgba(3,10,23,.32); }
+    .b-content-head { display: flex; justify-content: space-between; padding: 14px 0 7px; color: #7e8ca3; font-size: 9px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+    .b-content .setting-row { padding: 9px 0; border-top: 1px solid rgba(255,255,255,.055); }
+    .b-content .setting-row span:first-child { color: #e8eefb; }
+    .b-content .setting-row small { color: #78869d; }
+    .b-content .toggle { background: rgba(255,255,255,.16); }
+    .b-content .toggle.on { background: #6edec8; }
+    .b-panel-foot { position: relative; display: flex; gap: 10px; padding: 22px; }
+    .b-panel-foot .primary-button { flex: 1; color: #07131f; background: linear-gradient(90deg,#6de1ca,#91c4ff); box-shadow: 0 14px 38px rgba(91,199,203,.18); }
+    .b-panel-foot .ghost-button { color: #9aa9c1; border-color: rgba(255,255,255,.1); }
+    .b-progress { position: relative; margin: 0 22px 22px; padding: 14px; border-radius: 14px; color: #71e0cb; background: rgba(0,0,0,.22); }
+    .b-progress-row { display: flex; justify-content: space-between; margin-bottom: 8px; color: #9eacc2; font-size: 10px; }
+    .b-preview-panel { position: sticky; top: 24px; min-height: 720px; border: 1px solid rgba(255,255,255,.11); border-radius: 28px; background: linear-gradient(160deg,rgba(255,255,255,.08),rgba(255,255,255,.018)); box-shadow: 0 40px 100px rgba(0,0,0,.26); overflow: hidden; }
+    .b-preview-head { display: flex; justify-content: space-between; align-items: center; padding: 24px 26px; border-bottom: 1px solid rgba(255,255,255,.08); }
+    .b-preview-head strong { font-size: 14px; }
+    .b-preview-head small { display: block; margin-top: 4px; color: #72809a; font-size: 10px; }
+    .b-preview-badge { padding: 7px 10px; border-radius: 999px; color: #07131f; background: #75e0cb; font-size: 9px; font-weight: 800; }
+    .b-preview-canvas { display: grid; place-items: center; min-height: 500px; padding: 30px 24px; background: radial-gradient(circle at 50% 38%,rgba(94,145,255,.14),transparent 48%),rgba(2,8,19,.25); }
+    .b-preview-pages { width: 100%; max-width: 520px; }
+    .b-preview-pages .paper-page { width: 100%; min-height: 430px; }
+    .b-page-single { max-width: 300px; margin: auto; }
+    .b-page-dual { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .b-page-dual .paper-page { min-height: 350px; }
+    .b-page-alternate { position: relative; display: grid; grid-template-columns: 1fr 42px 1fr; align-items: center; gap: 4px; }
+    .b-page-alternate .paper-page { min-height: 350px; }
+    .b-page-alternate > span { color: #76dfca; text-align: center; font-size: 18px; }
+    .b-preview-note { padding: 20px 24px 24px; color: #8796ad; font-size: 11px; line-height: 1.65; }
+    .b-preview-note strong { color: #dce7f8; }
+    .history-backdrop { position: fixed; inset: 0; z-index: 70; background: rgba(1,5,14,.68); backdrop-filter: blur(10px); }
+    .history-drawer { position: absolute; top: 0; right: 0; width: min(460px,92vw); min-height: 100%; padding: 28px; color: #edf5ff; background: #0d1527; box-shadow: -30px 0 90px rgba(0,0,0,.4); }
+    .history-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
+    .history-head h2 { margin: 0; font-size: 22px; }
+    .history-head button { color: #aab8cd; border-color: rgba(255,255,255,.12); background: transparent; }
+    .history-list { display: grid; gap: 12px; }
+    .history-item { padding: 17px; border: 1px solid rgba(255,255,255,.08); border-radius: 16px; background: rgba(255,255,255,.035); }
+    .history-item-top { display: flex; justify-content: space-between; gap: 18px; }
+    .history-item strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+    .history-item em { flex: 0 0 auto; color: #77e0cc; font-size: 9px; font-style: normal; }
+    .history-item p { margin: 8px 0 0; color: #718099; font-size: 10px; }
+
+    /* Variant C — Paper desk */
+    .variant-c { min-height: 100vh; color: #15231f; background: #dfe3da; }
+    .c-shell { min-height: 100vh; padding-bottom: 110px; }
+    .c-header { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 22px 42px; border-bottom: 1px solid rgba(21,35,31,.13); }
+    .c-header nav { display: flex; gap: 24px; }
+    .c-header nav button { border: 0; padding: 0; color: #4e5b56; background: transparent; font-size: 11px; font-weight: 700; }
+    .c-header nav button.active { color: #15231f; }
+    .c-header .brand { justify-self: center; }
+    .c-header .brand-mark { width: 28px; height: 32px; color: #ca4e3f; background: #ca4e3f; }
+    .c-header .brand-name { font-size: 19px; }
+    .c-tools { justify-self: end; display: flex; gap: 9px; }
+    .circle-button { display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid rgba(21,35,31,.15); border-radius: 50%; color: #243a33; background: rgba(255,255,255,.28); }
+    .c-intro { display: flex; justify-content: space-between; align-items: end; gap: 30px; max-width: 1250px; margin: 38px auto 26px; padding: 0 32px; }
+    .c-intro h1 { max-width: 680px; margin: 7px 0 0; font-family: var(--serif); font-size: clamp(34px,4.5vw,62px); line-height: 1.03; font-weight: 500; letter-spacing: -.04em; }
+    .c-intro h1 span { color: #c94f40; }
+    .c-intro p { max-width: 310px; margin: 0 0 6px; color: #62706a; font-size: 11px; line-height: 1.7; }
+    .c-desk {
+      display: grid; grid-template-columns: minmax(240px,.68fr) minmax(390px,1.25fr) minmax(250px,.72fr);
+      gap: 1px; max-width: 1250px; min-height: 560px; margin: 0 auto; border: 1px solid rgba(21,35,31,.15); border-radius: 4px;
+      background: rgba(21,35,31,.14); box-shadow: 0 26px 80px rgba(45,58,50,.13); overflow: hidden;
+    }
+    .c-panel { position: relative; padding: 24px; background: #eef0e9; }
+    .c-panel.center { background: #d4d8cf; }
+    .c-panel.right { background: #f4f3ed; }
+    .c-panel-title { display: flex; justify-content: space-between; align-items: center; padding-bottom: 17px; border-bottom: 1px solid rgba(21,35,31,.12); }
+    .c-panel-title b { font-family: var(--serif); font-size: 17px; font-weight: 500; }
+    .c-panel-title small { color: #718078; font-size: 9px; }
+    .c-file-card { margin-top: 20px; padding: 16px; border: 1px solid rgba(21,35,31,.13); border-radius: 3px; background: #faf9f5; }
+    .c-file-top { display: flex; align-items: center; gap: 11px; }
+    .pdf-token { display: grid; place-items: center; width: 36px; height: 44px; border-radius: 3px; color: white; background: #cb5142; font-size: 9px; font-weight: 800; }
+    .c-file-name { min-width: 0; }
+    .c-file-name strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+    .c-file-name small { color: #7c8882; font-size: 9px; }
+    .c-add { width: 100%; margin-top: 12px; border-style: dashed; color: #4c625a; background: transparent; }
+    .c-status-list { display: grid; gap: 12px; margin-top: 24px; }
+    .c-status-row { display: grid; grid-template-columns: 18px 1fr auto; align-items: center; gap: 9px; font-size: 10px; }
+    .c-check { display: grid; place-items: center; width: 17px; height: 17px; border-radius: 50%; color: white; background: #315f50; font-size: 9px; }
+    .c-status-row span:nth-child(2) { font-weight: 600; }
+    .c-status-row small { color: #87918d; }
+    .c-local-note { position: absolute; left: 24px; right: 24px; bottom: 24px; padding: 15px; border-left: 3px solid #c94f40; background: #e4e7df; font-size: 9px; line-height: 1.6; color: #5c6a64; }
+    .c-canvas { display: grid; place-items: center; min-height: 500px; padding: 34px 20px; }
+    .c-page-stack { position: relative; width: 420px; max-width: 92%; height: 380px; }
+    .c-page-stack::before, .c-page-stack::after { content: ""; position: absolute; inset: 16px 30px 0; border-radius: 2px; background: #aeb5ac; transform: rotate(2.5deg); }
+    .c-page-stack::after { transform: rotate(-2deg); background: #c1c6bd; }
+    .c-sheet { position: absolute; inset: 0; z-index: 2; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 18px; border-radius: 2px; background: #f7f5ee; box-shadow: 0 18px 48px rgba(37,47,41,.22); }
+    .c-sheet .paper-page { width: 100%; box-shadow: none; border-color: rgba(21,35,31,.1); }
+    .c-sheet-ribbon { position: absolute; top: -9px; left: 50%; z-index: 4; transform: translateX(-50%); padding: 6px 13px; color: white; background: #173f35; font-size: 8px; font-weight: 800; letter-spacing: .08em; }
+    .c-sheet-foot { position: absolute; right: 18px; bottom: -26px; color: #6a7771; font-size: 9px; }
+    .c-settings-list { margin-top: 12px; }
+    .c-settings-list .setting-row { padding: 12px 0; border-bottom: 1px solid rgba(21,35,31,.09); }
+    .c-segment { display: flex; gap: 2px; margin-top: 17px; padding: 3px; border-radius: 4px; background: #e2e2dc; }
+    .c-segment button { flex: 1; padding: 8px 4px; border: 0; color: #6b7671; background: transparent; font-size: 9px; font-weight: 700; }
+    .c-segment button[data-selected="true"] { color: #15231f; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+    .c-select-label { display: block; margin: 18px 0 8px; color: #728079; font-size: 9px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+    .c-run { position: absolute; left: 24px; right: 24px; bottom: 24px; width: calc(100% - 48px); border-radius: 3px; background: #c94f40; box-shadow: 0 10px 26px rgba(201,79,64,.2); }
+    .c-progress { position: absolute; left: 24px; right: 24px; bottom: 82px; color: #c94f40; }
+    .c-progress-label { display: flex; justify-content: space-between; margin-bottom: 6px; color: #6e7b75; font-size: 9px; }
+
+    .hidden-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+    .dragging { outline: 3px solid rgba(77,173,145,.35); outline-offset: -5px; }
+
+    @media (max-width: 1040px) {
+      .a-shell { grid-template-columns: 72px 1fr; }
+      .a-side { grid-column: 2; border-left: 0; border-top: 1px solid var(--line); }
+      .a-workspace { grid-template-columns: 1fr; }
+      .a-drop { min-height: 450px; }
+      .b-layout { grid-template-columns: 1fr; max-width: 720px; margin-top: 48px; }
+      .b-workspace { grid-template-columns: 1fr; }
+      .b-preview-panel { position: static; }
+      .b-copy { text-align: center; }
+      .b-copy h1, .b-copy > p { margin-left: auto; margin-right: auto; }
+      .b-timeline { display: flex; justify-content: center; gap: 12px; }
+      .b-step { display: block; padding: 0; text-align: center; }
+      .b-step::after, .b-step small { display: none; }
+      .b-step-num { margin: 0 auto; }
+      .c-desk { grid-template-columns: 240px 1fr; margin: 0 20px; }
+      .c-panel.right { grid-column: 1 / -1; min-height: 470px; }
+      .c-run { position: static; width: 100%; margin-top: 24px; }
+      .c-progress { position: static; margin-top: 20px; }
+    }
+
+    @media (max-width: 720px) {
+      .prototype-note { display: none; }
+      .state-dump { display: none; }
+      .prototype-switcher { bottom: 12px; }
+      .a-shell { display: block; }
+      .a-rail { display: none; }
+      .a-main { padding: 28px 18px 50px; }
+      .a-header { align-items: flex-start; }
+      .a-actions .ghost-button, .a-actions .pill { display: none; }
+      .a-workspace { margin-top: 20px; }
+      .a-preview-card { display: none; }
+      .a-side { padding: 26px 18px 100px; }
+      .b-shell { padding: 25px 18px 100px; }
+      .b-header .pill { display: none; }
+      .b-layout { margin-top: 50px; }
+      .b-copy h1 { font-size: 42px; }
+      .b-quick-settings { grid-template-columns: 1fr; }
+      .b-modes { flex-wrap: wrap; }
+      .b-mode { flex: 1 1 30%; }
+      .c-header { grid-template-columns: 1fr auto; padding: 18px; }
+      .c-header nav { display: none; }
+      .c-header .brand { justify-self: start; }
+      .c-intro { display: block; margin-top: 26px; padding: 0 18px; }
+      .c-intro p { margin-top: 16px; }
+      .c-desk { display: block; margin: 0; border-left: 0; border-right: 0; }
+      .c-panel.left { min-height: 360px; }
+      .c-panel.center { min-height: 480px; }
+      .c-page-stack { height: 350px; }
+      .c-panel.right { min-height: 500px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <input class="hidden-input" id="pdf-input" type="file" accept="application/pdf,.pdf" />
+  <div class="prototype-note">Throwaway UI prototype · no backend connected</div>
+  <details class="state-dump">
+    <summary>查看原型状态</summary>
+    <pre id="state-json"></pre>
+  </details>
+  <div class="prototype-switcher" aria-label="原型方案切换器">
+    <button type="button" data-variant-nav="prev" aria-label="上一个方案">←</button>
+    <div class="variant-label"><strong id="variant-name"></strong><span>方向键也可切换 · URL 可分享</span></div>
+    <button type="button" data-variant-nav="next" aria-label="下一个方案">→</button>
+  </div>
+
+  <script>
+    const variants = {
+      A: "A · 专业三栏工作台",
+      B: "B · 沉浸式翻译向导",
+      C: "C · 纸张感桌面"
+    };
+
+    const state = {
+      file: null,
+      fileSize: null,
+      output: "dual",
+      provider: "auto",
+      target: "zh-CN",
+      ocr: true,
+      table: true,
+      figure: true,
+      watermark: false,
+      glossary: true,
+      historyOpen: false,
+      progress: 0,
+      status: "等待论文"
+    };
+
+    let progressTimer = null;
+    const app = document.querySelector("#app");
+    const fileInput = document.querySelector("#pdf-input");
+
+    function currentVariant() {
+      const key = new URLSearchParams(location.search).get("variant")?.toUpperCase();
+      return variants[key] ? key : "A";
+    }
+
+    function setVariant(key) {
+      const url = new URL(location.href);
+      url.searchParams.set("variant", key);
+      history.replaceState({}, "", url);
+      render();
+    }
+
+    function paperPage(translated = false) {
+      return `
+        <div class="paper-page ${translated ? "translated" : ""}">
+          <span class="paper-badge">${translated ? "中文" : "EN"}</span>
+          <div class="paper-kicker"></div><div class="paper-title"></div><div class="paper-title short"></div><div class="paper-meta"></div>
+          <div class="paper-columns">
+            <div class="paper-lines">${"<i></i>".repeat(7)}<div class="paper-figure"></div>${"<i></i>".repeat(8)}</div>
+            <div class="paper-lines">${"<i></i>".repeat(4)}<div class="paper-figure"></div>${"<i></i>".repeat(12)}</div>
+          </div>
+        </div>`;
+    }
+
+    function outputCards(className = "option-card") {
+      const modes = [
+        ["mono", "<i></i>", "中文译文"],
+        ["dual", "<i></i><i></i>", "左右对照"],
+        ["alternate", "<i></i><i></i>", "交替页面"]
+      ];
+      return modes.map(([value, icon, label]) => `
+        <div class="${className}" data-output="${value}" data-selected="${state.output === value}" role="button" tabindex="0">
+          <div class="output-icon">${icon}</div><b>${label}</b>
+        </div>`).join("");
+    }
+
+    function toggleRow(key, title, detail) {
+      return `<div class="setting-row" data-toggle="${key}" role="switch" aria-checked="${state[key]}">
+        <span>${title}<small>${detail}</small></span><span class="toggle ${state[key] ? "on" : ""}"></span>
+      </div>`;
+    }
+
+    function bPreview() {
+      if (state.output === "mono") return {
+        label: "中文译文",
+        pages: `<div class="b-page-single">${paperPage(true)}</div>`,
+        note: "<strong>中文译文：</strong>只导出中文版 PDF，页面最简洁，适合连续阅读。"
+      };
+      if (state.output === "alternate") return {
+        label: "交替页面",
+        pages: `<div class="b-page-alternate">${paperPage(false)}<span>→</span>${paperPage(true)}</div>`,
+        note: "<strong>交替页面：</strong>原文第 1 页后接译文第 1 页。每页保持完整宽度，更适合打印，但总页数通常接近翻倍。"
+      };
+      return {
+        label: "左右对照",
+        pages: `<div class="b-page-dual">${paperPage(false)}${paperPage(true)}</div>`,
+        note: "<strong>左右对照：</strong>同一输出页左侧原文、右侧中文，方便逐段核对；为了同屏展示，正文会适当缩小。"
+      };
+    }
+
+    function historyDrawer() {
+      if (!state.historyOpen) return "";
+      return `<div class="history-backdrop" data-history-close><aside class="history-drawer" role="dialog" aria-modal="true" aria-label="翻译记录" onclick="event.stopPropagation()">
+        <div class="history-head"><div><div class="eyebrow" style="color:#72ddc8">LOCAL HISTORY</div><h2>翻译记录</h2></div><button class="ghost-button" data-history-close>关闭</button></div>
+        <div class="history-list">
+          <article class="history-item"><div class="history-item-top"><strong>Attention Is All You Need.pdf</strong><em>已完成</em></div><p>左右对照 · 智能融合 · 今天 14:32</p></article>
+          <article class="history-item"><div class="history-item-top"><strong>Deep Learning for PDEs.pdf</strong><em>已完成</em></div><p>中文译文 · Ollama 本地模型 · 昨天 20:18</p></article>
+          <article class="history-item"><div class="history-item-top"><strong>Multimodal Retrieval Survey.pdf</strong><em>68%</em></div><p>交替页面 · OpenAI-compatible · 2 天前</p></article>
+        </div>
+      </aside></div>`;
+    }
+
+    function progressBlock(className = "") {
+      if (!state.progress) return "";
+      return `<div class="${className}">
+        <div class="${className.includes("b-") ? "b-progress-row" : "c-progress-label"}"><span>${state.status}</span><strong>${state.progress}%</strong></div>
+        <div class="progress-track"><div class="progress-fill" style="width:${state.progress}%"></div></div>
+      </div>`;
+    }
+
+    function fileName() { return state.file || "尚未选择论文"; }
+    function fileMeta() { return state.fileSize || "PDF · 单文件最大 200 MB"; }
+
+    function variantA() {
+      const preview = state.output === "mono" ? paperPage(true) : paperPage(false) + paperPage(true);
+      return `<main class="variant-a">
+        <div class="a-shell">
+          <aside class="a-rail" aria-label="流程导航">
+            <div class="brand-mark" title="译页"></div>
+            <div class="a-steps"><div class="a-step active">01</div><div class="a-step">02</div><div class="a-step">03</div><div class="a-step">04</div></div>
+            <div class="a-help">?</div>
+          </aside>
+          <section class="a-main">
+            <header class="a-header">
+              <div class="a-heading"><div class="eyebrow muted">YIYE TRANSLATION STUDIO</div><h1>让论文跨过<br><em>语言的边界。</em></h1></div>
+              <div class="a-actions"><span class="pill" style="background:#e5ebe5"><i class="status-dot"></i> 本地服务就绪</span><button class="ghost-button">翻译记录</button></div>
+            </header>
+            <div class="a-workspace">
+              <section class="a-drop drop-target">
+                <div class="a-drop-head"><span class="eyebrow">01 · 导入论文</span><span class="muted" style="font-size:10px">PDF ONLY</span></div>
+                <div class="upload-orbit"><div class="upload-icon">↑</div></div>
+                <div class="a-drop-copy"><h3>${state.file ? fileName() : "把英文论文放在这里"}</h3><p>${state.file ? fileMeta() : "拖拽 PDF，或从电脑中选择。我们会自动识别双栏、公式、图表与扫描页面。"}</p><button class="primary-button file-button" data-browse>选择 PDF 文件</button></div>
+                <div class="mini-proof"><span>公式保护</span><span>双栏识别</span><span>本地优先</span></div>
+              </section>
+              <section class="a-preview-card">
+                <div class="a-preview-head"><span class="preview-title">实时版式预览</span><span class="pill" style="background:#dce8df;color:#315f50">${state.output === "mono" ? "中文译文" : state.output === "dual" ? "左右对照" : "交替页面"}</span></div>
+                <div class="preview-stage ${state.output === "dual" ? "dual" : ""}">${preview}</div>
+                <div class="a-preview-foot"><span class="muted">示意预览 · 实际结果按原论文渲染</span><span>1 / 12 页</span></div>
+              </section>
+            </div>
+          </section>
+          <aside class="a-side">
+            <div class="a-side-head"><h2>翻译设置</h2><span class="pill" style="background:#f2e6cb;color:#88652b">智能融合</span></div>
+            <section class="settings-section"><div class="section-label"><span>输出形式</span><span class="muted">必选</span></div><div class="output-grid">${outputCards()}</div></section>
+            <section class="settings-section"><div class="section-label"><span>翻译引擎</span><span class="muted">自动择优</span></div>
+              <select class="select-box" data-provider><option value="auto">智能融合 · 推荐</option><option value="openai">OpenAI-compatible API</option><option value="ollama">Ollama 本地模型</option><option value="deepl">DeepL 翻译</option></select>
+            </section>
+            <section class="settings-section"><div class="section-label"><span>内容处理</span></div>
+              ${toggleRow("ocr","扫描页 OCR","检测后仅处理需要的页面")}
+              ${toggleRow("table","翻译表格文字","保留数字、单位和单元格")}
+              ${toggleRow("figure","翻译图片文字","OCR、擦除并重新排版")}
+              ${toggleRow("watermark","处理源文件水印","仅在预览确认后执行")}
+              ${toggleRow("glossary","自动术语表","全篇统一专业词汇")}
+            </section>
+            ${progressBlock("c-progress")}
+            <button class="primary-button a-run" data-run>${state.progress ? state.status : "开始翻译 →"}</button>
+          </aside>
+        </div>
+      </main>`;
+    }
+
+    function variantB() {
+      const preview = bPreview();
+      return `<main class="variant-b"><div class="b-shell">
+        <header class="b-header"><div class="brand"><span class="brand-mark"></span><span class="brand-name">译页 <small>YIYE AI PAPER</small></span></div><div class="b-header-actions"><span class="pill"><i class="status-dot"></i> 隐私模式：本地优先</span><button class="ghost-button b-history-button" data-history>翻译记录</button><span class="avatar">R</span></div></header>
+        <div class="b-layout">
+          <section class="b-copy"><div class="eyebrow">ONE FLOW · EVERY PAPER</div><h1>读懂世界，<br><span>不必改变版式。</span></h1><p>将多翻译服务、BabelDOC 版式重建和本地大模型收进一条清晰流程。你只负责阅读，我们处理剩下的细节。</p>
+            <div class="b-timeline"><div class="b-step active"><span class="b-step-num">1</span><div><strong>上传论文</strong><small>识别版式与内容</small></div></div><div class="b-step"><span class="b-step-num">2</span><div><strong>翻译与校验</strong><small>公式、术语、引用保护</small></div></div><div class="b-step"><span class="b-step-num">3</span><div><strong>导出阅读</strong><small>译文或双语 PDF</small></div></div></div>
+          </section>
+          <div class="b-workspace">
+            <section class="b-panel">
+              <div class="b-panel-head"><div><strong>创建翻译任务</strong><br><span>任务配置只保存在本机</span></div><span>STEP 01 / 03</span></div>
+              <div class="b-drop drop-target"><div><div class="b-upload-icon">↥</div><h3>${state.file ? fileName() : "拖入一篇英文论文"}</h3><p>${state.file ? fileMeta() : "PDF · 自动识别扫描页、双栏、公式和表格"}</p><button class="ghost-button b-browse" data-browse>${state.file ? "更换文件" : "浏览文件"}</button></div></div>
+              <div class="b-quick-settings"><div class="b-quick-card"><label>翻译方式</label><select data-provider><option value="auto">智能融合 · 自动择优</option><option value="openai">OpenAI-compatible</option><option value="ollama">Ollama 本地模型</option><option value="deepl">DeepL</option></select></div><div class="b-quick-card"><label>目标语言</label><select data-target><option value="zh-CN">简体中文</option><option value="zh-TW">繁体中文</option><option value="ja">日本語</option></select></div></div>
+              <div class="b-modes"><button class="b-mode" data-output="mono" data-selected="${state.output === "mono"}">中文译文</button><button class="b-mode" data-output="dual" data-selected="${state.output === "dual"}">左右对照</button><button class="b-mode" data-output="alternate" data-selected="${state.output === "alternate"}">交替页面</button></div>
+              <div class="b-content"><div class="b-content-head"><span>内容处理</span><span>按需开启</span></div>
+                ${toggleRow("ocr","扫描页 OCR","检测后仅处理需要的页面")}
+                ${toggleRow("table","翻译表格文字","保留数字、单位和单元格")}
+                ${toggleRow("figure","翻译图片文字","OCR、擦除并重新排版")}
+                ${toggleRow("watermark","处理源文件水印","仅在预览确认后执行")}
+                ${toggleRow("glossary","自动术语表","全篇统一专业词汇")}
+              </div>
+              ${progressBlock("b-progress")}
+              <div class="b-panel-foot"><button class="primary-button" data-run>${state.progress ? state.status : "开始翻译 →"}</button></div>
+            </section>
+            <section class="b-preview-panel">
+              <div class="b-preview-head"><div><strong>实时版式预览</strong><small>选择输出形式，立即查看差异</small></div><span class="b-preview-badge">${preview.label}</span></div>
+              <div class="b-preview-canvas"><div class="b-preview-pages">${preview.pages}</div></div>
+              <div class="b-preview-note">${preview.note}<br>示意预览 · 实际结果按原论文版式渲染</div>
+            </section>
+          </div>
+        </div>
+        ${historyDrawer()}
+      </div></main>`;
+    }
+
+    function variantC() {
+      return `<main class="variant-c"><div class="c-shell">
+        <header class="c-header"><nav><button class="active">工作台</button><button>翻译记录</button><button>术语库</button></nav><div class="brand"><span class="brand-mark"></span><span class="brand-name">译页 <small>PAPER WORKSHOP</small></span></div><div class="c-tools"><button class="circle-button" aria-label="帮助">?</button><button class="circle-button" aria-label="设置">⌁</button></div></header>
+        <section class="c-intro"><div><div class="eyebrow muted">NEW TRANSLATION</div><h1>保留论文的样子，<br><span>换一种语言阅读。</span></h1></div><p>三种技术路线在后台协同，界面只保留真正影响阅读结果的选择。</p></section>
+        <section class="c-desk">
+          <aside class="c-panel left"><div class="c-panel-title"><b>原始论文</b><small>INPUT</small></div>
+            <div class="c-file-card"><div class="c-file-top"><span class="pdf-token">PDF</span><div class="c-file-name"><strong>${fileName()}</strong><small>${fileMeta()}</small></div></div><button class="ghost-button c-add" data-browse>${state.file ? "替换论文" : "+ 添加 PDF"}</button></div>
+            <div class="c-status-list"><div class="c-status-row"><span class="c-check">✓</span><span>版式结构</span><small>${state.file ? "已检测" : "待检测"}</small></div><div class="c-status-row"><span class="c-check">✓</span><span>公式与引用</span><small>保护</small></div><div class="c-status-row"><span class="c-check">✓</span><span>隐私策略</span><small>本地优先</small></div></div>
+            <div class="c-local-note"><strong>智能融合模式</strong><br>根据论文类型自动选择高保真解析与翻译流程，失败页面会保留原文并给出报告。</div>
+          </aside>
+          <section class="c-panel center"><div class="c-panel-title"><b>版式样张</b><small>PREVIEW · 01</small></div><div class="c-canvas"><div class="c-page-stack"><span class="c-sheet-ribbon">${state.output === "dual" ? "左右双语" : state.output === "mono" ? "中文译文" : "交替页面"}</span><div class="c-sheet">${paperPage(false)}${paperPage(true)}</div><span class="c-sheet-foot">原版式预览 · 150%</span></div></div></section>
+          <aside class="c-panel right"><div class="c-panel-title"><b>成稿方式</b><small>OUTPUT</small></div>
+            <div class="c-segment"><button data-output="mono" data-selected="${state.output === "mono"}">中文</button><button data-output="dual" data-selected="${state.output === "dual"}">左右双语</button><button data-output="alternate" data-selected="${state.output === "alternate"}">交替页</button></div>
+            <label class="c-select-label">翻译引擎</label><select class="select-box" data-provider><option value="auto">智能融合 · 推荐</option><option value="openai">OpenAI-compatible API</option><option value="ollama">Ollama 本地模型</option><option value="deepl">DeepL</option></select>
+            <div class="c-settings-list">${toggleRow("ocr","扫描页 OCR","自动检测")}${toggleRow("table","表格内文字","默认保留原图")}${toggleRow("figure","图片内文字","高级视觉翻译")}${toggleRow("watermark","源水印处理","需预览确认")}${toggleRow("glossary","术语一致性","自动提取 + 人工词表")}</div>
+            ${progressBlock("c-progress")}
+            <button class="primary-button c-run" data-run>${state.progress ? state.status : "生成翻译稿"}</button>
+          </aside>
+        </section>
+      </div></main>`;
+    }
+
+    function render() {
+      const variant = currentVariant();
+      app.innerHTML = variant === "A" ? variantA() : variant === "B" ? variantB() : variantC();
+      document.querySelector("#variant-name").textContent = variants[variant];
+      document.querySelector("#state-json").textContent = JSON.stringify({ variant, ...state }, null, 2);
+      document.querySelectorAll("[data-provider]").forEach(el => el.value = state.provider);
+      document.querySelectorAll("[data-target]").forEach(el => el.value = state.target);
+    }
+
+    function chooseFile(file) {
+      if (!file) return;
+      if (!file.name.toLowerCase().endsWith(".pdf")) {
+        state.status = "请选择 PDF 文件";
+        render();
+        return;
+      }
+      state.file = file.name;
+      state.fileSize = `${(file.size / 1024 / 1024).toFixed(1)} MB · 待分析`;
+      state.status = "已就绪";
+      state.progress = 0;
+      render();
+    }
+
+    function runPrototype() {
+      if (!state.file) {
+        fileInput.click();
+        return;
+      }
+      clearInterval(progressTimer);
+      state.progress = 4;
+      state.status = "正在分析版式";
+      render();
+      progressTimer = setInterval(() => {
+        state.progress = Math.min(100, state.progress + Math.ceil(Math.random() * 8));
+        state.status = state.progress < 25 ? "正在分析版式" : state.progress < 72 ? "正在翻译并保护公式" : state.progress < 100 ? "正在重建 PDF" : "翻译完成";
+        render();
+        if (state.progress >= 100) clearInterval(progressTimer);
+      }, 420);
+    }
+
+    function cycleVariant(direction) {
+      const keys = Object.keys(variants);
+      const index = keys.indexOf(currentVariant());
+      setVariant(keys[(index + direction + keys.length) % keys.length]);
+    }
+
+    document.addEventListener("click", event => {
+      const history = event.target.closest("[data-history]");
+      if (history) { state.historyOpen = true; return render(); }
+      const historyClose = event.target.closest("[data-history-close]");
+      if (historyClose) { state.historyOpen = false; return render(); }
+      const browse = event.target.closest("[data-browse]");
+      if (browse) return fileInput.click();
+      const output = event.target.closest("[data-output]");
+      if (output) { state.output = output.dataset.output; return render(); }
+      const toggle = event.target.closest("[data-toggle]");
+      if (toggle) { state[toggle.dataset.toggle] = !state[toggle.dataset.toggle]; return render(); }
+      const run = event.target.closest("[data-run]");
+      if (run) return runPrototype();
+      const nav = event.target.closest("[data-variant-nav]");
+      if (nav) return cycleVariant(nav.dataset.variantNav === "next" ? 1 : -1);
+      const advanced = event.target.closest("[data-advanced]");
+      if (advanced) {
+        state.table = !state.table;
+        state.figure = !state.figure;
+        return render();
+      }
+    });
+
+    document.addEventListener("change", event => {
+      if (event.target.matches("[data-provider]")) { state.provider = event.target.value; render(); }
+      if (event.target.matches("[data-target]")) { state.target = event.target.value; render(); }
+    });
+
+    document.addEventListener("keydown", event => {
+      const tag = event.target.tagName;
+      if (["INPUT","TEXTAREA","SELECT"].includes(tag) || event.target.isContentEditable) return;
+      if (event.key === "ArrowLeft") cycleVariant(-1);
+      if (event.key === "ArrowRight") cycleVariant(1);
+      if (event.key === "Escape" && state.historyOpen) { state.historyOpen = false; render(); }
+      if ((event.key === "Enter" || event.key === " ") && event.target.matches("[data-output],[data-toggle]")) event.target.click();
+    });
+
+    document.addEventListener("dragover", event => {
+      const target = event.target.closest(".drop-target");
+      if (!target) return;
+      event.preventDefault();
+      target.classList.add("dragging");
+    });
+    document.addEventListener("dragleave", event => event.target.closest(".drop-target")?.classList.remove("dragging"));
+    document.addEventListener("drop", event => {
+      const target = event.target.closest(".drop-target");
+      if (!target) return;
+      event.preventDefault();
+      target.classList.remove("dragging");
+      chooseFile(event.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener("change", () => chooseFile(fileInput.files[0]));
+    window.addEventListener("popstate", render);
+    render();
+  </script>
+</body>
+</html>

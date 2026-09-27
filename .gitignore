@@ -1,0 +1,20 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# 运行时数据:任务记录与用户上传文件不入库(data/glossaries/ 预设术语库保留)
+data/jobs/
+data/jobs.json
+data-e2e/
+
+# 依赖
+node_modules/
+
+# 日志与临时文件
+*.log
+*.tmp
+test/.inline-check.mjs
+
+# 工具状态
+.mimosa/

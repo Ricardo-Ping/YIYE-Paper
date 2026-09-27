@@ -1,0 +1,1 @@
+[{"name":"mock-a","provider":"openai","baseUrl":"http://127.0.0.1:5180/v1","model":"mock-large","apiKey":"k"},{"name":"mock-b","provider":"openai","baseUrl":"http://127.0.0.1:5180/v1","model":"mock-small","apiKey":"k"}]

@@ -1,0 +1,1551 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>译页 Yiye Paper</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07101f;
+      --panel: rgba(17, 29, 49, .76);
+      --panel-solid: #101c31;
+      --line: rgba(215, 231, 255, .11);
+      --muted: #8090aa;
+      --text: #eef5ff;
+      --mint: #72dfca;
+      --blue: #93b7ff;
+      --danger: #ff8d8d;
+      --shadow: 0 34px 90px rgba(0, 0, 0, .34);
+      --sans: Inter, "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    html { min-width: 320px; background: var(--bg); }
+    body {
+      min-height: 100vh; margin: 0; color: var(--text); font-family: var(--sans);
+      background:
+        radial-gradient(circle at 12% 16%, rgba(60, 97, 240, .24), transparent 30%),
+        radial-gradient(circle at 83% 8%, rgba(60, 214, 183, .13), transparent 26%),
+        linear-gradient(150deg, #091326 0%, #07101f 58%, #07131d 100%);
+    }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focus-visible, summary:focus-visible {
+      outline: 3px solid rgba(114, 223, 202, .35); outline-offset: 2px;
+    }
+    .app { min-height: 100vh; padding: 25px 34px 60px; }
+    .header { display: flex; justify-content: space-between; align-items: center; max-width: 1510px; margin: auto; }
+    .brand { display: flex; align-items: center; gap: 11px; }
+    .brand-mark { position: relative; width: 31px; height: 36px; border-radius: 7px 12px 7px 7px; background: var(--mint); transform: rotate(-4deg); box-shadow: 9px 4px 0 rgba(147,183,255,.34); }
+    .brand-mark::after { content: ""; position: absolute; right: 6px; top: 7px; bottom: 7px; width: 2px; background: #0c2530; opacity: .8; }
+    .brand-name { font-weight: 800; letter-spacing: -.02em; }
+    .brand-name small { display: block; margin-top: 2px; color: #74839d; font-size: 8px; letter-spacing: .18em; }
+    .header-actions { display: flex; align-items: center; gap: 10px; }
+    .health { display: flex; align-items: center; gap: 7px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 999px; color: #99a8be; background: rgba(255,255,255,.035); font-size: 10px; }
+    .health-dot { width: 7px; height: 7px; border-radius: 50%; background: #e6b052; box-shadow: 0 0 12px currentColor; }
+    .health.ready .health-dot { background: var(--mint); animation: health-breathe 2.4s ease-in-out infinite; }
+    @keyframes health-breathe {
+      0%, 100% { opacity: 1; box-shadow: 0 0 6px rgba(114, 223, 202, .55); }
+      50% { opacity: .35; box-shadow: 0 0 2px rgba(114, 223, 202, .12); }
+    }
+    .health.error .health-dot { background: var(--danger); }
+    .ghost, .primary { border: 1px solid var(--line); border-radius: 12px; color: var(--text); background: rgba(255,255,255,.045); padding: 11px 15px; font-weight: 700; }
+    .ghost:hover { background: rgba(255,255,255,.08); }
+    .ghost.small { padding: 8px 11px; font-size: 10px; border-radius: 10px; }
+    .ghost:disabled { opacity: .5; cursor: wait; }
+    .primary { border: 0; color: #06131e; background: linear-gradient(100deg, var(--mint), var(--blue)); box-shadow: 0 14px 36px rgba(81,185,199,.18); }
+    .primary:disabled { cursor: not-allowed; opacity: .45; box-shadow: none; }
+    .layout { display: grid; grid-template-columns: minmax(235px,.46fr) minmax(850px,1.54fr); align-items: start; gap: clamp(28px,4vw,62px); max-width: 1510px; margin: 50px auto 0; }
+    .intro { position: sticky; top: 32px; padding-top: 14px; }
+    .eyebrow { color: var(--mint); font-size: 9px; font-weight: 800; letter-spacing: .16em; }
+    .intro h1 { margin: 16px 0 20px; font-size: clamp(42px,4.6vw,70px); line-height: 1.01; letter-spacing: -.065em; }
+    .intro h1 span { color: transparent; background: linear-gradient(90deg,var(--mint),var(--blue)); background-clip: text; }
+    .intro > p { max-width: 430px; color: #8999b2; font-size: 13px; line-height: 1.8; }
+    .timeline { margin-top: 38px; }
+    .step { position: relative; display: flex; gap: 14px; padding-bottom: 24px; color: #64728a; }
+    .step::after { content: ""; position: absolute; left: 14px; top: 33px; bottom: 3px; width: 1px; background: var(--line); }
+    .step:last-child::after { display: none; }
+    .step-num { display: grid; place-items: center; flex: 0 0 auto; width: 29px; height: 29px; border: 1px solid var(--line); border-radius: 50%; font-size: 10px; font-weight: 800; }
+    .step.active { color: #f3f7ff; }
+    .step.active .step-num { color: #07131e; border-color: var(--mint); background: var(--mint); box-shadow: 0 0 24px rgba(114,223,202,.3); }
+    .step.done { color: #93a3ba; }
+    .step.done .step-num { color: var(--mint); border-color: rgba(114,223,202,.55); background: rgba(114,223,202,.1); }
+    .step.done strong { color: #c4d2e4; }
+    .step strong { display: block; margin: 4px 0; font-size: 12px; }
+    .step small { font-size: 9px; }
+    .workspace { display: grid; grid-template-columns: minmax(405px,.92fr) minmax(400px,1.08fr); gap: 16px; align-items: start; }
+    .workspace-right { display: grid; gap: 16px; min-width: 0; align-content: start; }
+    .panel { border: 1px solid var(--line); border-radius: 27px; background: linear-gradient(155deg,rgba(255,255,255,.075),rgba(255,255,255,.018)); box-shadow: var(--shadow); backdrop-filter: blur(24px); overflow: hidden; }
+    .panel-head { display: flex; justify-content: space-between; align-items: center; padding: 22px 24px; border-bottom: 1px solid var(--line); }
+    .panel-head strong { font-size: 14px; }
+    .panel-head small { display: block; margin-top: 4px; color: #6f7e96; font-size: 9px; }
+    .step-label { color: #728199; font-size: 9px; letter-spacing: .12em; }
+    .form-body { padding: 20px; }
+    .drop { display: block; padding: 13px 15px; border: 1px dashed rgba(114,223,202,.35); border-radius: 16px; background: rgba(2,8,18,.28); transition: .18s ease; cursor: pointer; }
+    .drop.dragging { border-color: var(--mint); background: rgba(114,223,202,.075); }
+    .drop-inner { display: flex; align-items: center; gap: 13px; min-width: 0; }
+    .drop-text { flex: 1; min-width: 0; }
+    .upload-icon { display: grid; place-items: center; flex: 0 0 auto; width: 40px; height: 40px; border: 1px solid rgba(114,223,202,.38); border-radius: 12px; color: var(--mint); background: linear-gradient(145deg, rgba(114,223,202,.14), rgba(114,223,202,.05)); transition: .18s ease; }
+    .upload-icon svg { display: block; }
+    .drop:hover .upload-icon, .drop.dragging .upload-icon { color: #06131e; background: var(--mint); }
+    .drop h2 { margin: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .drop p { margin: 4px 0 0; color: #718098; font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #file-input, #glossary-input { display: none; }
+    .chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 11px; }
+    .chip { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; padding: 7px 10px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.04); font-size: 10px; }
+    .chip-name { overflow: hidden; max-width: 240px; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
+    .chip small { color: #718098; }
+    .chip button { padding: 0 2px; border: 0; color: #8fa0b8; background: transparent; font-size: 13px; line-height: 1; }
+    .chip button:hover { color: var(--danger); }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; margin-top: 14px; }
+    .field { min-width: 0; padding: 14px; border: 1px solid rgba(255,255,255,.075); border-radius: 15px; background: rgba(2,8,18,.27); }
+    .field label, .section-title { display: flex; justify-content: space-between; margin-bottom: 8px; color: #75849b; font-size: 8px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    .field input, .field select { width: 100%; border: 0; outline: 0; color: #edf4ff; background: transparent; font-weight: 700; }
+    .field input::placeholder { color: #526078; font-weight: 400; }
+    .field select option { color: #162235; background: white; }
+    .dd { position: relative; }
+    .dd-source { display: none !important; }
+    .dd-btn { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 8px; border: 0; color: #edf4ff; background: transparent; font-weight: 700; text-align: left; }
+    .dd-btn .chev { flex: 0 0 auto; color: #718098; font-size: 9px; transition: transform .15s; }
+    .dd.open .chev { transform: rotate(180deg); }
+    .dd.disabled .dd-btn { opacity: .45; cursor: not-allowed; }
+    .dd-menu { display: none; position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 40; max-height: 250px; overflow-y: auto; padding: 4px; border: 1px solid var(--line); border-radius: 12px; background: #0d1729; box-shadow: 0 18px 44px rgba(0,0,0,.5); }
+    .dd-menu.open { display: block; }
+    .dd-opt { display: block; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px; color: #c9d6ea; background: transparent; text-align: left; font-size: 11px; font-weight: 600; }
+    .dd-opt:hover { background: rgba(114,223,202,.12); color: #fff; }
+    .dd-opt.selected { color: var(--mint); font-weight: 800; }
+    .combobox-field { position: relative; }
+    .combobox-field .dd-menu { top: 100%; }
+    .provider-fields { display: grid; gap: 10px; margin-top: 11px; }
+    .service-bar { display: flex; align-items: center; gap: 13px; width: 100%; margin-top: 12px; padding: 13px 15px; border: 1px solid var(--line); border-radius: 15px; color: var(--text); background: rgba(2,8,18,.27); text-align: left; transition: .18s ease; }
+    .service-bar:hover { border-color: rgba(114,223,202,.45); background: rgba(114,223,202,.05); }
+    .service-icon { display: grid; place-items: center; flex: 0 0 auto; width: 38px; height: 38px; border: 1px solid rgba(114,223,202,.38); border-radius: 12px; color: var(--mint); background: rgba(114,223,202,.07); font-size: 16px; }
+    .service-text { flex: 1; min-width: 0; }
+    .service-text strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+    .service-text small { display: block; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #718098; font-size: 9px; }
+    .service-action { flex: 0 0 auto; color: var(--mint); font-size: 10px; font-weight: 800; }
+    .settings-drawer { position: absolute; top: 0; right: 0; bottom: 0; width: min(480px,94vw); padding: 27px; background: #0d1729; box-shadow: -30px 0 90px rgba(0,0,0,.45); overflow-y: auto; }
+    .drawer-backdrop { display: none; position: fixed; inset: 0; z-index: 30; background: rgba(1,5,13,.7); backdrop-filter: blur(9px); }
+    .drawer-backdrop.open { display: block; }
+    .settings-drawer .drawer-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; }
+    .settings-drawer .drawer-head h2 { margin: 5px 0 0; font-size: 21px; }
+    .settings-body { display: grid; gap: 10px; }
+    .settings-section { border-top: 1px solid var(--line); margin-top: 20px; padding-top: 18px; }
+    .settings-section-title { color: var(--mint); font-size: 9px; font-weight: 800; letter-spacing: .16em; margin-bottom: 12px; }
+    .settings-note { margin: 4px 0 0; color: #718098; font-size: 9px; line-height: 1.6; }
+    .kind-seg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .kind-btn { padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; color: #8492a8; background: rgba(255,255,255,.02); text-align: left; transition: .18s ease; }
+    .kind-btn strong { display: block; font-size: 12px; }
+    .kind-btn small { display: block; margin-top: 3px; font-size: 8px; color: #6f7e96; }
+    .kind-btn.selected { color: #06131e; border-color: var(--mint); background: var(--mint); }
+    .kind-btn.selected small { color: rgba(6,19,30,.7); }
+    .kind-pane { display: grid; gap: 8px; }
+    .vendor-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+    .vendor-btn { padding: 10px 6px; border: 1px solid rgba(255,255,255,.09); border-radius: 11px; color: #a9b6c9; background: rgba(2,8,18,.3); font-size: 9px; font-weight: 800; text-align: center; transition: .15s ease; }
+    .vendor-btn:hover { border-color: rgba(114,223,202,.4); color: var(--text); }
+    .vendor-btn.selected { color: #06131e; border-color: var(--mint); background: var(--mint); }
+    .protocol-note { color: #718098; font-size: 8px; }
+    .key-row { display: flex; align-items: center; gap: 7px; }
+    .key-row input { flex: 1; min-width: 0; }
+    .key-eye { flex: 0 0 auto; padding: 3px 7px; border: 1px solid rgba(255,255,255,.12); border-radius: 7px; color: #a9b6c9; background: transparent; font-size: 11px; }
+    .key-eye:hover { color: var(--text); border-color: rgba(114,223,202,.4); }
+    .badge { margin-left: 6px; padding: 1px 6px; border-radius: 999px; color: #07131e; background: var(--mint); font-size: 8px; font-weight: 900; }
+    .drawer-actions { display: flex; gap: 8px; flex: 0 0 auto; }
+    .drawer-list { max-height: calc(100vh - 190px); overflow-y: auto; border: 1px solid var(--line); border-radius: 14px; background: rgba(2,8,18,.2); }
+    .provider-fields .field { padding: 12px 14px; }
+    .provider-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 11px; }
+    .test-result { flex: 1; min-width: 160px; color: #8fa0b8; font-size: 10px; line-height: 1.5; }
+    .test-result.ok { color: var(--mint); }
+    .test-result.err { color: var(--danger); }
+    .output-modes { display: grid; grid-template-columns: repeat(2,1fr); gap: 7px; margin-top: 15px; }
+    .mode { padding: 11px 7px; border: 1px solid rgba(255,255,255,.075); border-radius: 12px; color: #8492a8; background: rgba(255,255,255,.02); text-align: center; font-size: 10px; font-weight: 800; }
+    .mode.selected { color: #06131e; border-color: var(--mint); background: var(--mint); }
+    .content { margin-top: 15px; padding: 4px 14px; border: 1px solid rgba(255,255,255,.075); border-radius: 16px; background: rgba(2,8,18,.27); }
+    .section-title { margin: 0; padding: 13px 0 7px; }
+    .setting { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 9px 0; border-top: 1px solid rgba(255,255,255,.05); }
+    .setting strong { display: block; font-size: 11px; }
+    .setting small { display: block; margin-top: 3px; color: #718098; font-size: 8px; }
+    .setting.disabled { opacity: .48; }
+    .coming { color: #94a3ba; font-size: 8px; font-weight: 800; }
+    .toggle { position: relative; flex: 0 0 auto; width: 38px; height: 22px; }
+    .toggle input { position: absolute; opacity: 0; }
+    .toggle span { position: absolute; inset: 0; border-radius: 999px; background: rgba(255,255,255,.16); transition: .18s; }
+    .toggle span::after { content: ""; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; border-radius: 50%; background: white; transition: .18s; }
+    .toggle input:checked + span { background: var(--mint); }
+    .glossary-box { margin-top: 11px; padding: 12px 14px; border: 1px dashed rgba(255,255,255,.16); border-radius: 13px; }
+    .glossary-head { display: flex; justify-content: space-between; align-items: center; color: #75849b; font-size: 8px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    .link-btn { padding: 0; border: 0; color: var(--blue); background: none; font-size: 9px; font-weight: 800; letter-spacing: .06em; }
+    .link-btn:hover { text-decoration: underline; }
+    .glossary-body { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 10px; color: #8fa0b8; font-size: 10px; line-height: 1.5; }
+    .glossary-body .ghost { flex: 0 0 auto; }
+    .error { display: none; margin-top: 12px; padding: 11px 13px; border: 1px solid rgba(255,141,141,.2); border-radius: 12px; color: #ffc1c1; background: rgba(255,104,104,.06); font-size: 10px; line-height: 1.55; }
+    .error.visible { display: block; }
+    .run-row { margin-top: 15px; }
+    .run-row .primary { width: 100%; padding: 14px; }
+    .preview { min-width: 0; position: sticky; top: 28px; }
+    .preview-badge { padding: 7px 10px; border-radius: 999px; color: #07131e; background: var(--mint); font-size: 8px; font-weight: 900; }
+    .preview-canvas { display: grid; place-items: center; min-height: 530px; padding: 30px 24px; background: radial-gradient(circle at 50% 35%,rgba(83,127,242,.13),transparent 50%),rgba(2,8,18,.25); }
+    .pages { width: 100%; max-width: 520px; }
+    .paper { position: relative; min-height: 390px; padding: 18px; color: #20302b; border-radius: 2px; background: #f8f7f1; box-shadow: 0 18px 46px rgba(0,0,0,.28); }
+    .paper.translated { background: #f4f7f3; }
+    .paper-badge { position: absolute; top: 10px; right: 10px; padding: 4px 6px; border-radius: 4px; color: white; background: #18473d; font-size: 7px; font-weight: 900; }
+    .paper .kicker { width: 36%; height: 5px; margin: 4px 0 10px; background: #aeb5b1; }
+    .paper .title { width: 80%; height: 8px; margin-bottom: 5px; background: #1f2926; }
+    .paper .title.short { width: 58%; }
+    .paper .meta { width: 46%; height: 4px; margin: 12px 0 17px; background: #aab1ad; }
+    .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .lines i { display: block; height: 3px; margin: 5px 0; background: #b7bdb9; }
+    .lines i:nth-child(3n) { width: 82%; }
+    .figure { height: 63px; margin: 10px 0; border: 1px solid #bdc5c0; background: linear-gradient(145deg,#edf0ed,#dce5df); }
+    .single { max-width: 310px; margin: auto; }
+    .dual { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .dual .paper { min-height: 365px; }
+    .preview-note { min-height: 84px; padding: 19px 23px 22px; color: #8291a8; font-size: 10px; line-height: 1.65; }
+    .preview-note strong { color: #dce7f7; }
+    .live-wrap { width: 100%; max-width: 520px; padding: 10px 4px; }
+    .live-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; color: #dce7f7; font-size: 12px; }
+    .live-head strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .live-dot { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 12px currentColor; animation: live-pulse 1.2s infinite; }
+    @keyframes live-pulse { 50% { opacity: .3; } }
+    .live-percent { margin-left: auto; color: var(--mint); font-weight: 800; }
+    .live-stage { margin-bottom: 14px; color: #8291a8; font-size: 10px; }
+    .live-pages { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
+    .mini-paper { position: relative; aspect-ratio: .72; padding: 10px 7px; border-radius: 3px; background: #f8f7f1; box-shadow: 0 8px 20px rgba(0,0,0,.25); transition: .4s; }
+    .mini-paper i { display: block; height: 2px; margin: 3px 0; background: #b7bdb9; }
+    .mini-paper i.short { width: 70%; }
+    .mini-badge { position: absolute; top: 3px; right: 3px; padding: 1px 3px; border-radius: 2px; color: #fff; background: #5b6660; font-size: 6px; font-weight: 900; }
+    .mini-paper.translated { background: #f4f7f3; outline: 1px solid rgba(114,223,202,.55); }
+    .mini-paper.translated .mini-badge { background: #18473d; }
+    .live-bar { height: 5px; margin-top: 14px; overflow: hidden; border-radius: 99px; background: rgba(255,255,255,.1); }
+    .live-bar i { display: block; width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg,var(--mint),var(--blue)); transition: width .4s; }
+    .real-frame { width: 100%; height: 545px; border: 0; border-radius: 8px; background: #fff; }
+    .scan-wrap { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; max-width: 520px; }
+    .scan-wrap.mono-mode { grid-template-columns: 1fr; max-width: 320px; margin: auto; }
+    .scan-pane { position: relative; overflow: hidden; border-radius: 3px; background: #fff; box-shadow: 0 10px 26px rgba(0,0,0,.28); }
+    .scan-pane > img { display: block; width: 100%; }
+    .pane-tag { position: absolute; top: 4px; right: 4px; z-index: 2; padding: 2px 5px; border-radius: 3px; color: #fff; background: rgba(24,71,61,.92); font-size: 7px; font-weight: 900; }
+    .scan-reveal { position: absolute; inset: 0; clip-path: inset(0 0 100% 0); }
+    .scan-reveal > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .demo-overlay { position: absolute; inset: 0; padding: 7% 8%; background: rgba(244,247,243,.97); }
+    .demo-overlay i { display: block; height: 3px; margin: 7px 0; border-radius: 2px; background: #9fb3a9; }
+    .demo-overlay i.head { height: 6px; width: 62%; margin: 6% auto 12%; background: #1f2926; }
+    .demo-overlay i.w85 { width: 85%; }
+    .demo-overlay i.w60 { width: 60%; }
+    .demo-overlay i.w40 { width: 40%; }
+    .scan-line { position: absolute; left: -6px; right: -6px; height: 2px; z-index: 3; background: linear-gradient(90deg, transparent, var(--mint), transparent); box-shadow: 0 0 14px rgba(114,223,202,.95); transition: top .5s linear; }
+    .scan-meta { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 520px; margin-bottom: 10px; color: #a3b1c5; font-size: 10px; }
+    .scan-meta strong { color: #dce7f7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .scan-meta .live-dot { display: inline-block; margin-right: 7px; }
+    .task-list { display: grid; gap: 10px; max-height: 620px; padding: 16px; overflow: auto; }
+    .history-empty { padding: 34px 15px; color: #718098; text-align: center; font-size: 11px; }
+    .task-item { padding: 13px 14px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,255,255,.03); }
+    .task-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .task-top strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+    .status-pill { flex: 0 0 auto; color: var(--mint); font-size: 8px; font-weight: 900; }
+    .status-pill.queued, .status-pill.canceled { color: #8fa0b8; }
+    .status-pill.running { color: var(--blue); }
+    .status-pill.failed, .status-pill.interrupted { color: var(--danger); }
+    .task-stage { display: flex; justify-content: space-between; gap: 12px; margin: 9px 0 6px; color: #8fa0b8; font-size: 9px; }
+    .task-progress { height: 4px; overflow: hidden; border-radius: 99px; background: rgba(255,255,255,.08); }
+    .task-progress > i { display: block; width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg,var(--mint),var(--blue)); transition: width .3s; }
+    .task-error { margin-top: 8px; color: #ffb0b0; font-size: 9px; line-height: 1.5; }
+    .task-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; color: #718098; font-size: 9px; }
+    .task-meta .quality-ok { color: var(--mint); font-weight: 800; }
+    .task-meta .quality-warn { color: #e8ca93; font-weight: 800; }
+    .task-issues { margin-top: 8px; display: grid; gap: 3px; }
+    .task-issue { color: #e8ca93; font-size: 9px; line-height: 1.5; }
+    .estimate-line { margin-top: 9px; color: #8fa0b8; font-size: 10px; line-height: 1.6; }
+    .glossary-body .dd { flex: 1; min-width: 0; }
+    .task-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+    .task-actions a, .task-actions button { padding: 6px 9px; border: 1px solid var(--line); border-radius: 8px; color: #bed0e9; background: transparent; text-decoration: none; font-size: 8px; font-weight: 800; }
+    .task-actions a:hover, .task-actions button:hover { background: rgba(255,255,255,.06); }
+    .task-log { display: none; max-height: 150px; margin-top: 9px; padding: 9px 10px; overflow: auto; border-radius: 9px; color: #9fb2c9; background: rgba(0,0,0,.28); font: 9px/1.6 Consolas, monospace; white-space: pre-wrap; word-break: break-all; }
+    .task-log.open { display: block; }
+    .setup-note { display: none; max-width: 1510px; margin: 18px auto -24px; padding: 12px 15px; border: 1px solid rgba(230,176,82,.2); border-radius: 12px; color: #e8ca93; background: rgba(230,176,82,.06); font-size: 10px; }
+    .setup-note.visible { display: block; }
+    code { color: #dce8ff; }
+    @media (max-width: 1160px) {
+      .layout { grid-template-columns: 1fr; max-width: 900px; }
+      .intro { position: static; text-align: center; }
+      .intro > p { margin-left: auto; margin-right: auto; }
+      .intro h1 { font-size: clamp(40px,7vw,64px); }
+      .timeline { display: flex; justify-content: center; gap: 18px; }
+      .step { display: block; padding: 0; text-align: center; }
+      .step::after, .step small { display: none; }
+      .step-num { margin: auto; }
+    }
+    @media (max-width: 800px) {
+      .app { padding: 18px 14px 35px; }
+      .header { align-items: flex-start; }
+      .health { display: none; }
+      .workspace { grid-template-columns: 1fr; }
+      .layout { margin-top: 34px; }
+      .intro h1 { font-size: 44px; }
+    }
+    @media (max-width: 520px) {
+      .brand-name small { display: none; }
+      .header-actions .ghost { padding: 9px 10px; }
+      .intro { text-align: left; }
+      .timeline { justify-content: flex-start; }
+      .grid-2 { grid-template-columns: 1fr; }
+      .output-modes { grid-template-columns: 1fr; }
+
+      .preview-canvas { padding: 22px 17px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="brand"><span class="brand-mark"></span><span class="brand-name">译页 <small>YIYE PAPER</small></span></div>
+      <div class="header-actions">
+        <span class="health" id="health"><i class="health-dot"></i><span>正在检查引擎</span></span>
+        <button class="ghost small" id="notify-button" hidden>完成提醒</button>
+        <button class="ghost small" id="tasks-open">任务列表<span class="badge" id="tasks-badge" hidden>0</span></button>
+        <button class="ghost small" id="settings-open">⚙ 设置</button>
+      </div>
+    </header>
+    <div class="setup-note" id="setup-note">翻译引擎尚未安装。在项目目录运行 <code>uv sync</code>，完成后刷新页面。</div>
+
+    <main class="layout">
+      <section class="intro">
+        <div class="eyebrow">ONE FLOW · EVERY PAPER</div>
+        <h1>读懂世界，<br><span>不必改变版式。</span></h1>
+        <p>将版式识别、学术翻译和本地大模型收进一条清晰流程。原始 PDF 永远保留，所有任务记录只存放在本机。</p>
+        <div class="timeline">
+          <div class="step active" data-step="1"><span class="step-num">1</span><div><strong>上传论文</strong><small>支持批量拖入多篇 PDF</small></div></div>
+          <div class="step" data-step="2"><span class="step-num">2</span><div><strong>翻译与校验</strong><small>公式、术语、引用保护</small></div></div>
+          <div class="step" data-step="3"><span class="step-num">3</span><div><strong>导出阅读</strong><small>译文或双语 PDF 与术语表</small></div></div>
+        </div>
+      </section>
+
+      <div class="workspace">
+        <section class="panel">
+            <div class="panel-head"><div><strong>创建翻译任务</strong><small>API key 不会写入任务记录</small></div><span class="step-label">LOCAL · PRIVATE</span></div>
+            <div class="form-body">
+              <label class="drop" id="drop" for="file-input" tabindex="0">
+                <div class="drop-inner">
+                  <div class="upload-icon" aria-hidden="true">
+                    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5z"/><polyline points="14.5 2 14.5 7.5 20 7.5"/><path d="M12 12.5v5.5"/><path d="m9.2 15.3 2.8-2.8 2.8 2.8"/></svg>
+                  </div>
+                  <div class="drop-text">
+                    <h2>拖入英文论文（可多选）</h2>
+                    <p>PDF · 单个最大 200 MB · 原文件不会被覆盖</p>
+                  </div>
+                  <span class="ghost small">浏览文件</span>
+                </div>
+              </label>
+              <input id="file-input" type="file" accept="application/pdf,.pdf" multiple>
+              <div class="chips" id="chips"></div>
+              <div class="estimate-line" id="estimate-line" hidden></div>
+
+              <button type="button" class="service-bar" id="service-open" aria-haspopup="dialog">
+                <span class="service-icon">⚙</span>
+                <span class="service-text">
+                  <strong id="service-name">翻译服务</strong>
+                  <small id="service-url"></small>
+                </span>
+                <span class="service-action">修改</span>
+              </button>
+
+              <div class="output-modes" aria-label="输出形式">
+                <button class="mode" data-output="mono">中文译文</button>
+                <button class="mode selected" data-output="dual">左右对照</button>
+              </div>
+
+              <div class="content">
+                <div class="section-title"><span>内容处理</span><span>按需开启</span></div>
+                <div class="setting"><div><strong>扫描页 OCR</strong><small>检测到重度扫描件时启用兼容处理</small></div><label class="toggle"><input id="ocr" type="checkbox" checked><span></span></label></div>
+                <div class="setting"><div><strong>翻译表格文字</strong><small>实验功能；保留数字、单位和单元格</small></div><label class="toggle"><input id="table" type="checkbox" checked><span></span></label></div>
+                <div class="setting disabled"><div><strong>翻译图片文字</strong><small>需要独立 OCR、擦除与回绘流水线</small></div><span class="coming">尚未开放</span></div>
+                <div class="setting disabled"><div><strong>处理源文件水印</strong><small>必须先完成检测、预览与权限确认</small></div><span class="coming">尚未开放</span></div>
+                <div class="setting" id="glossary-setting"><div><strong id="glossary-auto-title">自动术语表</strong><small id="glossary-auto-hint">抽取并统一全文专业术语，完成后可导出复用</small></div><label class="toggle"><input id="glossary" type="checkbox" checked><span></span></label></div>
+              </div>
+
+              <div class="error" id="error"></div>
+              <div class="run-row"><button class="primary" id="run-button">开始翻译 →</button></div>
+            </div>
+        </section>
+
+        <div class="workspace-right">
+        <section class="panel preview">
+          <div class="panel-head"><div><strong>实时版式预览</strong><small id="preview-subtitle">选择输出形式，立即查看差异</small></div><span class="preview-badge" id="preview-badge">左右对照</span></div>
+          <div class="preview-canvas"><div class="pages" id="pages"></div></div>
+          <div class="preview-note" id="preview-note"></div>
+        </section>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div class="drawer-backdrop" id="settings-backdrop">
+    <aside class="settings-drawer" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <div class="drawer-head"><div><div class="eyebrow">TRANSLATION SERVICE</div><h2 id="settings-title">翻译服务设置</h2></div><button class="ghost" id="settings-close">关闭</button></div>
+      <div class="settings-body">
+        <div class="field" style="margin-top:0"><label><span>目标语言</span></label><select id="target" data-enhance><option value="zh-CN">简体中文</option><option value="zh-TW">繁体中文</option></select></div>
+
+        <div class="kind-seg" role="tablist" aria-label="服务类型">
+          <button type="button" class="kind-btn selected" data-kind="local" id="kind-local"><strong>本地模型</strong><small>自定义地址与模型</small></button>
+          <button type="button" class="kind-btn" data-kind="cloud" id="kind-cloud"><strong>在线 API</strong><small>主流供应商 · 自定义中转</small></button>
+        </div>
+
+        <div id="local-pane" class="kind-pane" hidden>
+          <p class="settings-note">按调用本地大模型的通用方式接入：任何暴露 OpenAI 兼容 <code>/v1</code> 接口的本地服务（Ollama、LM Studio、vLLM 等）填地址即可。地址与模型名完全由你填写；服务在线时会自动发现已安装的模型列表。</p>
+        </div>
+
+        <div id="cloud-pane" class="kind-pane" hidden>
+          <div class="vendor-grid" id="vendor-grid"></div>
+        </div>
+
+        <div class="field"><label for="base-url"><span>接口地址</span></label><input id="base-url" value="http://127.0.0.1:11434/v1" spellcheck="false"></div>
+        <div class="grid-2" style="margin-top:0">
+          <div class="field combobox-field"><label><span>模型</span><span class="protocol-note">可输入或选择</span></label><input id="model" value="qwen3:8b" spellcheck="false" autocomplete="off"><datalist id="model-list"></datalist></div>
+          <div class="field"><label><span>API 协议</span></label><select id="protocol" data-enhance><option value="openai">OpenAI 兼容</option><option value="anthropic">Anthropic (Claude)</option><option value="gemini">Google Gemini</option></select></div>
+        </div>
+        <div class="field"><label><span>思考深度</span><span class="protocol-note">仅支持的模型生效</span></label><select id="thinking" data-enhance><option value="default">模型默认</option><option value="off">关闭（更快更省）</option><option value="low">低</option><option value="medium">中</option><option value="high">高</option></select></div>
+        <div class="field"><label for="api-key"><span>API key</span><span id="api-hint">仅本次任务</span></label>
+          <div class="key-row">
+            <input id="api-key" type="password" autocomplete="off" spellcheck="false" placeholder="粘贴后自动保存在本机浏览器">
+            <button type="button" class="key-eye" id="key-toggle" title="显示 / 隐藏 API key">👁</button>
+          </div>
+        </div>
+        <div class="provider-tools" style="margin-top:0">
+          <button class="ghost small" id="test-button" type="button">测试连接</button>
+          <button class="ghost small" id="models-button" type="button">获取模型列表</button>
+          <span class="test-result" id="test-result"></span>
+        </div>
+        <p class="settings-note">设置保存在本机浏览器。API key 粘贴后按服务地址保存在本机浏览器的本地存储中（不上传任何服务器、不写入应用日志），下次打开自动填回；点击 👁 可显示 / 隐藏，清空输入框即删除。本地服务通常无需 key，仅在服务设置了鉴权（如 vLLM --api-key、本地中转网关）时填写。</p>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">高级设置</div>
+        <div class="grid-2" style="margin-top:0">
+          <div class="field"><label for="qps"><span>并发请求 QPS</span><span>1 – 16</span></label><input id="qps" type="number" min="1" max="16" step="1" value="4"></div>
+          <div class="field"><label for="pages-range"><span>页码范围</span><span>留空翻译全部</span></label><input id="pages-range" placeholder="如 1-5,8,11-" spellcheck="false"></div>
+        </div>
+        <div class="setting">
+          <div><strong>疑难 PDF 兼容模式</strong><small>排版异常或导出异常时启用；关闭清理与富文本，用画质换成功率</small></div>
+          <label class="toggle"><input id="enhance" type="checkbox"><span></span></label>
+        </div>
+        <div class="glossary-box">
+          <div class="glossary-head"><span>自定义术语表（CSV）</span><button class="link-btn" id="glossary-template" type="button">下载模板</button></div>
+          <div class="glossary-body" id="glossary-empty">
+            <span>source、target 两列；上传后全文强制采用其中译名。</span>
+            <label class="ghost small" for="glossary-input">选择文件</label>
+          </div>
+          <div class="glossary-body" id="glossary-info" hidden>
+            <span id="glossary-meta"></span>
+            <span style="display:flex;gap:7px;flex:0 0 auto">
+              <button class="ghost small" id="glossary-save" type="button">存入术语库</button>
+              <button class="ghost small" id="glossary-clear" type="button">移除</button>
+            </span>
+          </div>
+          <div class="glossary-body">
+            <select id="glossary-library" data-enhance><option value="">术语库：不使用</option></select>
+            <button class="ghost small" id="glossary-library-download" type="button">下载</button>
+            <button class="ghost small" id="glossary-library-delete" type="button">删除所选</button>
+          </div>
+          <input id="glossary-input" type="file" accept=".csv,text/csv">
+        </div>
+        <p class="settings-note">以上设置对本机后续所有翻译任务生效；术语库中的词条会按段落自动注入翻译提示词并保持全文一致。</p>
+      </div>
+    </aside>
+  </div>
+
+  <div class="drawer-backdrop" id="tasks-backdrop">
+    <aside class="settings-drawer" role="dialog" aria-modal="true" aria-labelledby="tasks-title">
+      <div class="drawer-head">
+        <div><div class="eyebrow">LOCAL HISTORY</div><h2 id="tasks-title">任务列表</h2></div>
+        <span class="drawer-actions"><button class="ghost" id="tasks-clear">清除已完成</button><button class="ghost" id="tasks-close">关闭</button></span>
+      </div>
+      <div class="task-list drawer-list" id="task-list"><div class="history-empty">正在读取…</div></div>
+      <p class="settings-note" style="margin-top:12px"><span id="tasks-count"></span> · 删除任务会同时删除其全部输出文件；进行中的任务需先取消才能删除。</p>
+    </aside>
+  </div>
+
+  <script>
+    const $ = (selector) => document.querySelector(selector);
+    const state = {
+      files: [], glossary: null, glossaryEntries: 0, output: "dual",
+      engineReady: false, jobs: [], expanded: new Set(), submitting: false,
+      signature: "", pollTimer: null, estimates: new Map(), estimateSeq: 0,
+      qualityDetails: new Map(), previewKey: "", previewOverride: false,
+      serviceKind: "local", vendorId: "openai",
+    };
+    const outputNames = { mono: "中文译文", dual: "左右对照" };
+    const statusNames = { queued: "等待执行", running: "翻译中", completed: "已完成", failed: "失败", canceled: "已取消", interrupted: "已中断" };
+    const SETTINGS_KEY = "yiye-settings-v1";
+    const MAX_FILE_BYTES = 200 * 1024 * 1024;
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
+    }
+
+    function formatBytes(bytes) {
+      return bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(0)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+    }
+
+    function formatTokens(count) {
+      return count >= 10000 ? `${(count / 10000).toFixed(1)} 万` : String(count);
+    }
+
+    function estimateKey(file) {
+      return `${file.name}:${file.size}`;
+    }
+
+    async function estimateFiles() {
+      const seq = ++state.estimateSeq;
+      for (const file of state.files) {
+        if (state.estimates.has(estimateKey(file))) { renderEstimate(); continue; }
+        try {
+          const form = new FormData();
+          form.append("file", file, file.name);
+          const response = await fetch("/api/estimate", { method: "POST", body: form });
+          const data = await response.json();
+          if (seq !== state.estimateSeq) return;
+          state.estimates.set(estimateKey(file), response.ok ? data : { error: data.error || "预估失败" });
+        } catch (error) {
+          if (seq !== state.estimateSeq) return;
+          state.estimates.set(estimateKey(file), { error: error.message });
+        }
+        renderEstimate();
+      }
+    }
+
+    function renderEstimate() {
+      const line = $("#estimate-line");
+      if (!state.files.length) { line.hidden = true; line.textContent = ""; return; }
+      let pages = 0;
+      let tokens = 0;
+      let pending = 0;
+      const problems = [];
+      for (const file of state.files) {
+        const result = state.estimates.get(estimateKey(file));
+        if (!result) { pending += 1; continue; }
+        if (result.error) { problems.push(`⚠ ${file.name}：${result.error}`); continue; }
+        pages += result.pages || 0;
+        tokens += result.estimatedTokens || 0;
+        for (const message of result.errors || []) problems.push(`⚠ ${file.name}：${message}`);
+        for (const message of result.warnings || []) problems.push(`⚠ ${file.name}：${message}`);
+      }
+      const bits = [];
+      if (pages) bits.push(`共 ${pages} 页`);
+      if (tokens) {
+        // 中文译文输出通常为输入的 1.2–1.6 倍,加提示词开销后给出全程参考区间
+        bits.push(`输入约 ${formatTokens(tokens)} tokens`);
+        bits.push(`全程约 ${formatTokens(Math.round(tokens * 2.4))}–${formatTokens(Math.round(tokens * 3.2))} tokens`);
+      }
+      if (pending) bits.push("估算中…");
+      const text = [...bits, ...problems].join(" · ");
+      line.textContent = text;
+      line.hidden = !text;
+    }
+
+    function paper(translated = false) {
+      return `<div class="paper ${translated ? "translated" : ""}"><span class="paper-badge">${translated ? "中文" : "EN"}</span><div class="kicker"></div><div class="title"></div><div class="title short"></div><div class="meta"></div><div class="columns"><div class="lines">${"<i></i>".repeat(7)}<div class="figure"></div>${"<i></i>".repeat(6)}</div><div class="lines">${"<i></i>".repeat(4)}<div class="figure"></div>${"<i></i>".repeat(9)}</div></div></div>`;
+    }
+
+    function renderPreview() {
+      const pages = $("#pages");
+      $("#preview-badge").textContent = outputNames[state.output];
+      $("#preview-subtitle").textContent = "选择输出形式，立即查看差异";
+      state.previewKey = "idle";
+      if (state.output === "mono") {
+        pages.innerHTML = `<div class="single">${paper(true)}</div>`;
+        $("#preview-note").innerHTML = "<strong>中文译文：</strong>只导出中文版 PDF，页面最简洁，适合连续阅读。";
+      } else {
+        pages.innerHTML = `<div class="dual">${paper(false)}${paper(true)}</div>`;
+        $("#preview-note").innerHTML = "<strong>左右对照：</strong>同一输出页左侧原文、右侧中文，适合逐段核对；正文会适当缩小。";
+      }
+    }
+
+    function scanMetaHtml(job) {
+      return `<div class="scan-meta"><span class="live-dot"></span><strong>${escapeHtml(job.fileName)}</strong><span id="scan-stage">${escapeHtml(job.stage || "")}</span><span class="live-percent" id="live-percent">${job.progress || 0}%</span></div>`;
+    }
+
+    function demoOverlayHtml() {
+      let lines = '<i class="head"></i>';
+      for (const width of ["", "w85", "", "w60", "", "w85", "", "w40", "", "", "w85", "", "", "w60", "", "", "w85"]) {
+        lines += `<i class="${width}"></i>`;
+      }
+      return `<div class="demo-overlay">${lines}</div>`;
+    }
+
+    function renderScanPreview(job) {
+      state.previewKey = `scan:${job.id}`;
+      const mono = job.config.output === "mono";
+      const img = `/api/jobs/${job.id}/page-image/input-page.png`;
+      const dualPanes = `
+        <div class="scan-pane"><span class="pane-tag">原文</span><img src="${img}" alt="原文页" onerror="window.__previewImgError()"></div>
+        <div class="scan-pane"><span class="pane-tag">译文</span><div class="scan-reveal" id="scan-reveal">${demoOverlayHtml()}</div></div>`;
+      const monoPanes = `
+        <div class="scan-pane"><span class="pane-tag">原文</span><img src="${img}" alt="原文页" onerror="window.__previewImgError()"><div class="scan-reveal" id="scan-reveal">${demoOverlayHtml()}</div></div>`;
+      $("#pages").innerHTML = `${scanMetaHtml(job)}<div class="scan-wrap${mono ? " mono-mode" : ""}">${mono ? monoPanes : dualPanes}<div class="scan-line" id="scan-line" style="top:${Math.min(100, job.progress || 0)}%"></div></div>`;
+      $("#preview-badge").textContent = `翻译中 ${job.progress || 0}%`;
+      $("#preview-subtitle").textContent = "任务进度实时更新";
+      $("#preview-note").innerHTML = "<strong>过程示意：</strong>扫描线代表真实翻译进度；引擎在全部段落翻译完成后才生成译文，扫描经过后右侧出现的是版式示意而非逐段真译文。任务完成后这里会显示真实译文页。";
+    }
+
+    function updateScanProgress(job) {
+      const percent = Math.min(100, Math.max(0, job.progress || 0));
+      $("#live-percent").textContent = `${percent}%`;
+      const stage = $("#scan-stage");
+      if (stage) stage.textContent = job.stage || "";
+      $("#preview-badge").textContent = `翻译中 ${percent}%`;
+      $("#scan-line").style.top = `${percent}%`;
+      const reveal = $("#scan-reveal");
+      if (reveal) reveal.style.clipPath = `inset(0 0 ${100 - percent}% 0)`;
+    }
+
+    function renderDonePreview(job, pdfName) {
+      state.previewKey = `done:${job.id}:${pdfName}`;
+      const img = `/api/jobs/${job.id}/page-image/output-page.png`;
+      $("#pages").innerHTML = `<div class="scan-wrap mono-mode"><div class="scan-pane"><span class="pane-tag">译文</span><img src="${img}" alt="译文页" onerror="window.__previewImgError()"></div></div>`;
+      $("#preview-badge").textContent = "真实预览";
+      $("#preview-subtitle").textContent = "最新完成任务的译文页面";
+      $("#preview-note").innerHTML = `<strong>真实译文预览：</strong>这是最新完成任务「${escapeHtml(job.fileName)}」的译文页（由服务端渲染）。扫描全程见上方说明；下载完整 PDF 与质检报告请打开任务列表。`;
+    }
+
+    window.__previewImgError = () => {
+      if (state.previewKey.startsWith("scan:")) {
+        const job = state.jobs.find((item) => item.id === state.previewKey.slice(5));
+        if (job) renderMiniPreview(job);
+        else renderPreview();
+      } else if (state.previewKey.startsWith("done:")) {
+        const job = state.jobs.find((item) => item.id === state.previewKey.slice(5).split(":")[0]);
+        if (job) renderIframePreview(job);
+        else renderPreview();
+      }
+    };
+
+    function miniPagesHtml(total, translated) {
+      let html = "";
+      for (let i = 0; i < total; i += 1) {
+        const done = i < translated ? " translated" : "";
+        html += `<div class="mini-paper${done}"><span class="mini-badge">${i < translated ? "中文" : "EN"}</span><i></i><i></i><i class="short"></i><i></i><i></i><i class="short"></i></div>`;
+      }
+      return html;
+    }
+
+    function renderMiniPreview(job) {
+      state.previewKey = `mini:${job.id}`;
+      const translated = Math.ceil((job.progress || 0) / 100 * 8);
+      $("#pages").innerHTML = `<div class="live-wrap">
+        <div class="live-head"><span class="live-dot"></span><strong>${escapeHtml(job.fileName)}</strong><span class="live-percent" id="live-percent">${job.progress || 0}%</span></div>
+        <div class="live-stage" id="live-stage">${escapeHtml(job.stage || "等待执行")}</div>
+        <div class="live-pages" id="live-pages">${miniPagesHtml(8, translated)}</div>
+        <div class="live-bar"><i id="live-bar-fill" style="width:${job.progress || 0}%"></i></div>
+      </div>`;
+      $("#preview-badge").textContent = `翻译中 ${job.progress || 0}%`;
+      $("#preview-subtitle").textContent = "任务进度实时更新";
+      $("#preview-note").innerHTML = "<strong>过程示意：</strong>引擎在全部段落翻译完成后才一次性渲染 PDF，无法逐页实时显示；上面的小页随真实进度翻成中文。任务完成后这里会显示真实译文页面。";
+    }
+
+    function updateMiniProgress(job) {
+      const percent = job.progress || 0;
+      $("#live-percent").textContent = `${percent}%`;
+      $("#live-stage").textContent = job.stage || "";
+      $("#live-bar-fill").style.width = `${percent}%`;
+      $("#preview-badge").textContent = `翻译中 ${percent}%`;
+      const translated = Math.ceil(percent / 100 * 8);
+      document.querySelectorAll("#live-pages .mini-paper").forEach((page, index) => {
+        page.classList.toggle("translated", index < translated);
+        const badge = page.querySelector(".mini-badge");
+        if (badge) badge.textContent = index < translated ? "中文" : "EN";
+      });
+    }
+
+    function renderIframePreview(job) {
+      const pdfName = job.outputs.find((name) => name.toLowerCase().endsWith(".pdf"));
+      state.previewKey = `iframe:${job.id}`;
+      const url = `/api/jobs/${job.id}/result/${encodeURIComponent(pdfName)}?inline=1#toolbar=0&navpanes=0&view=FitH`;
+      $("#pages").innerHTML = `<iframe class="real-frame" src="${url}" title="译文预览"></iframe>`;
+      $("#preview-badge").textContent = "真实预览";
+      $("#preview-subtitle").textContent = "最新完成任务的译文页面";
+      $("#preview-note").innerHTML = `<strong>真实译文预览：</strong>由浏览器直接渲染最新完成的任务「${escapeHtml(job.fileName)}」。缩放、翻页用页面内控件；下载和质检报告在任务列表。`;
+    }
+
+    function updatePreview() {
+      const activeJobs = state.jobs.filter((job) => ["queued", "running"].includes(job.status));
+      const live = activeJobs[activeJobs.length - 1];
+      if (live) {
+        state.previewOverride = false;
+        if (state.previewKey === `scan:${live.id}`) return updateScanProgress(live);
+        if (state.previewKey === `mini:${live.id}`) return updateMiniProgress(live);
+        return renderScanPreview(live);
+      }
+      if (state.previewOverride) {
+        if (state.previewKey !== "idle") renderPreview();
+        return;
+      }
+      const completed = state.jobs.find((job) => job.status === "completed" && (job.outputs || []).some((name) => name.toLowerCase().endsWith(".pdf")));
+      if (completed) {
+        const pdfName = completed.outputs.find((name) => name.toLowerCase().endsWith(".pdf"));
+        const key = `done:${completed.id}:${pdfName}`;
+        if (state.previewKey !== key) renderDonePreview(completed, pdfName);
+        return;
+      }
+      if (state.previewKey !== "idle") renderPreview();
+    }
+
+    function showError(message = "") {
+      $("#error").textContent = message;
+      $("#error").classList.toggle("visible", Boolean(message));
+    }
+
+    const VENDORS = [
+      { id: "openai", name: "OpenAI", protocol: "openai", baseUrl: "https://api.openai.com/v1", models: ["gpt-6-astra", "gpt-5.2", "gpt-5.2-pro", "gpt-5.1", "gpt-5", "gpt-4.1"] },
+      { id: "deepseek", name: "DeepSeek", protocol: "openai", baseUrl: "https://api.deepseek.com/v1", models: ["deepseek-v4.1-flash", "deepseek-v4-flash", "deepseek-v4-pro", "deepseek-chat", "deepseek-reasoner"] },
+      { id: "dashscope", name: "阿里云百炼", protocol: "openai", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", models: ["qwen-mt-turbo", "qwen-mt-plus", "qwen-plus", "qwen-max", "qwen-flash", "qwen3-235b-a22b", "qwen3-32b", "qwen-turbo"] },
+      { id: "siliconflow", name: "硅基流动", protocol: "openai", baseUrl: "https://api.siliconflow.cn/v1", models: ["deepseek-ai/DeepSeek-V3.2", "deepseek-ai/DeepSeek-R1", "Qwen/Qwen3-235B-A22B", "Qwen/Qwen3-32B", "Qwen/Qwen2.5-72B-Instruct", "zai-org/GLM-5.3-Flash", "moonshotai/Kimi-K3"] },
+      { id: "moonshot", name: "Moonshot Kimi", protocol: "openai", baseUrl: "https://api.moonshot.cn/v1", models: ["kimi-k3", "kimi-k2.7-code", "kimi-k2.6", "kimi-k2-turbo-preview"] },
+      { id: "zhipu", name: "智谱 GLM", protocol: "openai", baseUrl: "https://open.bigmodel.cn/api/paas/v4", models: ["glm-5.3", "glm-5.1", "glm-5", "glm-4.6", "glm-4.5-air", "glm-4-flash"] },
+      { id: "anthropic", name: "Anthropic", protocol: "anthropic", baseUrl: "https://api.anthropic.com", models: ["claude-opus-5", "claude-sonnet-5", "claude-opus-4-8", "claude-opus-4-6", "claude-sonnet-4-6", "claude-3-5-haiku-latest"] },
+      { id: "gemini", name: "Google Gemini", protocol: "gemini", baseUrl: "https://generativelanguage.googleapis.com/v1beta", models: ["gemini-3.5-flash", "gemini-3.1-pro-preview", "gemini-3-flash-preview", "gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite"] },
+      { id: "openrouter", name: "OpenRouter", protocol: "openai", baseUrl: "https://openrouter.ai/api/v1", models: ["openai/gpt-6-astra", "anthropic/claude-opus-5", "google/gemini-3.1-pro-preview", "deepseek/deepseek-v4-flash", "moonshotai/kimi-k3", "qwen/qwen3-235b-a22b"] },
+      { id: "xai", name: "xAI Grok", protocol: "openai", baseUrl: "https://api.x.ai/v1", models: ["grok-4-fast", "grok-4", "grok-code-fast-1", "grok-3-mini"] },
+      { id: "custom", name: "自定义 / 中转", protocol: "openai", baseUrl: "", models: [], custom: true },
+    ];
+    const PROTOCOL_NAMES = { openai: "OpenAI 兼容", anthropic: "Anthropic", gemini: "Gemini" };
+
+    function currentSelection() {
+      return VENDORS.find((item) => item.id === state.vendorId) || VENDORS[0];
+    }
+
+    function renderVendorGrid() {
+      $("#vendor-grid").innerHTML = VENDORS.map((item) =>
+        `<button type="button" class="vendor-btn${state.serviceKind === "cloud" && state.vendorId === item.id ? " selected" : ""}" data-vendor="${item.id}">${item.name}</button>`).join("");
+    }
+
+    function applyLocalFields() {
+      // 本地大模型服务：按调用本地大模型的通用方式（OpenAI 兼容 /v1），地址与模型完全由用户填写
+      $("#protocol").value = "openai";
+      $("#protocol").disabled = true;
+      let savedLocal = {};
+      try { savedLocal = JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch {}
+      $("#base-url").value = savedLocal.localBaseUrl || "http://127.0.0.1:11434/v1";
+      $("#model").value = savedLocal.localModel || "qwen3:8b";
+      // 本地服务一般无需鉴权，但 vLLM --api-key、LM Studio 密码、本地中转网关等场景需要，允许选填
+      $("#api-key").disabled = false;
+      $("#api-hint").textContent = "通常无需填写";
+      $("#api-key").value = loadStoredKey();
+      resetKeyMask();
+      $("#test-result").textContent = "";
+      renderServiceSummary();
+      saveSettings();
+      autoDiscoverModels();
+    }
+
+    function applyCloudSelection(keepModel = false) {
+      const selection = currentSelection();
+      if (selection.custom) {
+        $("#protocol").disabled = false;
+      } else {
+        $("#protocol").value = selection.protocol;
+        $("#protocol").disabled = true;
+      }
+      $("#base-url").value = selection.baseUrl;
+      $("#model-list").innerHTML = (selection.models || []).map((model) => `<option value="${escapeHtml(model)}"></option>`).join("");
+      if (!keepModel || !(selection.models || []).includes($("#model").value)) {
+        $("#model").value = (selection.models || [])[0] || "";
+      }
+      $("#api-key").disabled = false;
+      $("#api-hint").textContent = "保存在本机浏览器";
+      $("#api-key").value = loadStoredKey();
+      resetKeyMask();
+      $("#test-result").textContent = "";
+      renderVendorGrid();
+      renderServiceSummary();
+      saveSettings();
+      autoDiscoverModels();
+    }
+
+    const APIKEYS_STORE = "yiye-apikeys-v1";
+    function resetKeyMask() {
+      // key 默认隐藏:切换服务/重新载入后总是恢复掩码,不保留明文状态
+      $("#api-key").type = "password";
+      $("#key-toggle").textContent = "👁";
+    }
+    function keySlot() {
+      if (state.serviceKind === "local") {
+        const localBaseUrl = $("#base-url").value.trim();
+        return localBaseUrl ? `local:${localBaseUrl}` : null;
+      }
+      const vendor = VENDORS.find((item) => item.id === state.vendorId);
+      if (vendor?.custom) {
+        const baseUrl = $("#base-url").value.trim();
+        return baseUrl ? `custom:${baseUrl}` : null;
+      }
+      return `vendor:${state.vendorId}`;
+    }
+    function loadStoredKey() {
+      const slot = keySlot();
+      if (!slot) return "";
+      try { return (JSON.parse(localStorage.getItem(APIKEYS_STORE)) || {})[slot] || ""; } catch { return ""; }
+    }
+    function storeKey(value) {
+      const slot = keySlot();
+      if (!slot) return;
+      try {
+        const all = JSON.parse(localStorage.getItem(APIKEYS_STORE) || "{}");
+        if (value) all[slot] = value;
+        else delete all[slot];
+        localStorage.setItem(APIKEYS_STORE, JSON.stringify(all));
+      } catch {}
+    }
+
+    // 静默探测所选服务已安装的模型：成功则替换下拉建议，失败则保留预设建议；
+    // 模型输入框始终允许自由输入任意名称
+    async function autoDiscoverModels() {
+      const baseUrl = $("#base-url").value.trim();
+      if (!baseUrl) return;
+      try {
+        const response = await fetch(`/api/providers/models?baseUrl=${encodeURIComponent(baseUrl)}&protocol=${encodeURIComponent($("#protocol").value)}`, {
+          headers: { "x-api-key": $("#api-key").value },
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!Array.isArray(data.models) || !data.models.length) return;
+        $("#model-list").innerHTML = data.models.map((model) => `<option value="${escapeHtml(model)}"></option>`).join("");
+        const result = $("#test-result");
+        result.className = "test-result";
+        result.textContent = `已发现 ${data.models.length} 个模型（可直接输入其他名称）`;
+        if (!$("#model").value.trim()) {
+          $("#model").value = data.models[0];
+          saveSettings();
+        }
+      } catch {}
+    }
+
+    function setServiceKind(kind) {
+      state.serviceKind = kind;
+      document.querySelectorAll(".kind-btn").forEach((button) => button.classList.toggle("selected", button.dataset.kind === kind));
+      $("#local-pane").hidden = kind !== "local";
+      $("#cloud-pane").hidden = kind !== "cloud";
+      if (kind === "local") applyLocalFields();
+      else applyCloudSelection();
+    }
+
+    // ── 自定义深色下拉：替换原生 select 弹层，select 保留为隐藏数据源 ──
+    function closeAllMenus() {
+      document.querySelectorAll(".dd-menu.open").forEach((menu) => menu.classList.remove("open"));
+      document.querySelectorAll(".dd.open").forEach((dd) => dd.classList.remove("open"));
+    }
+
+    function enhanceSelect(select) {
+      const wrapper = document.createElement("div");
+      wrapper.className = "dd";
+      select.parentNode.insertBefore(wrapper, select);
+      wrapper.appendChild(select);
+      select.classList.add("dd-source");
+      select.tabIndex = -1;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "dd-btn";
+      button.innerHTML = `<span class="dd-label"></span><span class="chev">▾</span>`;
+      const menu = document.createElement("div");
+      menu.className = "dd-menu";
+      wrapper.appendChild(button);
+      wrapper.appendChild(menu);
+
+      function label() {
+        const opt = select.selectedOptions[0];
+        return opt ? opt.textContent : "";
+      }
+      function rebuild() {
+        menu.innerHTML = [...select.options].map((opt) =>
+          `<button type="button" class="dd-opt${opt.value === select.value ? " selected" : ""}" data-value="${escapeHtml(opt.value)}">${escapeHtml(opt.textContent)}</button>`).join("");
+        button.querySelector(".dd-label").textContent = label();
+        wrapper.classList.toggle("disabled", select.disabled);
+      }
+      button.addEventListener("click", () => {
+        if (select.disabled) return;
+        const wasOpen = menu.classList.contains("open");
+        closeAllMenus();
+        if (!wasOpen) {
+          rebuild();
+          menu.classList.add("open");
+          wrapper.classList.add("open");
+        }
+      });
+      menu.addEventListener("click", (event) => {
+        const opt = event.target.closest(".dd-opt");
+        if (!opt) return;
+        select.value = opt.dataset.value;
+        rebuild();
+        closeAllMenus();
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+      rebuild();
+      // 同步业务代码对 select 的动态修改（禁用切换、选项重建）
+      new MutationObserver(() => rebuild()).observe(select, { childList: true, subtree: true, attributes: true });
+    }
+
+    function enhanceCombobox(input, listEl) {
+      const field = input.closest(".field");
+      const menu = document.createElement("div");
+      menu.className = "dd-menu";
+      field.appendChild(menu);
+      function hide() { menu.classList.remove("open"); }
+      function show() {
+        // 全量展示该服务的模型清单;输入文本仅用于把匹配项排到最前,不做过滤
+        const filter = input.value.trim().toLowerCase();
+        const items = [...listEl.options].map((o) => o.value);
+        const sorted = filter
+          ? [...items].sort((a, b) => (b.toLowerCase().includes(filter) ? 1 : 0) - (a.toLowerCase().includes(filter) ? 1 : 0))
+          : items;
+        menu.innerHTML = sorted.map((value) => `<button type="button" class="dd-opt${value === input.value ? " selected" : ""}" data-value="${escapeHtml(value)}">${escapeHtml(value)}</button>`).join("");
+        menu.classList.toggle("open", sorted.length > 0);
+      }
+      input.addEventListener("focus", () => show());
+      input.addEventListener("input", () => show());
+      menu.addEventListener("mousedown", (event) => event.preventDefault()); // 避免输入框失焦
+      menu.addEventListener("click", (event) => {
+        const opt = event.target.closest(".dd-opt");
+        if (!opt) return;
+        input.value = opt.dataset.value;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+        hide();
+      });
+      input.addEventListener("blur", () => setTimeout(hide, 120));
+    }
+
+    document.querySelectorAll("select[data-enhance]").forEach(enhanceSelect);
+    enhanceCombobox($("#model"), $("#model-list"));
+    document.addEventListener("click", (event) => { if (!event.target.closest(".dd") && !event.target.closest(".combobox-field")) closeAllMenus(); });
+
+    // 左侧时间线随流程推进：1 上传 → 2 翻译 → 3 导出
+    function updateTimeline() {
+      const hasFiles = state.files.length > 0;
+      const hasActive = state.jobs.some((job) => ["queued", "running"].includes(job.status));
+      const hasDone = state.jobs.some((job) => job.status === "completed");
+      let stage = 1;
+      if (hasActive) stage = 2;
+      else if (hasDone) stage = 3;
+      document.querySelectorAll(".step[data-step]").forEach((step) => {
+        const number = Number(step.dataset.step);
+        step.classList.toggle("active", number === stage);
+        step.classList.toggle("done", number < stage);
+        step.querySelector(".step-num").textContent = number < stage ? "✓" : String(number);
+      });
+    }
+
+    function setFiles(fileList) {
+      let skipped = "";
+      for (const file of fileList) {
+        if (!file.name.toLowerCase().endsWith(".pdf")) { skipped = `跳过 ${file.name}：不是 PDF 文件`; continue; }
+        if (file.size > MAX_FILE_BYTES) { skipped = `跳过 ${file.name}：超过 200 MB 限制`; continue; }
+        if (state.files.some((item) => item.name === file.name && item.size === file.size)) continue;
+        if (state.files.length >= 20) { skipped = "一次最多添加 20 个文件"; break; }
+        state.files.push(file);
+      }
+      renderFiles();
+      showError(skipped);
+      updateTimeline();
+      estimateFiles();
+    }
+
+    function renderFiles() {
+      const chips = $("#chips");
+      chips.innerHTML = state.files.map((file, index) =>
+        `<span class="chip"><span class="chip-name" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</span><small>${formatBytes(file.size)}</small><button type="button" data-remove="${index}" aria-label="移除 ${escapeHtml(file.name)}">×</button></span>`
+      ).join("");
+    }
+
+    async function setGlossary(file) {
+      if (!file) return;
+      if (!/\.csv$/i.test(file.name)) return showError("术语表需要是 CSV 文件");
+      if (file.size > 512 * 1024) return showError("术语表超过 512 KB 限制");
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).filter((line) => line.trim());
+      const header = (lines[0] || "").split(",").map((cell) => cell.trim().toLowerCase().replace(/^"|"$/g, ""));
+      if (!header.includes("source") || !header.includes("target")) {
+        return showError('术语表 CSV 需要包含 "source" 和 "target" 列');
+      }
+      state.glossary = file;
+      state.glossaryEntries = Math.max(0, lines.length - 1);
+      state.glossaryName = "";
+      $("#glossary-library").value = "";
+      $("#glossary-empty").hidden = true;
+      $("#glossary-info").hidden = false;
+      $("#glossary-meta").textContent = `${file.name} · ${state.glossaryEntries} 条词条`;
+      updateGlossaryMode();
+      showError();
+    }
+
+    function clearGlossary() {
+      state.glossary = null;
+      state.glossaryEntries = 0;
+      $("#glossary-input").value = "";
+      $("#glossary-empty").hidden = false;
+      $("#glossary-info").hidden = true;
+      updateGlossaryMode();
+    }
+
+    function updateGlossaryMode() {
+      const custom = Boolean(state.glossary || state.glossaryName);
+      $("#glossary").checked = !custom;
+      $("#glossary").disabled = custom;
+      $("#glossary-setting").classList.toggle("disabled", custom);
+      $("#glossary-auto-title").textContent = custom ? "自动术语表（已停用）" : "自动术语表";
+      $("#glossary-auto-hint").textContent = custom ? "使用自定义术语表时以上传内容为准，不运行自动抽取" : "抽取并统一全文专业术语，完成后可导出复用";
+    }
+
+    async function loadGlossaryLibrary(selectName = "") {
+      try {
+        const list = await fetch("/api/glossaries").then((response) => response.json());
+        if (!Array.isArray(list)) return;
+        const select = $("#glossary-library");
+        const current = selectName || select.value;
+        select.innerHTML = '<option value="">术语库：不使用</option>' + list.map((item) =>
+          `<option value="${escapeHtml(item.name)}">${escapeHtml(item.name)}（${item.entries} 条）</option>`).join("");
+        if (current && list.some((item) => item.name === current)) select.value = current;
+        state.glossaryName = select.value;
+        updateGlossaryMode();
+      } catch {}
+    }
+
+    async function saveGlossaryToLibrary() {
+      if (!state.glossary) return;
+      try {
+        const form = new FormData();
+        form.append("file", state.glossary, state.glossary.name);
+        form.append("name", state.glossary.name);
+        const response = await fetch("/api/glossaries", { method: "POST", body: form });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "保存到术语库失败");
+        await loadGlossaryLibrary(data.name);
+        showError();
+      } catch (error) { showError(error.message); }
+    }
+
+    async function deleteGlossaryFromLibrary() {
+      const name = $("#glossary-library").value;
+      if (!name) return;
+      try {
+        const response = await fetch(`/api/glossaries/${encodeURIComponent(name)}`, { method: "DELETE" });
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.error || "删除失败");
+        }
+        await loadGlossaryLibrary();
+      } catch (error) { showError(error.message); }
+    }
+
+    function downloadTemplate() {
+      const csv = "source,target\nTransformer,变换器\nattention mechanism,注意力机制\nlarge language model,大语言模型\nfine-tune,微调\n";
+      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "glossary-template.csv";
+      link.click();
+      URL.revokeObjectURL(link.href);
+    }
+
+    async function checkHealth() {
+      try {
+        const health = await fetch("/api/health").then((response) => response.json());
+        state.engineReady = health.engineReady;
+        $("#health").className = `health ${health.engineReady ? "ready" : "error"}`;
+        $("#health span").textContent = health.engineReady ? "翻译引擎就绪" : "需要安装引擎";
+        $("#setup-note").classList.toggle("visible", !health.engineReady);
+      } catch {
+        state.engineReady = false;
+        $("#health").className = "health error";
+        $("#health span").textContent = "本地服务异常";
+      }
+      updateRunButton();
+    }
+
+    function updateRunButton() {
+      const button = $("#run-button");
+      button.disabled = state.submitting || !state.engineReady;
+      button.textContent = state.submitting ? "正在提交…" : "开始翻译 →";
+    }
+
+    function config() {
+      return {
+        provider: state.serviceKind === "local" ? "ollama" : "openai",
+        protocol: $("#protocol").value,
+        thinking: $("#thinking").value,
+        target: $("#target").value,
+        baseUrl: $("#base-url").value.trim(),
+        model: $("#model").value.trim(),
+        output: state.output,
+        qps: Number($("#qps").value) || 4,
+        pages: $("#pages-range").value.trim(),
+        enhance: $("#enhance").checked,
+        ocr: $("#ocr").checked,
+        table: $("#table").checked,
+        glossary: $("#glossary").checked,
+      };
+    }
+
+    function saveSettings() {
+      try {
+        const payload = {
+          serviceKind: state.serviceKind,
+          vendorId: state.vendorId,
+          protocol: $("#protocol").value,
+          thinking: $("#thinking").value,
+          target: $("#target").value,
+          output: state.output,
+          qps: $("#qps").value,
+          pages: $("#pages-range").value,
+          ocr: $("#ocr").checked,
+          table: $("#table").checked,
+          enhance: $("#enhance").checked,
+        };
+        // 本地与云端的地址/模型分开记忆，切换类型互不覆盖
+        if (state.serviceKind === "local") {
+          payload.localBaseUrl = $("#base-url").value.trim();
+          payload.localModel = $("#model").value.trim();
+        } else {
+          payload.baseUrl = $("#base-url").value.trim();
+          payload.model = $("#model").value.trim();
+        }
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(payload));
+      } catch {}
+    }
+
+    function loadSettings() {
+      let saved = {};
+      try { saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}"); } catch {}
+      if (saved.serviceKind === "cloud" || saved.provider === "openai") {
+        state.serviceKind = "cloud";
+        state.vendorId = VENDORS.some((item) => item.id === saved.vendorId) ? saved.vendorId : "custom";
+      } else {
+        state.serviceKind = "local";
+      }
+      setServiceKind(state.serviceKind);
+      if (state.serviceKind === "cloud") {
+        if (saved.protocol && ["openai", "anthropic", "gemini"].includes(saved.protocol)) $("#protocol").value = saved.protocol;
+        if (saved.thinking && ["default", "off", "low", "medium", "high"].includes(saved.thinking)) $("#thinking").value = saved.thinking;
+        if (saved.baseUrl) $("#base-url").value = saved.baseUrl;
+        if (saved.model) $("#model").value = saved.model;
+        $("#api-key").value = loadStoredKey();
+      }
+      if (saved.target) $("#target").value = saved.target;
+      if (saved.qps) $("#qps").value = saved.qps;
+      if (saved.pages) $("#pages-range").value = saved.pages;
+      if (typeof saved.ocr === "boolean") $("#ocr").checked = saved.ocr;
+      if (typeof saved.table === "boolean") $("#table").checked = saved.table;
+      if (typeof saved.enhance === "boolean") $("#enhance").checked = saved.enhance;
+      if (outputNames[saved.output]) {
+        state.output = saved.output;
+        document.querySelectorAll("[data-output]").forEach((item) => item.classList.toggle("selected", item.dataset.output === saved.output));
+        renderPreview();
+      }
+      renderServiceSummary();
+      // setServiceKind 过程中会以预设默认值提前写回存储,这里用恢复后的最终状态覆写,
+      // 否则自定义中转的地址/模型在浏览器重启后会丢失
+      saveSettings();
+    }
+
+    function qualityIssuesHtml(job) {
+      const detail = state.qualityDetails.get(job.id);
+      if (!detail || !job.quality?.issueCount) return "";
+      const lines = [];
+      for (const output of detail.outputs || []) {
+        for (const issue of output.issues || []) lines.push(`${output.file}：${issue}`);
+        for (const page of output.pages || []) lines.push(`第 ${page.page} 页：${page.issues.join("、")}`);
+      }
+      if (!lines.length) return "";
+      const shown = lines.slice(0, 8).map((line) => `<div class="task-issue">⚠ ${escapeHtml(line)}</div>`).join("");
+      const more = lines.length > 8 ? `<div class="task-issue">…共 ${lines.length} 项，详见质检报告</div>` : "";
+      return `<div class="task-issues">${shown}${more}</div>`;
+    }
+
+    function taskHtml(job) {
+      const active = ["queued", "running"].includes(job.status);
+      const pillClass = ` ${job.status}`;
+      const downloads = (job.outputs || []).map((name) => {
+        const href = `/api/jobs/${job.id}/result/${encodeURIComponent(name)}`;
+        const preview = name.toLowerCase().endsWith(".pdf") ? `<a href="${href}?inline=1" target="_blank" rel="noopener">预览</a>` : "";
+        return `${preview}<a href="${href}">下载 ${escapeHtml(name.split("/").pop())}</a>`;
+      }).join("");
+      const cancel = active ? `<button data-cancel="${job.id}">取消</button>` : "";
+      const retry = !active && job.status !== "completed" ? `<button data-retry="${job.id}">重试</button>` : "";
+      const del = !active ? `<button data-delete="${job.id}">删除</button>` : "";
+      const logButton = job.log?.length ? `<button data-log="${job.id}">${state.expanded.has(job.id) ? "隐藏日志" : "日志"}</button>` : "";
+      const logLines = state.expanded.has(job.id) && job.log?.length
+        ? `<pre class="task-log open">${escapeHtml(job.log.join("\n"))}</pre>` : "";
+      const metaBits = [];
+      if (job.startedAt && job.finishedAt) metaBits.push(`耗时 ${Math.max(1, Math.round((new Date(job.finishedAt) - new Date(job.startedAt)) / 1000))} 秒`);
+      if (job.tokensUsed) metaBits.push(`${job.tokensUsed.toLocaleString()} tokens`);
+      let qualityHtml = "";
+      if (job.quality) {
+        qualityHtml = job.quality.issueCount
+          ? `<span class="quality-warn">质检 ${job.quality.issueCount} 项问题</span>`
+          : '<span class="quality-ok">质检通过</span>';
+      }
+      if (job.quality?.glossary) {
+        const glossary = job.quality.glossary;
+        const tip = glossary.suspect ? `疑似未按术语表翻译：${(glossary.suspectTerms || []).join("、")}` : "";
+        qualityHtml += `<span class="${glossary.suspect ? "quality-warn" : "quality-ok"}" title="${escapeHtml(tip)}">术语 ${glossary.applied}/${glossary.terms} 应用</span>`;
+      }
+      return `<article class="task-item">
+        <div class="task-top"><strong title="${escapeHtml(job.fileName)}">${escapeHtml(job.fileName)}</strong><span class="status-pill${pillClass}">${escapeHtml(statusNames[job.status] || job.status)}</span></div>
+        <div class="task-stage"><span>${escapeHtml(job.stage || "")}</span><span>${job.progress || 0}%</span></div>
+        <div class="task-progress"><i style="width:${job.progress || 0}%"></i></div>
+        ${metaBits.length || qualityHtml ? `<div class="task-meta">${metaBits.map((bit) => `<span>${escapeHtml(bit)}</span>`).join("")}${qualityHtml}</div>` : ""}
+        ${qualityIssuesHtml(job)}
+        ${job.error ? `<div class="task-error">${escapeHtml(job.error)}</div>` : ""}
+        ${job.outputs?.length || cancel || retry || del || logButton ? `<div class="task-actions">${downloads}${cancel}${retry}${del}${logButton}</div>` : ""}
+        ${logLines}
+      </article>`;
+    }
+
+    function renderTasks() {
+      const list = $("#task-list");
+      const activeCount = state.jobs.filter((job) => ["queued", "running"].includes(job.status)).length;
+      const badge = $("#tasks-badge");
+      if (activeCount) { badge.hidden = false; badge.textContent = activeCount; }
+      else badge.hidden = true;
+      if (!state.jobs.length) {
+        list.innerHTML = '<div class="history-empty">还没有翻译任务，提交后在这里查看进度</div>';
+        $("#tasks-count").textContent = "暂无任务";
+        return;
+      }
+      $("#tasks-count").textContent = activeCount ? `${activeCount} 个进行中 · 共 ${state.jobs.length} 个` : `共 ${state.jobs.length} 个`;
+      const html = state.jobs.map(taskHtml).join("");
+      if (html === state.signature) return;
+      state.signature = html;
+      list.innerHTML = html;
+    }
+
+    function notifyEnabled() {
+      return "Notification" in window && Notification.permission === "granted" && localStorage.getItem("yiye-notify") !== "off";
+    }
+
+    function updateNotifyButton() {
+      const button = $("#notify-button");
+      if (!("Notification" in window)) return;
+      button.hidden = false;
+      button.textContent = notifyEnabled() ? "完成提醒：开" : "完成提醒：关";
+    }
+
+    function notifyTransitions(previous, current) {
+      if (!notifyEnabled()) return;
+      const before = new Map(previous.map((job) => [job.id, job.status]));
+      for (const job of current) {
+        const prior = before.get(job.id);
+        if (prior && ["queued", "running"].includes(prior) && ["completed", "failed"].includes(job.status)) {
+          const body = job.status === "completed" ? "翻译完成，可在任务列表下载结果" : `失败：${job.error || "未知原因"}`;
+          try { new Notification(`译页 · ${job.fileName}`, { body }); } catch {}
+        }
+      }
+    }
+
+    async function refreshJobs() {
+      try {
+        const jobs = await fetch("/api/jobs").then((response) => response.json());
+        if (Array.isArray(jobs)) {
+          notifyTransitions(state.jobs, jobs);
+          state.jobs = jobs;
+          // 清理已删除任务的质检明细缓存
+          if (state.qualityDetails.size) {
+            const alive = new Set(jobs.map((job) => job.id));
+            for (const id of [...state.qualityDetails.keys()]) {
+              if (!alive.has(id)) state.qualityDetails.delete(id);
+            }
+          }
+          const pending = jobs.filter((job) => job.quality?.issueCount && !state.qualityDetails.has(job.id));
+          if (pending.length) {
+            await Promise.all(pending.map(async (job) => {
+              try {
+                const detail = await fetch(`/api/jobs/${job.id}`).then((response) => response.json());
+                state.qualityDetails.set(job.id, detail.qualityDetail || null);
+              } catch { state.qualityDetails.set(job.id, null); }
+            }));
+          }
+          renderTasks();
+          updatePreview();
+          updateTimeline();
+        }
+      } catch {}
+    }
+
+    function schedulePoll() {
+      clearTimeout(state.pollTimer);
+      const anyActive = state.jobs.some((job) => ["queued", "running"].includes(job.status));
+      state.pollTimer = setTimeout(async () => {
+        await Promise.all([refreshJobs(), checkHealth()]);
+        schedulePoll();
+      }, anyActive ? 1200 : 6000);
+    }
+
+    async function startJob() {
+      if (state.submitting) return;
+      if (!state.files.length) { $("#file-input").click(); return; }
+      showError();
+      state.submitting = true;
+      updateRunButton();
+      const failures = [];
+      const failedFiles = [];
+      let submitted = 0;
+      for (const file of state.files) {
+        const form = new FormData();
+        form.append("file", file, file.name);
+        form.append("config", JSON.stringify(config()));
+        form.append("apiKey", $("#api-key").value);
+        if (state.glossary) form.append("glossary", state.glossary, state.glossary.name);
+        else if (state.glossaryName) form.append("glossaryName", state.glossaryName);
+        try {
+          const response = await fetch("/api/jobs", { method: "POST", body: form });
+          const job = await response.json();
+          if (!response.ok) throw new Error(job.error || "任务提交失败");
+          submitted += 1;
+        } catch (error) {
+          failures.push(`${file.name}：${error.message}`);
+          failedFiles.push(file);
+        }
+      }
+      state.submitting = false;
+      updateRunButton();
+      if (failures.length) showError(failures.join("\n"));
+      if (submitted) {
+        // 提交成功的文件移出列表，失败的保留，方便修正后重试
+        state.files = failedFiles;
+        renderFiles();
+        await refreshJobs();
+        schedulePoll();
+      }
+    }
+
+    async function cancelJob(id) {
+      try {
+        const response = await fetch(`/api/jobs/${id}/cancel`, { method: "POST" });
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.error || "取消失败");
+        }
+        await refreshJobs();
+        schedulePoll();
+      } catch (error) { showError(error.message); }
+    }
+
+    async function retryJob(id) {
+      const headers = {};
+      const apiKey = $("#api-key").value.trim();
+      if (apiKey) headers["x-api-key"] = apiKey;
+      try {
+        const response = await fetch(`/api/jobs/${id}/retry`, { method: "POST", headers });
+        const job = await response.json();
+        if (!response.ok) throw new Error(job.error || "重试失败");
+        await refreshJobs();
+        schedulePoll();
+      } catch (error) { showError(error.message); }
+    }
+
+    async function deleteJob(id) {
+      if (!confirm("删除该任务将同时删除其全部输出文件，确定？")) return;
+      try {
+        const response = await fetch(`/api/jobs/${id}`, { method: "DELETE" });
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.error || "删除失败");
+        }
+        state.qualityDetails.delete(id);
+        state.expanded.delete(id);
+        await refreshJobs();
+      } catch (error) { showError(error.message); }
+    }
+
+    async function clearFinishedJobs() {
+      const count = state.jobs.filter((job) => !["queued", "running"].includes(job.status)).length;
+      if (!count) return showError("没有可清除的任务（进行中的任务不会被清除）");
+      if (!confirm(`清除 ${count} 个已结束的任务及其输出文件？进行中的任务不受影响。`)) return;
+      try {
+        const response = await fetch("/api/jobs", { method: "DELETE" });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "清除失败");
+        await refreshJobs();
+      } catch (error) { showError(error.message); }
+    }
+
+    async function testProvider() {
+      const button = $("#test-button");
+      const result = $("#test-result");
+      button.disabled = true;
+      button.textContent = "测试中…";
+      result.className = "test-result";
+      result.textContent = "正在发送一条测试请求…";
+      try {
+        const response = await fetch("/api/providers/test", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ baseUrl: $("#base-url").value.trim(), model: $("#model").value.trim(), apiKey: $("#api-key").value, protocol: $("#protocol").value }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "测试失败");
+        result.className = "test-result ok";
+        result.textContent = `✓ 连接正常 · ${(data.latencyMs / 1000).toFixed(1)} 秒 · 模型回复「${data.reply}」`;
+      } catch (error) {
+        result.className = "test-result err";
+        result.textContent = `✕ ${error.message}`;
+      } finally {
+        button.disabled = false;
+        button.textContent = "测试连接";
+      }
+    }
+
+    async function refreshModels() {
+      const button = $("#models-button");
+      const result = $("#test-result");
+      button.disabled = true;
+      button.textContent = "获取中…";
+      try {
+        const response = await fetch(`/api/providers/models?baseUrl=${encodeURIComponent($("#base-url").value.trim())}&protocol=${encodeURIComponent($("#protocol").value)}`, {
+          headers: { "x-api-key": $("#api-key").value },
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "获取失败");
+        $("#model-list").innerHTML = data.models.map((model) => `<option value="${escapeHtml(model)}"></option>`).join("");
+        result.className = "test-result";
+        result.textContent = data.models.length ? `获取到 ${data.models.length} 个模型，点击模型输入框可选择` : "接口没有返回可用模型";
+      } catch (error) {
+        result.className = "test-result err";
+        result.textContent = `✕ ${error.message}`;
+      } finally {
+        button.disabled = false;
+        button.textContent = "获取模型列表";
+      }
+    }
+
+    document.querySelectorAll("[data-output]").forEach((button) => button.addEventListener("click", () => {
+      state.output = button.dataset.output;
+      state.previewOverride = true;
+      document.querySelectorAll("[data-output]").forEach((item) => item.classList.toggle("selected", item === button));
+      renderPreview();
+      saveSettings();
+    }));
+    $("#file-input").addEventListener("change", (event) => { setFiles([...event.target.files]); event.target.value = ""; });
+    $("#glossary-input").addEventListener("change", (event) => setGlossary(event.target.files[0]));
+    $("#glossary-clear").addEventListener("click", clearGlossary);
+    $("#glossary-save").addEventListener("click", saveGlossaryToLibrary);
+    $("#glossary-library").addEventListener("change", () => {
+      state.glossaryName = $("#glossary-library").value;
+      updateGlossaryMode();
+    });
+    $("#glossary-library-download").addEventListener("click", () => {
+      const name = $("#glossary-library").value;
+      if (name) window.open(`/api/glossaries/${encodeURIComponent(name)}`, "_blank");
+    });
+    $("#glossary-library-delete").addEventListener("click", deleteGlossaryFromLibrary);
+    $("#notify-button").addEventListener("click", async () => {
+      if (!("Notification" in window)) return;
+      if (Notification.permission === "denied") return showError("浏览器已拒绝通知权限，需要在浏览器设置中恢复");
+      if (Notification.permission === "default") {
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") return;
+        localStorage.setItem("yiye-notify", "on");
+      } else {
+        localStorage.setItem("yiye-notify", notifyEnabled() ? "off" : "on");
+      }
+      updateNotifyButton();
+    });
+    $("#glossary-template").addEventListener("click", downloadTemplate);
+    $("#test-button").addEventListener("click", testProvider);
+    $("#models-button").addEventListener("click", refreshModels);
+    $("#run-button").addEventListener("click", startJob);
+    for (const id of ["base-url", "model", "qps", "pages-range", "target", "ocr", "table", "glossary", "enhance", "thinking"]) {
+      $(`#${id}`).addEventListener("change", saveSettings);
+    }
+    $("#chips").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-remove]");
+      if (button) { state.files.splice(Number(button.dataset.remove), 1); renderFiles(); renderEstimate(); }
+    });
+    $("#task-list").addEventListener("click", (event) => {
+      const cancel = event.target.closest("[data-cancel]");
+      if (cancel) return cancelJob(cancel.dataset.cancel);
+      const retry = event.target.closest("[data-retry]");
+      if (retry) return retryJob(retry.dataset.retry);
+      const del = event.target.closest("[data-delete]");
+      if (del) return deleteJob(del.dataset.delete);
+      const log = event.target.closest("[data-log]");
+      if (log) {
+        state.expanded.has(log.dataset.log) ? state.expanded.delete(log.dataset.log) : state.expanded.add(log.dataset.log);
+        renderTasks();
+      }
+    });
+    $("#tasks-open").addEventListener("click", () => { $("#tasks-backdrop").classList.add("open"); refreshJobs(); });
+    $("#tasks-close").addEventListener("click", () => $("#tasks-backdrop").classList.remove("open"));
+    $("#tasks-clear").addEventListener("click", clearFinishedJobs);
+    $("#tasks-backdrop").addEventListener("click", (event) => { if (event.target === event.currentTarget) event.currentTarget.classList.remove("open"); });
+    ["dragenter", "dragover"].forEach((name) => $("#drop").addEventListener(name, (event) => { event.preventDefault(); $("#drop").classList.add("dragging"); }));
+    ["dragleave", "drop"].forEach((name) => $("#drop").addEventListener(name, (event) => { event.preventDefault(); $("#drop").classList.remove("dragging"); }));
+    $("#drop").addEventListener("drop", (event) => setFiles([...event.dataTransfer.files]));
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && event.target.id === "drop") $("#file-input").click();
+      if (event.key === "Escape") {
+        closeAllMenus();
+        $("#settings-backdrop").classList.remove("open");
+        $("#tasks-backdrop").classList.remove("open");
+      }
+    });
+
+    function renderServiceSummary() {
+      const providerLabel = state.serviceKind === "local"
+        ? "本地模型"
+        : `${currentSelection().name} (${PROTOCOL_NAMES[$("#protocol").value] || $("#protocol").value})`;
+      $("#service-name").textContent = `${providerLabel} · ${$("#model").value.trim() || "未设置模型"} · ${$("#target").selectedOptions[0]?.textContent || "简体中文"}`;
+      $("#service-url").textContent = $("#base-url").value.trim();
+    }
+
+    function openSettings() {
+      $("#settings-backdrop").classList.add("open");
+      $("#test-result").textContent = "";
+    }
+
+    $("#settings-open").addEventListener("click", openSettings);
+    $("#service-open").addEventListener("click", openSettings);
+    $("#settings-close").addEventListener("click", () => $("#settings-backdrop").classList.remove("open"));
+    $("#settings-backdrop").addEventListener("click", (event) => { if (event.target === event.currentTarget) event.currentTarget.classList.remove("open"); });
+    document.querySelectorAll(".kind-btn").forEach((button) => button.addEventListener("click", () => setServiceKind(button.dataset.kind)));
+    $("#vendor-grid").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-vendor]");
+      if (!button) return;
+      state.serviceKind = "cloud";
+      state.vendorId = button.dataset.vendor;
+      applyCloudSelection();
+    });
+    $("#model").addEventListener("input", renderServiceSummary);
+    $("#api-key").addEventListener("input", () => storeKey($("#api-key").value.trim()));
+    $("#key-toggle").addEventListener("click", () => {
+      const input = $("#api-key");
+      const show = input.type === "password";
+      input.type = show ? "text" : "password";
+      $("#key-toggle").textContent = show ? "🙈" : "👁";
+      input.focus();
+    });
+    let discoverTimer = null;
+    $("#base-url").addEventListener("input", () => {
+      renderServiceSummary();
+      clearTimeout(discoverTimer);
+      discoverTimer = setTimeout(() => {
+        // 地址切换后加载该地址记住的 key；用户正在输入 key 时不覆盖
+        if (document.activeElement !== $("#api-key") && !$("#api-key").disabled) {
+          $("#api-key").value = loadStoredKey();
+        }
+        autoDiscoverModels();
+      }, 600);
+    });
+    // 地址失焦后,把当前 key 归位到新地址的存储槽
+    $("#base-url").addEventListener("change", () => {
+      if (!$("#api-key").disabled) storeKey($("#api-key").value.trim());
+    });
+    $("#target").addEventListener("change", renderServiceSummary);
+
+    loadSettings();
+    renderServiceSummary();
+    loadGlossaryLibrary();
+    updateNotifyButton();
+    renderPreview();
+    checkHealth();
+    refreshJobs().then(schedulePoll);
+  </script>
+</body>
+</html>
