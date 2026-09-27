@@ -494,7 +494,14 @@ def main() -> int:
         return 2
 
     request_path = Path(payload["requestPath"]).resolve()
-    request = json.loads(request_path.read_text(encoding="utf-8"))
+    try:
+        request = json.loads(request_path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        print("request file not found", file=sys.stderr)
+        return 2
+    except Exception as exc:
+        print(f"invalid request json: {exc}", file=sys.stderr)
+        return 2
     api_key = os.environ.pop("YIYE_API_KEY", "")
     if not api_key:
         print("missing YIYE_API_KEY", file=sys.stderr)
