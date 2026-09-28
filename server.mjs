@@ -49,7 +49,7 @@ export function validateConfig(input = {}) {
   const target = ["zh-CN", "zh-TW"].includes(input.target) ? input.target : "zh-CN";
   const qps = Math.max(1, Math.min(16, Number(input.qps) || 4));
   const defaults = provider === "ollama"
-    ? { baseUrl: "http://127.0.0.1:11434/v1", model: "qwen3:8b" }
+    ? { baseUrl: "http://127.0.0.1:11434/v1", model: "qwen2.5:7b" }
     : { baseUrl: "https://api.openai.com/v1", model: "gpt-4o-mini" };
   const baseUrl = parseHttpUrl(input.baseUrl || defaults.baseUrl);
   const model = String(input.model || defaults.model).trim();
@@ -424,7 +424,7 @@ async function pump() {
     while (queue.length) {
       const id = queue.shift();
       const job = jobs.get(id);
-      if (!job || job.cancelRequested) continue;
+      if (!job || job.cancelRequested || job.status === "canceled") continue;
       await runJob(job);
     }
   } finally {
@@ -1183,7 +1183,7 @@ export async function handle(req, res) {
     if (!job) return json(res, 404, { error: "任务不存在" });
     if (!["queued", "running"].includes(job.status)) return json(res, 409, { error: "任务已结束" });
     job.cancelRequested = true;
-    if (active?.id === job.id) stopChild(active.child);
+    if (active?.id === job.id) { stopChild(active.child); }
     else {
       job.status = "canceled";
       job.stage = "已取消";

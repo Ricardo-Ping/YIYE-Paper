@@ -11,7 +11,7 @@ test("PDF trust-boundary validation", () => {
 test("provider defaults and limits", () => {
   const ollama = validateConfig({ provider: "ollama", qps: 999 });
   assert.equal(ollama.baseUrl, "http://127.0.0.1:11434/v1");
-  assert.equal(ollama.model, "qwen3:8b");
+  assert.equal(ollama.model, "qwen2.5:7b");
   assert.equal(ollama.qps, 16);
   assert.equal(ollama.output, "dual");
   assert.throws(() => validateConfig({ baseUrl: "file:///secret" }), /HTTP/);

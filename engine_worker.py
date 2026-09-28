@@ -291,6 +291,15 @@ def _render_report_html(report: dict) -> str:
         if g.get("unseenTerms"):
             glossary_rows += f"<p style='color:#888'>未出现：{esc('、'.join(g['unseenTerms']))}</p>"
 
+    watermarks = report.get("watermarkSuspects")
+    watermark_rows = ""
+    if watermarks:
+        watermark_rows = "<h2>疑似水印</h2><p>以下文本在多页相同位置重复出现，可能为水印：</p><ul>"
+        for w in watermarks:
+            wm_pages = '、'.join(str(p) for p in w['pages'])
+            watermark_rows += f"<li>「{esc(w['text'])}」— 第 {wm_pages} 页</li>"
+        watermark_rows += "</ul><p style='color:#888'>水印是否需要处理由你判断，本工具不会自动删除。</p>"
+
     return f"""<!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="utf-8"><title>质检报告</title>
 <style>
@@ -388,7 +397,7 @@ def detect_watermark_suspects(input_path: str) -> list[dict]:
     """检测原文 PDF 中的疑似水印：多页同位置出现的重复文本。
 
     排除页眉页脚区域（页面前 8% 和后 8%）以及纯数字/短标识符。
-    只报告不删除 —— 水印是否需要处理由用户判断。
+    页码为 1-based。只报告不删除 —— 水印是否需要处理由用户判断。
     """
     import pymupdf
     from collections import Counter
@@ -401,11 +410,12 @@ def detect_watermark_suspects(input_path: str) -> list[dict]:
     if total < 3:
         doc.close()
         return []
-    # 收集每页的 (归一化文本, 归一化位置) 签名，排除页眉页脚区
     span_pages: dict[tuple, set[int]] = {}
+    span_info: dict[tuple, dict] = {}
     for i in range(total):
         page = doc[i]
         h = page.rect.height
+        w = page.rect.width
         for block in page.get_text("dict").get("blocks", []):
             if block.get("type") != 0:
                 continue
@@ -417,24 +427,25 @@ def detect_watermark_suspects(input_path: str) -> list[dict]:
                     bbox = span["bbox"]
                     ry = bbox[1] / h
                     if ry < 0.08 or ry > 0.92:
-                        continue  # 页眉页脚区
-                    key = (squash_text(text)[:50], round(bbox[0] / page.rect.width, 1), round(ry, 1))
+                        continue
+                    key = (squash_text(text)[:50], round(bbox[0] / w, 1), round(ry, 1))
                     span_pages.setdefault(key, set()).add(i)
+                    if key not in span_info:
+                        span_info[key] = {"text": text[:80], "bbox": [round(v, 1) for v in bbox]}
     doc.close()
     if not span_pages:
         return []
     threshold = max(3, int(total * 0.5))
     suspects = []
-    for (text, rx, ry), pages in span_pages.items():
+    for key, pages in span_pages.items():
         if len(pages) >= threshold:
-            suspects.append({"text": text[:80], "pages": sorted(pages)})
-    if not suspects:
-        return []
-    return [{
-        "type": "repeated_text",
-        "text": s["text"],
-        "pages": s["pages"],
-    } for s in suspects]
+            info = span_info[key]
+            suspects.append({
+                "text": info["text"],
+                "pages": sorted(p + 1 for p in pages),  # 1-based
+                "bbox": info["bbox"],
+            })
+    return suspects
 
 
 def squash_text(text: str) -> str:

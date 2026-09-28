@@ -430,7 +430,7 @@
 
         <div class="field"><label for="base-url"><span>接口地址</span></label><input id="base-url" value="http://127.0.0.1:11434/v1" spellcheck="false"></div>
         <div class="grid-2" style="margin-top:0">
-          <div class="field combobox-field"><label><span>模型</span><span class="protocol-note">可输入或选择</span></label><input id="model" value="qwen3:8b" spellcheck="false" autocomplete="off"><datalist id="model-list"></datalist></div>
+          <div class="field combobox-field"><label><span>模型</span><span class="protocol-note">可输入或选择</span></label><input id="model" value="qwen2.5:7b" spellcheck="false" autocomplete="off"><datalist id="model-list"></datalist></div>
           <div class="field"><label><span>API 协议</span></label><select id="protocol" data-enhance><option value="openai">OpenAI 兼容</option><option value="anthropic">Anthropic (Claude)</option><option value="gemini">Google Gemini</option></select></div>
         </div>
         <div class="field"><label><span>思考深度</span><span class="protocol-note">仅支持的模型生效</span></label><select id="thinking" data-enhance><option value="default">模型默认</option><option value="off">关闭（更快更省）</option><option value="low">低</option><option value="medium">中</option><option value="high">高</option></select></div>
@@ -445,7 +445,7 @@
           <button class="ghost small" id="models-button" type="button">获取模型列表</button>
           <span class="test-result" id="test-result"></span>
         </div>
-        <p class="settings-note">设置保存在本机浏览器。API key 粘贴后按服务地址保存在本机浏览器的本地存储中（不上传任何服务器、不写入应用日志），下次打开自动填回；点击 👁 可显示 / 隐藏，清空输入框即删除。本地服务通常无需 key，仅在服务设置了鉴权（如 vLLM --api-key、本地中转网关）时填写。</p>
+        <p class="settings-note">设置保存在本机浏览器。API key 粘贴后按服务地址保存在本机浏览器的 localStorage 中，翻译时会发送给你选择的模型服务商；不写入应用数据文件或日志。下次打开自动填回；点击 👁 可显示 / 隐藏，清空输入框即删除。本地服务通常无需 key，仅在服务设置了鉴权（如 vLLM --api-key、本地中转网关）时填写。</p>
       </div>
 
       <div class="settings-section">
@@ -864,7 +864,7 @@
       let savedLocal = {};
       try { savedLocal = JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch {}
       $("#base-url").value = savedLocal.localBaseUrl || "http://127.0.0.1:11434/v1";
-      $("#model").value = savedLocal.localModel || "qwen3:8b";
+      $("#model").value = savedLocal.localModel || "qwen2.5:7b";
       // 本地服务一般无需鉴权，但 vLLM --api-key、LM Studio 密码、本地中转网关等场景需要，允许选填
       $("#api-key").disabled = false;
       $("#api-hint").textContent = "通常无需填写";
