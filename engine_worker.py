@@ -263,6 +263,52 @@ def typography_issues(page, clip=None) -> list[str]:
     return issues
 
 
+def _render_report_html(report: dict) -> str:
+    """把质检结果渲染为可直接在浏览器查看的 HTML 报告。"""
+    import html as _html
+
+    esc = _html.escape
+    ok_badge = ("✓ 全部通过", "color:#18473d") if report["ok"] else (f"✗ {report['issueCount']} 项问题", "color:#c0392b")
+    rows = []
+    for entry in report.get("outputs", []):
+        for issue in entry.get("issues", []):
+            rows.append(f"<tr><td>{esc(entry['file'])}</td><td>—</td><td>{esc(issue)}</td></tr>")
+        for p in entry.get("pages", []):
+            rows.append(f"<tr><td>{esc(entry['file'])} 第 {p['page']} 页</td><td>—</td><td>{esc('、'.join(p['issues']))}</td></tr>")
+
+    glossary = report.get("glossaryCheck")
+    glossary_rows = ""
+    if glossary:
+        g = glossary
+        glossary_rows = f"""
+        <h2>术语一致性</h2>
+        <p>术语库：{esc(g.get('source', ''))} · 共 {g['terms']} 条 ｜ 已应用 {g['applied']} ｜ 疑似未按术语表 {g['suspect']} ｜ 未出现 {g['unseen']}</p>"""
+        if g.get("suspectTerms"):
+            glossary_rows += f"<p style='color:#c0392b'>疑似未按术语表：{esc('、'.join(g['suspectTerms']))}</p>"
+        if g.get("unseenTerms"):
+            glossary_rows += f"<p style='color:#888'>未出现：{esc('、'.join(g['unseenTerms']))}</p>"
+
+    return f"""<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>质检报告</title>
+<style>
+body {{ font-family: "Microsoft YaHei", sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; color: #222; }}
+h1 {{ border-bottom: 2px solid #2c3e50; padding-bottom: 8px; }}
+table {{ border-collapse: collapse; width: 100%; margin: 12px 0; }}
+th, td {{ border: 1px solid #ccc; padding: 6px 10px; text-align: left; }}
+th {{ background: #f0f0f0; }}
+.ok {{ color: #27ae60; font-weight: bold; }}
+.bad {{ color: #c0392b; font-weight: bold; }}
+</style></head><body>
+<h1>译页 · 质检报告</h1>
+<p>生成时间：{esc(report['generatedAt'])} ｜ 原文 {report['inputPages']} 页 ｜ 预期 {report['expectedPages']} 页 ｜ 问题 {report['issueCount']} 项</p>
+<h2>文件</h2>
+<table><tr><th>文件</th><th>页码</th><th>问题</th></tr>
+{''.join(f"<tr><td>{esc(r[0])}</td><td>{esc(r[1])}</td><td>{esc(r[2])}</td></tr>" for r in rows)}
+</table>
+{glossary_rows}
+</body></html>"""
+
+
 def quality_check(input_path: str, output_dir: str, output_mode: str, glossary_path: str | None = None, pages_spec: str | None = None) -> dict:
     """翻译完成后的逐页渲染检查，生成 quality-report.json。
 
@@ -320,14 +366,72 @@ def quality_check(input_path: str, output_dir: str, output_mode: str, glossary_p
     report["issueCount"] = sum(item["issueCount"] for item in report["outputs"])
     report["ok"] = report["issueCount"] == 0
     report["glossaryCheck"] = check_glossary_consistency(report, output_dir, output_mode, glossary_path, in_scope, input_pages)
+    report["watermarkSuspects"] = detect_watermark_suspects(input_path)
     report_path = Path(output_dir) / "quality-report.json"
     report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    html_path = Path(output_dir) / "quality-report.html"
+    html_path.write_text(_render_report_html(report), encoding="utf-8")
     summary = {"ok": report["ok"], "issueCount": report["issueCount"], "pages": input_pages, "outputs": len(report["outputs"])}
     if report["glossaryCheck"]:
         glossary = report["glossaryCheck"]
         summary["glossary"] = {"terms": glossary["terms"], "applied": glossary["applied"], "suspect": glossary["suspect"]}
+    if report["watermarkSuspects"]:
+        summary["watermark"] = True
     print("\nYIYE_QUALITY: " + json.dumps(summary, ensure_ascii=False, separators=(",", ":")), flush=True)
     return report
+
+
+def detect_watermark_suspects(input_path: str) -> list[dict]:
+    """检测原文 PDF 中的疑似水印：多页同位置出现的重复文本。
+
+    排除页眉页脚区域（页面前 8% 和后 8%）以及纯数字/短标识符。
+    只报告不删除 —— 水印是否需要处理由用户判断。
+    """
+    import pymupdf
+    from collections import Counter
+
+    try:
+        doc = pymupdf.open(input_path)
+    except Exception:
+        return []
+    total = doc.page_count
+    if total < 3:
+        doc.close()
+        return []
+    # 收集每页的 (归一化文本, 归一化位置) 签名，排除页眉页脚区
+    span_pages: dict[tuple, set[int]] = {}
+    for i in range(total):
+        page = doc[i]
+        h = page.rect.height
+        for block in page.get_text("dict").get("blocks", []):
+            if block.get("type") != 0:
+                continue
+            for line in block.get("lines", []):
+                for span in line.get("spans", []):
+                    text = span.get("text", "").strip()
+                    if len(text) < 4:
+                        continue
+                    bbox = span["bbox"]
+                    ry = bbox[1] / h
+                    if ry < 0.08 or ry > 0.92:
+                        continue  # 页眉页脚区
+                    key = (squash_text(text)[:50], round(bbox[0] / page.rect.width, 1), round(ry, 1))
+                    span_pages.setdefault(key, set()).add(i)
+    doc.close()
+    if not span_pages:
+        return []
+    threshold = max(3, int(total * 0.5))
+    suspects = []
+    for (text, rx, ry), pages in span_pages.items():
+        if len(pages) >= threshold:
+            suspects.append({"text": text[:80], "pages": sorted(pages)})
+    if not suspects:
+        return []
+    return [{
+        "type": "repeated_text",
+        "text": s["text"],
+        "pages": s["pages"],
+    } for s in suspects]
 
 
 def squash_text(text: str) -> str:

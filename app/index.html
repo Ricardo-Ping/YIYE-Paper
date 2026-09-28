@@ -129,6 +129,25 @@
     .service-text small { display: block; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #718098; font-size: 9px; }
     .service-action { flex: 0 0 auto; color: var(--mint); font-size: 10px; font-weight: 800; }
     .settings-drawer { position: absolute; top: 0; right: 0; bottom: 0; width: min(480px,94vw); padding: 27px; background: #0d1729; box-shadow: -30px 0 90px rgba(0,0,0,.45); overflow-y: auto; overscroll-behavior: contain; will-change: scroll-position; }
+    .settings-drawer .field label, .settings-drawer .section-title { font-size: 13px; }
+    .settings-drawer .field input, .settings-drawer .field select { font-size: 16px; }
+    .settings-drawer .dd-btn { font-size: 16px; }
+    .settings-drawer .dd-btn .chev { font-size: 13px; }
+    .settings-drawer .dd-opt { font-size: 15px; padding: 11px 14px; }
+    .settings-drawer .dd-opt .opt-meta { font-size: 12px; }
+    .settings-drawer .kind-btn { padding: 16px 18px; }
+    .settings-drawer .kind-btn strong { font-size: 16px; }
+    .settings-drawer .kind-btn small { font-size: 12px; }
+    .settings-drawer .ghost.small { padding: 12px 18px; font-size: 14px; }
+    .settings-drawer .settings-note { font-size: 13px; }
+    .settings-drawer .glossary-body { font-size: 14px; }
+    .settings-drawer .glossary-head { font-size: 12px; }
+    .settings-drawer .link-btn { font-size: 13px; }
+    .settings-drawer .keep-toggle { font-size: 13px; }
+    .settings-drawer .provider-tools .test-result { font-size: 14px; }
+    .settings-drawer .settings-section-title { font-size: 13px; }
+    .settings-drawer .keep-toggle { font-size: 11px; }
+    .settings-drawer .provider-tools .test-result { font-size: 12px; }
     .drawer-backdrop { display: none; position: fixed; inset: 0; z-index: 30; background: rgba(2, 6, 14, .88); overscroll-behavior: contain; }
     body.modal-open { overflow: hidden; }
     .drawer-backdrop.open { display: block; }
@@ -136,7 +155,8 @@
     .settings-drawer .drawer-head h2 { margin: 5px 0 0; font-size: 21px; }
     .settings-body { display: grid; gap: 10px; }
     .settings-section { border-top: 1px solid var(--line); margin-top: 20px; padding-top: 18px; }
-    .settings-section-title { color: var(--mint); font-size: 9px; font-weight: 800; letter-spacing: .16em; margin-bottom: 12px; }
+    .settings-section-title { color: var(--mint); font-size: 10px; font-weight: 800; letter-spacing: .16em; margin-bottom: 12px; }
+    .settings-drawer .settings-section-title { font-size: 13px; }
     .settings-note { margin: 4px 0 0; color: #718098; font-size: 9px; line-height: 1.6; }
     .kind-seg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .kind-btn { padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; color: #8492a8; background: rgba(255,255,255,.02); text-align: left; transition: .18s ease; }
@@ -1042,14 +1062,11 @@
     enhanceCombobox($("#model"), $("#model-list"));
     document.addEventListener("click", (event) => { if (!event.target.closest(".dd") && !event.target.closest(".combobox-field")) closeAllMenus(); });
 
-    // 左侧时间线随流程推进：1 上传 → 2 翻译 → 3 导出
+    // 左侧时间线反映"用户当前可以做什么":1 上传 → 2 翻译 → 3 导出
     function updateTimeline() {
-      const hasFiles = state.files.length > 0;
       const hasActive = state.jobs.some((job) => ["queued", "running"].includes(job.status));
-      const hasDone = state.jobs.some((job) => job.status === "completed");
       let stage = 1;
       if (hasActive) stage = 2;
-      else if (hasDone) stage = 3;
       document.querySelectorAll(".step[data-step]").forEach((step) => {
         const number = Number(step.dataset.step);
         step.classList.toggle("active", number === stage);

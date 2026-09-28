@@ -384,6 +384,10 @@ async function runJob(job) {
     if (job.quality && await access(path.join(job.outputDir, reportName)).then(() => true).catch(() => false)) {
       job.outputs.push(reportName);
     }
+    const htmlReport = "quality-report.html";
+    if (await access(path.join(job.outputDir, htmlReport)).then(() => true).catch(() => false)) {
+      job.outputs.push(htmlReport);
+    }
     // 质检报告本身也是输出,必须以译文 PDF 是否存在作为完成标准
     const hasTranslatedPdf = job.outputs.some((name) => name.toLowerCase().endsWith(".pdf"));
     if (!hasTranslatedPdf) {
