@@ -158,6 +158,9 @@ def build_args(request: dict, api_key: str) -> list[str]:
     if config.get("ignoreCache"):
         # 忽略翻译缓存：更换术语表/提示词后强制全部段落重新翻译
         args.append("--ignore-cache")
+    if config.get("fontFamily"):
+        # 衬线/无衬线/手写体，影响译文 CJK 字体风格
+        args += ["--primary-font-family", config["fontFamily"]]
     # BabelDOC 在自动术语抽取和用户术语表同时存在时只使用自动抽取结果，
     # 因此上传了自定义术语表时必须关闭自动抽取，保证用户术语生效。
     if request.get("glossaryPath"):

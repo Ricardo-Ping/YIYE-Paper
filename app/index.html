@@ -462,6 +462,7 @@
           <div><strong>忽略翻译缓存</strong><small>更换术语表/提示词后强制全部段落重翻；默认利用缓存加速重复翻译</small></div>
           <label class="toggle"><input id="ignore-cache" type="checkbox"><span></span></label>
         </div>
+        <div class="field"><label for="font-family"><span>译文字体风格</span><span>匹配原论文风格</span></label><select id="font-family" data-enhance><option value="">自动匹配</option><option value="serif">衬线体（学术常用）</option><option value="sans-serif">无衬线体（现代风格）</option><option value="script">手写/斜体</option></select></div>
         <div class="glossary-box">
           <div class="glossary-head"><span>自定义术语表（CSV）</span><button class="link-btn" id="glossary-template" type="button">下载模板</button></div>
           <div class="glossary-body" id="glossary-empty">
@@ -1221,6 +1222,7 @@
         pages: $("#pages-range").value.trim(),
         enhance: $("#enhance").checked,
         ignoreCache: $("#ignore-cache").checked,
+        fontFamily: $("#font-family").value,
         ocr: $("#ocr").checked,
         table: $("#table").checked,
         glossary: $("#glossary").checked,
@@ -1242,6 +1244,7 @@
           table: $("#table").checked,
           enhance: $("#enhance").checked,
           ignoreCache: $("#ignore-cache").checked,
+          fontFamily: $("#font-family").value,
         };
         // 本地与云端的地址/模型分开记忆，切换类型互不覆盖
         if (state.serviceKind === "local") {
@@ -1279,6 +1282,7 @@
       if (typeof saved.table === "boolean") $("#table").checked = saved.table;
       if (typeof saved.enhance === "boolean") $("#enhance").checked = saved.enhance;
       if (typeof saved.ignoreCache === "boolean") $("#ignore-cache").checked = saved.ignoreCache;
+      if (saved.fontFamily) $("#font-family").value = saved.fontFamily;
       if (outputNames[saved.output]) {
         state.output = saved.output;
         document.querySelectorAll("[data-output]").forEach((item) => item.classList.toggle("selected", item.dataset.output === saved.output));
@@ -1641,7 +1645,7 @@
     $("#test-button").addEventListener("click", testProvider);
     $("#models-button").addEventListener("click", refreshModels);
     $("#run-button").addEventListener("click", startJob);
-    for (const id of ["base-url", "model", "qps", "pages-range", "target", "ocr", "table", "glossary", "enhance", "thinking", "ignore-cache"]) {
+    for (const id of ["base-url", "model", "qps", "pages-range", "target", "ocr", "table", "glossary", "enhance", "thinking", "ignore-cache", "font-family"]) {
       $(`#${id}`).addEventListener("change", saveSettings);
     }
     $("#chips").addEventListener("click", (event) => {

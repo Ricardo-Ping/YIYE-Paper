@@ -66,6 +66,7 @@ export function validateConfig(input = {}) {
     pages: validatePages(input.pages),
     enhance: input.enhance === true,
     ignoreCache: input.ignoreCache === true,
+    fontFamily: ["serif", "sans-serif", "script"].includes(input.fontFamily) ? input.fontFamily : "",
     ocr: input.ocr !== false,
     table: input.table === true,
     glossary: input.glossary !== false,
