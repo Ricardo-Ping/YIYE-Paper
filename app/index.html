@@ -935,11 +935,28 @@
       } catch {}
     }
 
-    // 静默探测所选服务已安装的模型：成功则替换下拉建议，失败则保留预设建议；
-    // 模型输入框始终允许自由输入任意名称
+    // 静默探测所选服务已安装的模型：成功则替换下拉建议并持久化到 localStorage，
+    // 下次选同一服务时直接从缓存加载，不需要重新请求。
+    const DISCOVERED_KEY = "yiye-discovered-models-v1";
+    function saveDiscoveredModels(baseUrl, models) {
+      try {
+        const all = JSON.parse(localStorage.getItem(DISCOVERED_KEY) || "{}");
+        all[baseUrl] = models;
+        localStorage.setItem(DISCOVERED_KEY, JSON.stringify(all));
+      } catch {}
+    }
+    function loadDiscoveredModels(baseUrl) {
+      try { return (JSON.parse(localStorage.getItem(DISCOVERED_KEY) || "{}"))[baseUrl] || []; } catch { return []; }
+    }
+
     async function autoDiscoverModels() {
       const baseUrl = $("#base-url").value.trim();
       if (!baseUrl) return;
+      // 先从缓存加载，秒出建议
+      const cached = loadDiscoveredModels(baseUrl);
+      if (cached.length) {
+        $("#model-list").innerHTML = cached.map((model) => `<option value="${escapeHtml(model)}"></option>`).join("");
+      }
       try {
         const response = await fetch(`/api/providers/models?baseUrl=${encodeURIComponent(baseUrl)}&protocol=${encodeURIComponent($("#protocol").value)}`, {
           headers: { "x-api-key": $("#api-key").value },
@@ -947,6 +964,7 @@
         if (!response.ok) return;
         const data = await response.json();
         if (!Array.isArray(data.models) || !data.models.length) return;
+        saveDiscoveredModels(baseUrl, data.models);
         $("#model-list").innerHTML = data.models.map((model) => `<option value="${escapeHtml(model)}"></option>`).join("");
         const result = $("#test-result");
         result.className = "test-result";
