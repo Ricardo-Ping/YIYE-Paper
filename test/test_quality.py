@@ -224,15 +224,6 @@ class TypographyTest(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def test_small_font_flagged(self):
-        doc = pymupdf.open()
-        page = doc.new_page()
-        page.insert_textbox(pymupdf.Rect(72, 72, 540, 400), "tiny but readable footnote content" * 4, fontsize=4)
-        doc.save(str(self.dir / "small.pdf"))
-        doc.close()
-        issues = typography_issues(pymupdf.open(str(self.dir / "small.pdf"))[0])
-        self.assertIn("font_too_small", issues)
-
     def test_text_over_image_flagged(self):
         doc = pymupdf.open()
         page = doc.new_page()

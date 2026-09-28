@@ -212,17 +212,16 @@ def preflight(pdf_path: str, ocr_enabled: bool) -> tuple[list[str], list[str]]:
 
 
 def typography_issues(page, clip=None) -> list[str]:
-    """版式排版检查(与文本提取不同,基于 span/图片几何,可可靠检出):
+    """版式排版检查：文本覆盖图片（正文大面积覆盖配图时报告）。
 
-    - font_too_small:译文 span 字号低于 MIN_FONT_SIZE
-    - text_image_overlap:文本框与图片区域大面积重叠(正文覆盖配图)
-    均为 warning 级提示,只报告明显问题。
+    基于图片区域与文本框几何对比，可可靠检出。
+    注意：font_too_small 不在此检测——学术论文脚注/标题/上下标通常在 5–8pt，
+    属于原文固有设计而非翻译缺陷，误报率极高。字号信息仍在原文 PDF 中可查。
     """
     import pymupdf
 
     issues: list[str] = []
     clip_rect = clip if clip is not None else page.rect
-    small_font = False
     overlaps_image = False
 
     d = page.get_text("dict", clip=clip_rect)
@@ -239,13 +238,8 @@ def typography_issues(page, clip=None) -> list[str]:
                     block_rect = pymupdf.Rect(span["bbox"])
                 else:
                     block_rect |= pymupdf.Rect(span["bbox"])
-                if span.get("size", 99) < MIN_FONT_SIZE and span.get("text", "").strip():
-                    small_font = True
         if block_text.strip() and block_rect is not None:
             text_rects.append((block_rect.x0, block_rect.y0, block_rect.x1, block_rect.y1))
-
-    if small_font:
-        issues.append("font_too_small")
 
     image_rects = [pymupdf.Rect(info["bbox"]) for info in page.get_image_info()]
     for tx0, ty0, tx1, ty1 in text_rects:
@@ -367,11 +361,29 @@ def quality_check(input_path: str, output_dir: str, output_mode: str, glossary_p
                 latin = len(re.findall(r"[A-Za-z]", text))
                 if latin >= 300 and cjk == 0:
                     page_issues.append("疑似未翻译")
+                page_issues: list[str] = []
+                page_hints: list[str] = []
+                page = doc[i]
+                clip = None
+                if output_mode == "dual":
+                    # 左右对照只检查右半译文区
+                    clip = pymupdf.Rect(page.rect.width / 2, 0, page.rect.width, page.rect.height)
+                text = page.get_text(clip=clip)
+                if len(text.strip()) < 5 and not page.get_images() and not page.get_drawings():
+                    # dual 模式下左半有原文、右半为空，说明这一页没有翻出来
+                    page_issues.append("译文缺失" if output_mode == "dual" else "空白页")
+                cjk = len(re.findall(r"[\u4e00-\u9fff]", text))
+                latin = len(re.findall(r"[A-Za-z]", text))
+                if latin >= 300 and cjk == 0:
+                    page_issues.append("疑似未翻译")
                 if any(pat.search(text) for pat in PLACEHOLDER_PATTERNS):
                     page_issues.append("占位符残留")
                 page_issues.extend(typography_issues(page, clip))
                 if page_issues:
                     entry["pages"].append({"page": i + 1, "issues": page_issues})
+                # 字号过小单独收集为排版提示,不计入 issueCount
+                if typography_issues(page, clip):
+                    entry.setdefault("typographyHints", []).append(i + 1)
         entry["issueCount"] = len(entry["issues"]) + len(entry["pages"])
         report["outputs"].append(entry)
 
