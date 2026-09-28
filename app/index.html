@@ -527,6 +527,21 @@
       return count >= 10000 ? `${(count / 10000).toFixed(1)} 万` : String(count);
     }
 
+    function elapsedText(job) {
+      if (!job.startedAt) return "";
+      const secs = Math.round((Date.now() - new Date(job.startedAt)) / 1000);
+      if (secs < 60) return `${secs} 秒`;
+      return `${Math.floor(secs / 60)} 分 ${secs % 60} 秒`;
+    }
+
+    function estimateRemaining(job) {
+      if (!job.startedAt || !job.progress || job.progress < 5) return "估算中…";
+      const elapsedSecs = (Date.now() - new Date(job.startedAt)) / 1000;
+      const remainingSecs = Math.round(elapsedSecs * (100 - job.progress) / job.progress);
+      if (remainingSecs < 60) return `${remainingSecs} 秒`;
+      return `${Math.ceil(remainingSecs / 60)} 分钟`;
+    }
+
     function estimateKey(file) {
       return `${file.name}:${file.size}`;
     }
@@ -1370,7 +1385,7 @@
       }
       return `<article class="task-item">
         <div class="task-top"><strong title="${escapeHtml(job.fileName)}">${escapeHtml(job.fileName)}</strong><span class="status-pill${pillClass}">${escapeHtml(statusNames[job.status] || job.status)}</span></div>
-        <div class="task-stage"><span>${escapeHtml(job.stage || "")}</span><span>${job.progress || 0}%</span></div>
+        <div class="task-stage"><span>${escapeHtml(job.stage || "")}</span><span>${job.progress || 0}%${job.status === "running" && job.progress > 5 ? ` · 已用 ${elapsedText(job)} · 预计还需 ${estimateRemaining(job)}` : ""}</span></div>
         <div class="task-progress"><i style="width:${job.progress || 0}%"></i></div>
         ${metaBits.length || qualityHtml ? `<div class="task-meta">${metaBits.map((bit) => `<span>${escapeHtml(bit)}</span>`).join("")}${qualityHtml}</div>` : ""}
         ${qualityIssuesHtml(job)}

@@ -313,7 +313,7 @@ function stopChild(child) {
 function spawnWorker(extraEnv = {}) {
   return spawn(PYTHON, [WORKER_FILE], {
     cwd: ROOT,
-    env: { ...process.env, PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8", PYTHONUNBUFFERED: "1", YIYE_API_KEY: "not-needed", ...extraEnv },
+    env: { ...process.env, PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8", PYTHONUNBUFFERED: "1", YIYE_API_KEY: "not-needed", OLLAMA_KEEP_ALIVE: "30m", ...extraEnv },
     windowsHide: true,
   });
 }
