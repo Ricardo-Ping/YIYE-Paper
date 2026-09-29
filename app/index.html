@@ -308,6 +308,13 @@
     .chat-quick-btn:hover { border-color: var(--mint); color: #d8f5ee; }
     .chat-cite { color: var(--blue); font-weight: 800; text-decoration: none; }
     .chat-cite:hover { text-decoration: underline; }
+    .citation-note { margin-top: 7px; color: var(--mint); font-size: 11px; line-height: 1.5; }
+    .citation-note.warn { color: #e8ca93; }
+    .watermark-panel { margin-top: 10px; padding: 10px 12px; border: 1px solid rgba(232,202,147,.25); border-radius: 10px; background: rgba(232,202,147,.05); }
+    .watermark-title { color: #e8ca93; font-size: 12px; font-weight: 800; }
+    .watermark-row { margin-top: 6px; color: #b8c4d4; font-size: 12px; line-height: 1.55; }
+    .watermark-row a { margin-left: 5px; color: var(--blue); text-decoration: none; }
+    .watermark-help { margin-top: 7px; color: #718098; font-size: 11px; }
     .rp-sent { cursor: pointer; border-bottom: 1px dotted rgba(114,223,202,.45); }
     .rp-sent:hover { background: rgba(114,223,202,.14); color: #eaf6f2; }
     .rp-sent-mode { display: inline-flex; align-items: center; gap: 5px; color: #9fb2c9; font-size: 11px; cursor: pointer; }
@@ -1732,6 +1739,25 @@
       return `<div class="task-issues">${shown}${more}</div>${reviseButton ? `<div class="task-issue" style="margin-top:6px">${reviseButton}</div>` : ""}`;
     }
 
+    function watermarkSuspectsHtml(job) {
+      const suspects = state.qualityDetails.get(job.id)?.watermarkSuspects || [];
+      if (!suspects.length) return "";
+      const rows = suspects.slice(0, 6).map((suspect) => {
+        const pages = [...new Set((suspect.pages || []).filter((page) => Number.isInteger(page) && page > 0))];
+        const links = pages.slice(0, 8).map((page) => `<a href="/api/jobs/${job.id}/original#page=${page}" target="_blank" rel="noopener">第 ${page} 页</a>`).join("");
+        return `<div class="watermark-row">“${escapeHtml(suspect.text || "未命名对象")}”${links ? ` · ${links}` : ""}${pages.length > 8 ? ` · 等 ${pages.length} 页` : ""}</div>`;
+      }).join("");
+      const more = suspects.length > 6 ? `<div class="watermark-help">另有 ${suspects.length - 6} 组疑似对象</div>` : "";
+      return `<div class="watermark-panel"><div class="watermark-title">疑似水印 · ${suspects.length} 组</div>${rows}${more}<div class="watermark-help">依据跨页同位置重复文字检测，仅供核对；不会自动删除或改动原 PDF。</div></div>`;
+    }
+
+    function citationNoticeHtml(check) {
+      if (!check) return "";
+      if (check.warning) return `<div class="citation-note warn">⚠ ${escapeHtml(check.warning)}（只校验页码范围，不代表论断一定受该页支持）</div>`;
+      if (check.validCount > 0) return `<div class="citation-note">✓ ${check.validCount} 个页码引用已通过范围检查；请继续核对原文语义</div>`;
+      return "";
+    }
+
     function aiSummaryHtml(job) {
       const summary = state.qualityDetails.get(job.id)?.aiSummary;
       if (!summary?.content || job.status !== "completed") return "";
@@ -1768,7 +1794,7 @@
       const thread = (state.chatThreads.get(job.id) || []).slice(-20);
       const busy = state.chatBusy.has(job.id);
       const msgs = thread.map((m) => m.role === "assistant"
-        ? `<div class="chat-msg assistant"><span>${renderChatContent(job, m.content)}</span></div>`
+        ? `<div class="chat-msg assistant"><span>${renderChatContent(job, m.content)}${citationNoticeHtml(m.citationCheck)}</span></div>`
         : `<div class="chat-msg user"><span>${escapeHtml(m.content)}</span></div>`).join("");
       const quick = ["这篇论文的核心贡献是什么", "方法与实验是怎么做的", "论文有哪些局限性", "挑出译文中最难理解的三句话并逐句解析", "做一份结构化文献解读：研究背景与设计逻辑、数据与实验价值、创新点、局限性，分四部分输出"]
         .map((q) => `<button type="button" class="chat-quick-btn" data-chat-quick="${escapeHtml(q)}">${escapeHtml(q)}</button>`).join("");
@@ -1800,7 +1826,7 @@
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "问答失败");
-        thread.push({ role: "assistant", content: data.answer });
+        thread.push({ role: "assistant", content: data.answer, citationCheck: data.citationCheck });
       } catch (error) {
         thread.push({ role: "assistant", content: `⚠ ${error.message}` });
       } finally {
@@ -2049,7 +2075,7 @@
       const m = state.multiChat;
       const msgs = m.thread.map((msg) => msg.role === "user"
         ? `<div class="chat-msg user"><span>${escapeHtml(msg.content)}</span></div>`
-        : `<div class="chat-msg assistant"><span>${renderMultiChatContent(msg.content)}</span></div>`).join("");
+        : `<div class="chat-msg assistant"><span>${renderMultiChatContent(msg.content)}${citationNoticeHtml(msg.citationCheck)}</span></div>`).join("");
       thread.innerHTML = (msgs || '<div class="chat-hint">你好，我是你的论文助手。<br>选择一篇论文深读，或选择多篇对比方法、贡献与实验。回答可能有误，请结合页码核对原文。</div>') + (m.busy ? '<div class="chat-hint" role="status">正在阅读论文并组织回答…</div>' : "");
       thread.scrollTop = thread.scrollHeight;
       $("#aichat-send").disabled = m.busy;
@@ -2109,7 +2135,7 @@
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "多文档问答失败");
         if (Array.isArray(data.docs)) m.order = data.docs.map((d) => state.jobs.find((job) => job.id === d.id)).filter(Boolean);
-        m.thread.push({ role: "assistant", content: data.answer });
+        m.thread.push({ role: "assistant", content: data.answer, citationCheck: data.citationCheck });
       } catch (error) {
         m.thread.push({ role: "assistant", content: `⚠ ${error.message}` });
         if (!input.value) input.value = question;
@@ -2372,6 +2398,7 @@
         ${mindmapPanelHtml(job)}
         ${figuresPanelHtml(job)}
         ${qualityIssuesHtml(job)}
+        ${watermarkSuspectsHtml(job)}
         ${chatPanelHtml(job)}
         ${job.error ? `<div class="task-error">${escapeHtml(job.error)}</div>` : ""}
         ${job.outputs?.length || cancel || retry || del || chat || mindmap || figures || reader || viewer || logButton ? `<div class="task-actions">${downloads}${cancel}${retry}${del}${chat}${mindmap}${figures}${reader}${viewer}${logButton}</div>` : ""}

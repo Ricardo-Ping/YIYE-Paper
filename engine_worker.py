@@ -117,13 +117,17 @@ def translated_half_clip(page, output_mode: str):
 
     if output_mode != "dual":
         return None
-    rect = page.rect
-    mid = rect.width / 2
-    left_cjk = len(re.findall(r"[\u4e00-\u9fff]", page.get_text(clip=pymupdf.Rect(0, 0, mid, rect.height))))
-    right_cjk = len(re.findall(r"[\u4e00-\u9fff]", page.get_text(clip=pymupdf.Rect(mid, 0, rect.width, rect.height))))
+    # get_text() 使用未旋转的 PDF 坐标；page.rect 在 90°/270° 页面会交换宽高，
+    # 必须用 cropbox 才能正确切分左右栏。
+    rect = page.cropbox
+    mid = (rect.x0 + rect.x1) / 2
+    left = pymupdf.Rect(rect.x0, rect.y0, mid, rect.y1)
+    right = pymupdf.Rect(mid, rect.y0, rect.x1, rect.y1)
+    left_cjk = len(re.findall(r"[\u4e00-\u9fff]", page.get_text(clip=left)))
+    right_cjk = len(re.findall(r"[\u4e00-\u9fff]", page.get_text(clip=right)))
     if right_cjk >= left_cjk:
-        return pymupdf.Rect(mid, 0, rect.width, rect.height)
-    return pymupdf.Rect(0, 0, mid, rect.height)
+        return right
+    return left
 
 
 def translated_page_text(doc, page_index: int, output_mode: str) -> str:
@@ -1049,9 +1053,9 @@ def _cache_match(corpus: str, entries: list[tuple[int, str, str]], key: str) -> 
 def extract_paragraph_pairs(input_path: str, output_dir: str, output_mode: str, max_pages: int = 200) -> list[dict]:
     """逐页配对原文段落与译文段落,生成逐段对照阅读数据(对标 PDF Pro 的段落对照)。
 
-    配对策略:BabelDOC 对每个原文段落恰好输出一个译文段落且页数保持一致,
-    同页内两侧块各按"栏位+纵坐标"排序后按序号一一对应;
-    数量不一致时,多余的单侧段落以空对照占位,保证阅读顺序不丢。
+    配对策略:同页内两侧块各按"栏位+纵坐标"排序。块数相等时按位置配对并用
+    BabelDOC 缓存校正;块数不等但存在缓存命中时只保留确定配对,其余以空对照
+    占位,避免图注/跨栏标题插入后把整页后续段落错配。
     """
     import pymupdf
 
@@ -1087,16 +1091,38 @@ def extract_paragraph_pairs(input_path: str, output_dir: str, output_mode: str, 
             single_column = clip is not None
             zh = blocks(dst[i], clip, single_column)
             pairs = []
-            for j in range(max(len(en), len(zh))):
+            cached_translations = [
+                _cache_match(corpus, entries, re.sub(r"\s+", "", en_text))
+                for en_text in en
+            ]
+            conservative = len(en) != len(zh) and any(cached_translations)
+            used_zh: set[int] = set()
+            pair_count = len(en) if conservative else max(len(en), len(zh))
+            for j in range(pair_count):
                 en_text = en[j] if j < len(en) else ""
-                zh_text = zh[j] if j < len(zh) else ""
+                cached = cached_translations[j] if j < len(cached_translations) else None
+                zh_text = "" if conservative else (zh[j] if j < len(zh) else "")
+                if not conservative and j < len(zh):
+                    used_zh.add(j)
                 # 语义校正:该原文块在缓存里有对应译文时,以缓存为准
-                cached = _cache_match(corpus, entries, re.sub(r"\s+", "", en_text))
                 if cached:
                     zh_text = cached
+                    cached_key = re.sub(r"\s+", "", cached)
+                    match = next((
+                        k for k, text in enumerate(zh)
+                        if k not in used_zh and re.sub(r"\s+", "", text) == cached_key
+                    ), None)
+                    if match is not None:
+                        used_zh.add(match)
                 if zh_text and _looks_like_json(zh_text):
                     zh_text = ""  # 历史污染的 JSON 译文不作为对照内容展示
                 pairs.append({"en": en_text, "zh": zh_text})
+            if conservative:
+                pairs.extend(
+                    {"en": "", "zh": text}
+                    for k, text in enumerate(zh)
+                    if k not in used_zh and not _looks_like_json(text)
+                )
             # 相邻重复(同一段落被拆成多块,缓存译文相同)合并为一条
             merged: list[dict] = []
             for pair in pairs:
@@ -1412,14 +1438,8 @@ def revise_pdf(translated_pdf: str, original_pdf: str, out_path: str, keep_origi
             return 2
         revised = pymupdf.open()
         for i in range(translated.page_count):
-            if (i + 1) in keep and output_mode == "dual":
-                rect = translated[i].rect
-                page = revised.new_page(width=rect.width, height=rect.height)
-                middle = rect.width / 2
-                for half in (pymupdf.Rect(0, 0, middle, rect.height), pymupdf.Rect(middle, 0, rect.width, rect.height)):
-                    if original[i].get_contents():
-                        page.show_pdf_page(half, original, i)
-                continue
+            # “保留原文页”应保持原页尺寸、方向和内容，不把整页缩放或复制进双栏。
+            # PDF 允许混合页尺寸；其余页仍保持翻译输出原样。
             source = original if (i + 1) in keep else translated
             revised.insert_pdf(source, from_page=i, to_page=i)
         revised.save(str(dst))

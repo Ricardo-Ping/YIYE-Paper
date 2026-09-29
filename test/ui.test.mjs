@@ -72,9 +72,30 @@ test("task download list filters out backend-only artifacts", () => {
   const ctx = loadFunctions(["escapeHtml", "taskHtml"], {
     state: { chatOpen: new Set(), mindmapOpen: new Set(), figuresOpen: new Set(), readerOpen: new Set(), qualityDetails: new Map() },
     statusNames: {}, runningTimeText: () => "", aiSummaryHtml: () => "", readerPanelHtml: () => "",
-    mindmapPanelHtml: () => "", figuresPanelHtml: () => "", qualityIssuesHtml: () => "", chatPanelHtml: () => "",
+    mindmapPanelHtml: () => "", figuresPanelHtml: () => "", qualityIssuesHtml: () => "", watermarkSuspectsHtml: () => "", chatPanelHtml: () => "",
   });
   const rendered = ctx.taskHtml({ id: "one", status: "completed", fileName: "paper.pdf", outputs: ["paper.pdf", "report.json", "terms.csv", "report.html"] });
   assert.match(rendered, /下载 paper.pdf/);
   for (const name of ["report.json", "terms.csv", "report.html"]) assert.ok(!rendered.includes(name));
+});
+
+test("watermark suspects are escaped, linked to original pages and never offer deletion", () => {
+  const detail = { watermarkSuspects: [{ text: "<script>bad()</script>", pages: [1, 3] }] };
+  const ctx = loadFunctions(["escapeHtml", "watermarkSuspectsHtml"], {
+    state: { qualityDetails: new Map([["one", detail]]) },
+  });
+  const rendered = ctx.watermarkSuspectsHtml({ id: "one" });
+  assert.match(rendered, /疑似水印 · 1 组/);
+  assert.match(rendered, /&lt;script&gt;bad\(\)&lt;\/script&gt;/);
+  assert.match(rendered, /\/api\/jobs\/one\/original#page=3/);
+  assert.match(rendered, /不会自动删除或改动原 PDF/);
+  assert.ok(!rendered.includes("data-watermark-delete"));
+  assert.equal(ctx.watermarkSuspectsHtml({ id: "missing" }), "");
+});
+
+test("citation status distinguishes checked page ranges from warnings", () => {
+  const ctx = loadFunctions(["escapeHtml", "citationNoticeHtml"], {});
+  assert.match(ctx.citationNoticeHtml({ validCount: 2, warning: "" }), /2 个页码引用已通过范围检查/);
+  assert.match(ctx.citationNoticeHtml({ validCount: 0, warning: "回答没有提供页码引用" }), /只校验页码范围/);
+  assert.equal(ctx.citationNoticeHtml(null), "");
 });

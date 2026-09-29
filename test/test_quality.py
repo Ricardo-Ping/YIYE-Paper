@@ -24,7 +24,7 @@ def make_output_pdf(path: str, pages: list[dict]) -> None:
 
 
 class QualityCheckTest(unittest.TestCase):
-    def test_dual_revision_keeps_wide_page_and_rejects_out_of_bounds(self):
+    def test_dual_revision_preserves_one_original_page_and_rejects_out_of_bounds(self):
         source = self.dir / "revision-input.pdf"
         translated = self.dir / "revision-dual.pdf"
         output = self.dir / "revision-result.pdf"
@@ -36,8 +36,9 @@ class QualityCheckTest(unittest.TestCase):
             doc.save(translated)
         self.assertEqual(revise_pdf(str(translated), str(source), str(output), [1], "dual"), 0)
         with pymupdf.open(output) as doc:
-            self.assertEqual(doc[0].rect.width, 600)
-            self.assertEqual(doc[0].get_text().count("Original paper"), 2)
+            self.assertEqual(doc[0].rect.width, 300)
+            self.assertEqual(doc[0].rect.height, 400)
+            self.assertEqual(doc[0].get_text().count("Original paper"), 1)
         invalid_output = self.dir / "invalid-revision.pdf"
         self.assertEqual(revise_pdf(str(translated), str(source), str(invalid_output), [2], "dual"), 2)
         self.assertFalse(invalid_output.exists())
@@ -212,6 +213,20 @@ class GlossaryConsistencyTest(unittest.TestCase):
         self.assertIn("注意力机制", right_text)
         self.assertNotIn("transformer", right_text)
         self.assertIn("transformer", full_text)
+
+    def test_rotated_dual_mode_uses_unrotated_pdf_coordinates(self):
+        path = self.out / "rotated.dual.pdf"
+        doc = pymupdf.open()
+        page = doc.new_page(width=600, height=400)
+        page.insert_textbox(pymupdf.Rect(30, 60, 270, 300), "transformer model " * 8, fontsize=10)
+        page.insert_textbox(pymupdf.Rect(330, 60, 570, 300), "旋转页面的中文译文。" * 8, fontsize=10, fontname="china-s")
+        page.set_rotation(90)
+        doc.save(path)
+        doc.close()
+        with pymupdf.open(path) as rotated:
+            text = translated_page_text(rotated, 0, "dual")
+        self.assertIn("中文译文", text)
+        self.assertNotIn("transformer", text)
 
     def test_no_glossary_returns_none(self):
         make_output_pdf(str(self.out / "out.mono.pdf"), [{"cjk": "普通译文。" * 10}])

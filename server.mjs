@@ -1357,6 +1357,32 @@ export function readingModelConfig(override, fallback) {
   return validateConfig({ ...fallback, ...override });
 }
 
+export function auditCitations(answer, availableRefs, multi = false) {
+  const available = new Set(availableRefs || []);
+  const pattern = multi
+    ? /【文档\s*(\d+)\s*第\s*(\d+)(?:\s*[-–]\s*(\d+))?\s*页】/g
+    : /【第\s*(\d+)(?:\s*[-–]\s*(\d+))?\s*页】/g;
+  const found = [];
+  for (const match of String(answer || "").matchAll(pattern)) {
+    const doc = multi ? Number(match[1]) : null;
+    const start = Number(match[multi ? 2 : 1]);
+    const end = Number(match[multi ? 3 : 2] || start);
+    let valid = Number.isInteger(start) && Number.isInteger(end) && end >= start && end - start <= 100;
+    for (let page = start; valid && page <= end; page += 1) {
+      if (!available.has(multi ? `${doc}:${page}` : String(page))) valid = false;
+    }
+    found.push({ reference: match[0], valid });
+  }
+  const invalid = found.filter((item) => !item.valid).map((item) => item.reference);
+  const validCount = found.length - invalid.length;
+  const warning = !found.length
+    ? "回答没有提供页码引用，请结合原文核对"
+    : invalid.length
+      ? `发现 ${invalid.length} 个超出当前上下文范围的页码引用，请勿直接采信`
+      : "";
+  return { count: found.length, validCount, invalid, warning };
+}
+
 // 任务问答:基于任务译文全文,用任务配置的同一模型回答提问。
 // LLM 端点是用户自己在应用内配置的服务(与翻译请求同源),不走任意 URL 抓取。
 async function jobChat(req, res, job) {
@@ -1402,7 +1428,8 @@ async function jobChat(req, res, job) {
   ];
   try {
     const { answer, model } = await callConfiguredModel(config, apiKey, messages);
-    return json(res, 200, { answer, model });
+    const availableRefs = [...context.matchAll(/【第\s*(\d+)\s*页】/g)].map((match) => match[1]);
+    return json(res, 200, { answer, model, citationCheck: auditCitations(answer, availableRefs) });
   } catch (error) {
     if (error.name === "TimeoutError") return json(res, 504, { error: "问答超时（180 秒），请稍后重试或换用更快的模型" });
     return json(res, error.status || 502, { error: `问答失败：${error.message}` });
@@ -1511,9 +1538,15 @@ async function chatMulti(req, res) {
   ];
   try {
     const { answer, model } = await callConfiguredModel(cfg, String(req.headers["x-api-key"] || "").trim(), messages, { maxTokens: 2000, temperature: 0.3 });
+    const availableRefs = docs.flatMap((doc, index) =>
+      [...doc.text.matchAll(/【第\s*(\d+)\s*页】/g)].map((match) => `${index + 1}:${match[1]}`));
+    const citationCheck = auditCitations(answer, availableRefs, true);
+    citationCheck.skippedCount = skipped.length;
+    if (skipped.length) citationCheck.warning = `${citationCheck.warning ? `${citationCheck.warning}；` : ""}有 ${skipped.length} 篇所选论文未纳入回答`;
     return json(res, 200, {
       answer,
       model,
+      citationCheck,
       docs: docs.map((d) => ({ id: d.job.id, fileName: d.job.fileName })),
       skipped,
     });

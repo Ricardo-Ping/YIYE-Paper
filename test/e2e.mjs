@@ -178,6 +178,8 @@ async function main() {
     const chatData = await chatResponse.json();
     check("任务问答返回内容", chatResponse.status === 200 && typeof chatData.answer === "string" && chatData.answer.length > 0,
       JSON.stringify(chatData).slice(0, 140));
+    check("任务问答页码引用通过范围检查", chatData.citationCheck?.validCount === 1 && !chatData.citationCheck?.warning,
+      JSON.stringify(chatData.citationCheck));
     check("任务问答采用当前选定模型", chatData.model === "mock-small");
     const retransEmpty = await fetch(`${BASE}/api/jobs/${created.id}/retranslate`, {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ en: "  " }),
@@ -252,6 +254,8 @@ async function main() {
     const multiData = await multiResponse.json();
     check("多文档问答返回内容", multiResponse.status === 200 && typeof multiData.answer === "string" && multiData.answer.length > 0 && multiData.docs?.length === 1,
       JSON.stringify(multiData).slice(0, 140));
+    check("多文档问答页码引用通过范围检查", multiData.citationCheck?.validCount === 1 && !multiData.citationCheck?.warning,
+      JSON.stringify(multiData.citationCheck));
     const multiMessages = await fetch(`${MOCK_BASE}/last-system`).then((r) => r.json());
     check("多文档问答保留对话历史", multiMessages.system.includes("上一轮问题标记-测试历史") && multiMessages.system.includes("上一轮回答标记-保留上下文"));
     const multiEmpty = await fetch(`${BASE}/api/chat-multi`, {

@@ -314,6 +314,41 @@ class ParagraphPairTest(unittest.TestCase):
             self.assertEqual(pairs[1]["zh"], "")
             self.assertEqual(pairs[2]["en"], "EN three")
 
+    def test_unequal_counts_do_not_shift_cached_pairs(self):
+        """插入标题导致块数不等时,不把标题错配给正文,缓存命中的译文也不重复。"""
+        import os
+        import tempfile
+        from unittest.mock import patch
+
+        import pymupdf
+
+        from engine_worker import extract_paragraph_pairs
+
+        with tempfile.TemporaryDirectory() as tmp:
+            orig = pymupdf.open()
+            page = orig.new_page(width=600, height=400)
+            self._block(page, 60, 80, "Original paragraph one")
+            self._block(page, 60, 180, "Original paragraph two")
+            orig.save(os.path.join(tmp, "input.pdf"))
+            orig.close()
+
+            out = pymupdf.open()
+            page = out.new_page(width=600, height=400)
+            self._block(page, 60, 40, "插入标题")
+            self._block(page, 60, 100, "译文一")
+            self._block(page, 60, 200, "译文二")
+            out.save(os.path.join(tmp, "paper.mono.pdf"))
+            out.close()
+
+            with patch("engine_worker._load_translation_cache_map", return_value={"Originalparagraphtwo": "译文二"}):
+                pairs = extract_paragraph_pairs(os.path.join(tmp, "input.pdf"), tmp, "mono")[0]["pairs"]
+
+            self.assertEqual(pairs[0], {"en": "Original paragraph one", "zh": ""})
+            self.assertEqual(pairs[1], {"en": "Original paragraph two", "zh": "译文二"})
+            self.assertEqual(sum(pair["zh"] == "译文二" for pair in pairs), 1)
+            self.assertIn({"en": "", "zh": "插入标题"}, pairs)
+            self.assertIn({"en": "", "zh": "译文一"}, pairs)
+
 
 class FigureCropTest(unittest.TestCase):
     def test_caption_region_and_crop_rendered(self):

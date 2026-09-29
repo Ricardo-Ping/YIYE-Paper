@@ -24,6 +24,8 @@ const server = createServer((req, res) => {
       lastSystem = (request.messages || []).map((m) => m.content || "").join("\n");
       let content = "深度学习模型改变了自然语言处理。";
       if (/attention mechanism/i.test(request.messages?.at(-1)?.content || "")) content = "注意力机制。";
+      if (/关键论断句末标注来源/.test(lastSystem)) content = "多文档比较结论。【文档 1 第 1 页】";
+      else if (/关键论断需在句末标注来源页码/.test(lastSystem)) content = "论文核心贡献来自所提出的方法。【第 1 页】";
       res.writeHead(200, { "content-type": "application/json" });
       return res.end(JSON.stringify({
         model: request.model,

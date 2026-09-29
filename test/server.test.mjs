@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applyThinkingToUpstream, countGlossaryEntries, isPdf, parseBabeldocProgress, parseGlossaryCsv, parseHttpUrl, sanitizeFileName, sanitizeGlossaryName, validateConfig, validatePages } from "../server.mjs";
+import { applyThinkingToUpstream, auditCitations, countGlossaryEntries, isPdf, parseBabeldocProgress, parseGlossaryCsv, parseHttpUrl, sanitizeFileName, sanitizeGlossaryName, validateConfig, validatePages } from "../server.mjs";
 
 test("PDF trust-boundary validation", () => {
   assert.equal(isPdf(Buffer.from("%PDF-1.7\n")), true);
@@ -123,6 +123,20 @@ test("thinking config maps to upstream protocols", () => {
   const none = { generationConfig: {} };
   applyThinkingToUpstream(none, {}, "gemini");
   assert.equal(none.generationConfig.thinkingConfig, undefined);
+});
+
+test("reading citations are checked against pages actually sent to the model", () => {
+  assert.deepEqual(auditCitations("结论【第 2 页】", ["1", "2"]), {
+    count: 1, validCount: 1, invalid: [], warning: "",
+  });
+  const missing = auditCitations("没有引用", ["1"]);
+  assert.match(missing.warning, /没有提供页码引用/);
+  const invalid = auditCitations("错误【第 9 页】", ["1", "2"]);
+  assert.equal(invalid.validCount, 0);
+  assert.deepEqual(invalid.invalid, ["【第 9 页】"]);
+  const multi = auditCitations("对比【文档 1 第 1-2 页】【文档 2 第 3 页】", ["1:1", "1:2", "2:3"], true);
+  assert.equal(multi.validCount, 2);
+  assert.equal(multi.warning, "");
 });
 
 test("reading assistant accepts current model and rejects invalid override", async () => {
