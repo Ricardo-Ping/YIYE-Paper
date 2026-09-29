@@ -3,6 +3,10 @@ import { createServer } from "node:http";
 
 const PORT = Number(process.env.MOCK_PORT || 5180);
 
+// 记录最近一次 OpenAI 风格请求的全部消息内容,供 E2E 断言提示词模板传递链路
+// (BabelDOC 的 llm_translate 把角色块+规则整体作为 user 消息发送,不一定有 system 角色)
+let lastSystem = "";
+
 const server = createServer((req, res) => {
   const body = [];
   req.on("data", (chunk) => body.push(chunk));
@@ -11,8 +15,13 @@ const server = createServer((req, res) => {
       res.writeHead(200, { "content-type": "application/json" });
       return res.end(JSON.stringify({ object: "list", data: [{ id: "mock-large" }, { id: "mock-small" }] }));
     }
+    if (req.url === "/v1/last-system") {
+      res.writeHead(200, { "content-type": "application/json" });
+      return res.end(JSON.stringify({ system: lastSystem }));
+    }
     if (req.url === "/v1/chat/completions") {
       const request = JSON.parse(Buffer.concat(body).toString() || "{}");
+      lastSystem = (request.messages || []).map((m) => m.content || "").join("\n");
       let content = "深度学习模型改变了自然语言处理。";
       if (/attention mechanism/i.test(request.messages?.at(-1)?.content || "")) content = "注意力机制。";
       res.writeHead(200, { "content-type": "application/json" });

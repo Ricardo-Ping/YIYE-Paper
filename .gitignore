@@ -15,6 +15,10 @@ node_modules/
 *.log
 *.tmp
 test/.inline-check.mjs
+.playwright-cli/
+output/playwright/
+_script0.js
+dbg.tmp.json
 
 # 工具状态
 .mimosa/

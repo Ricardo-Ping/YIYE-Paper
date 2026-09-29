@@ -93,6 +93,13 @@ def paper_table(path: Path):
         for c, cell in enumerate(row):
             textbox(page, pymupdf.Rect(cols[c] + 4, rows[r + 1] + 4, cols[c + 1] - 4, rows[r + 2] - 4), cell, 10)
     textbox(page, pymupdf.Rect(72, 290, 540, 330), "Table 1: Translation quality and cost comparison across engines.", 9)
+    textbox(
+        page,
+        pymupdf.Rect(72, 336, 540, 372),
+        "As shown in Table 1, Engine C attains the best BLEU and COMET scores, "
+        "while Engine D offers the lowest latency at some cost to quality.",
+        10,
+    )
     doc.save(path)
     doc.close()
 

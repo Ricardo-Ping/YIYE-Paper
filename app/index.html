@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>译页 Yiye Paper</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2372dfca'/%3E%3Ctext x='12' y='45' font-size='40' fill='%2307101f'%3E译%3C/text%3E%3C/svg%3E">
   <style>
     :root {
       color-scheme: dark;
@@ -36,11 +37,11 @@
     }
     .app { min-height: 100vh; padding: 25px 34px 60px; }
     .header { display: flex; justify-content: space-between; align-items: center; max-width: 1510px; margin: auto; }
-    .brand { display: flex; align-items: center; gap: 11px; }
-    .brand-mark { position: relative; width: 31px; height: 36px; border-radius: 7px 12px 7px 7px; background: var(--mint); transform: rotate(-4deg); box-shadow: 9px 4px 0 rgba(147,183,255,.34); }
-    .brand-mark::after { content: ""; position: absolute; right: 6px; top: 7px; bottom: 7px; width: 2px; background: #0c2530; opacity: .8; }
-    .brand-name { font-weight: 800; letter-spacing: -.02em; }
-    .brand-name small { display: block; margin-top: 2px; color: #74839d; font-size: 8px; letter-spacing: .18em; }
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .brand-mark { position: relative; width: 42px; height: 49px; border-radius: 9px 16px 9px 9px; background: var(--mint); transform: rotate(-4deg); box-shadow: 12px 5px 0 rgba(147,183,255,.34); }
+    .brand-mark::after { content: ""; position: absolute; right: 8px; top: 9px; bottom: 9px; width: 3px; background: #0c2530; opacity: .8; }
+    .brand-name { font-weight: 800; letter-spacing: -.02em; font-size: 22px; }
+    .brand-name small { display: block; margin-top: 2px; color: #74839d; font-size: 10px; letter-spacing: .18em; }
     .header-actions { display: flex; align-items: center; gap: 10px; }
     .health { display: flex; align-items: center; gap: 7px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 999px; color: #99a8be; background: rgba(255,255,255,.035); font-size: 10px; }
     .health-dot { width: 7px; height: 7px; border-radius: 50%; background: #e6b052; box-shadow: 0 0 12px currentColor; }
@@ -52,7 +53,7 @@
     .health.error .health-dot { background: var(--danger); }
     .ghost, .primary { border: 1px solid var(--line); border-radius: 12px; color: var(--text); background: rgba(255,255,255,.045); padding: 11px 15px; font-weight: 700; }
     .ghost:hover { background: rgba(255,255,255,.08); }
-    .ghost.small { padding: 8px 11px; font-size: 10px; border-radius: 10px; }
+    .ghost.small { padding: 8px 11px; font-size: 12px; border-radius: 10px; }
     .ghost:disabled { opacity: .5; cursor: wait; }
     .primary { border: 0; color: #06131e; background: linear-gradient(100deg, var(--mint), var(--blue)); box-shadow: 0 14px 36px rgba(81,185,199,.18); }
     .primary:disabled { cursor: not-allowed; opacity: .45; box-shadow: none; }
@@ -78,9 +79,13 @@
     .workspace-right { display: grid; gap: 16px; min-width: 0; align-content: start; }
     .panel { border: 1px solid var(--line); border-radius: 27px; background: linear-gradient(155deg,rgba(255,255,255,.075),rgba(255,255,255,.018)); box-shadow: var(--shadow); backdrop-filter: blur(24px); overflow: hidden; }
     .panel-head { display: flex; justify-content: space-between; align-items: center; padding: 22px 24px; border-bottom: 1px solid var(--line); }
-    .panel-head strong { font-size: 14px; }
-    .panel-head small { display: block; margin-top: 4px; color: #6f7e96; font-size: 9px; }
-    .step-label { color: #728199; font-size: 9px; letter-spacing: .12em; }
+    .panel-head strong { font-size: 17px; }
+    .panel-head small { display: block; margin-top: 4px; color: #6f7e96; font-size: 12px; }
+    /* 翻译中的已用/预计剩余时间:预览面板头部下方的独立一行,保证可读性 */
+    .preview-timing { display: flex; align-items: center; gap: 8px; padding: 10px 24px 0; color: #dce7f7; font-size: 14px; font-weight: 700; }
+    .preview-timing .timing-eta { color: var(--mint); }
+    .preview-timing[hidden] { display: none; }
+    .step-label { color: #728199; font-size: 11px; letter-spacing: .12em; }
     .form-body { padding: 20px; }
     .drop { display: block; padding: 13px 15px; border: 1px dashed rgba(114,223,202,.35); border-radius: 16px; background: rgba(2,8,18,.28); transition: .18s ease; cursor: pointer; }
     .drop.dragging { border-color: var(--mint); background: rgba(114,223,202,.075); }
@@ -89,19 +94,21 @@
     .upload-icon { display: grid; place-items: center; flex: 0 0 auto; width: 40px; height: 40px; border: 1px solid rgba(114,223,202,.38); border-radius: 12px; color: var(--mint); background: linear-gradient(145deg, rgba(114,223,202,.14), rgba(114,223,202,.05)); transition: .18s ease; }
     .upload-icon svg { display: block; }
     .drop:hover .upload-icon, .drop.dragging .upload-icon { color: #06131e; background: var(--mint); }
-    .drop h2 { margin: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .drop p { margin: 4px 0 0; color: #718098; font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .drop h2 { margin: 0; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .drop p { margin: 4px 0 0; color: #718098; font-size: 12px; line-height: 1.5; }
     #file-input, #glossary-input { display: none; }
     .chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 11px; }
-    .chip { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; padding: 7px 10px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.04); font-size: 10px; }
+    .chip { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; padding: 8px 11px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.04); font-size: 12px; }
     .chip-name { overflow: hidden; max-width: 240px; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
     .chip small { color: #718098; }
     .chip button { padding: 0 2px; border: 0; color: #8fa0b8; background: transparent; font-size: 13px; line-height: 1; }
     .chip button:hover { color: var(--danger); }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; margin-top: 14px; }
     .field { min-width: 0; padding: 14px; border: 1px solid rgba(255,255,255,.075); border-radius: 15px; background: rgba(2,8,18,.27); }
-    .field label, .section-title { display: flex; justify-content: space-between; margin-bottom: 8px; color: #75849b; font-size: 8px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    .field label, .section-title { display: flex; justify-content: space-between; margin-bottom: 8px; color: #75849b; font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
     .field input, .field select { width: 100%; border: 0; outline: 0; color: #edf4ff; background: transparent; font-weight: 700; }
+    .field textarea { width: 100%; min-height: 44px; border: 0; outline: 0; resize: vertical; color: #edf4ff; background: transparent; font: inherit; line-height: 1.55; }
+    .field textarea::placeholder { color: #526078; }
     .field input::placeholder { color: #526078; font-weight: 400; }
     .field select option { color: #162235; background: white; }
     .dd { position: relative; }
@@ -125,9 +132,9 @@
     .service-bar:hover { border-color: rgba(114,223,202,.45); background: rgba(114,223,202,.05); }
     .service-icon { display: grid; place-items: center; flex: 0 0 auto; width: 38px; height: 38px; border: 1px solid rgba(114,223,202,.38); border-radius: 12px; color: var(--mint); background: rgba(114,223,202,.07); font-size: 16px; }
     .service-text { flex: 1; min-width: 0; }
-    .service-text strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
-    .service-text small { display: block; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #718098; font-size: 9px; }
-    .service-action { flex: 0 0 auto; color: var(--mint); font-size: 10px; font-weight: 800; }
+    .service-text strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+    .service-text small { display: block; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #718098; font-size: 12px; }
+    .service-action { flex: 0 0 auto; color: var(--mint); font-size: 13px; font-weight: 800; }
     .settings-drawer { position: absolute; top: 0; right: 0; bottom: 0; width: min(480px,94vw); padding: 27px; background: #0d1729; box-shadow: -30px 0 90px rgba(0,0,0,.45); overflow-y: auto; overscroll-behavior: contain; will-change: scroll-position; }
     .settings-drawer .field label, .settings-drawer .section-title { font-size: 13px; }
     .settings-drawer .field input, .settings-drawer .field select { font-size: 16px; }
@@ -179,19 +186,19 @@
     .drawer-list { max-height: calc(100vh - 190px); overflow-y: auto; border: 1px solid var(--line); border-radius: 14px; background: rgba(2,8,18,.2); }
     .provider-fields .field { padding: 12px 14px; }
     .provider-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 11px; }
-    .test-result { flex: 1; min-width: 160px; color: #8fa0b8; font-size: 10px; line-height: 1.5; }
+    .test-result { flex: 1; min-width: 160px; color: #8fa0b8; font-size: 12px; line-height: 1.5; }
     .test-result.ok { color: var(--mint); }
     .test-result.err { color: var(--danger); }
     .output-modes { display: grid; grid-template-columns: repeat(2,1fr); gap: 7px; margin-top: 15px; }
-    .mode { padding: 11px 7px; border: 1px solid rgba(255,255,255,.075); border-radius: 12px; color: #8492a8; background: rgba(255,255,255,.02); text-align: center; font-size: 10px; font-weight: 800; }
+    .mode { padding: 13px 8px; border: 1px solid rgba(255,255,255,.075); border-radius: 12px; color: #8492a8; background: rgba(255,255,255,.02); text-align: center; font-size: 13px; font-weight: 800; }
     .mode.selected { color: #06131e; border-color: var(--mint); background: var(--mint); }
     .content { margin-top: 15px; padding: 4px 14px; border: 1px solid rgba(255,255,255,.075); border-radius: 16px; background: rgba(2,8,18,.27); }
     .section-title { margin: 0; padding: 13px 0 7px; }
-    .setting { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 9px 0; border-top: 1px solid rgba(255,255,255,.05); }
-    .setting strong { display: block; font-size: 11px; }
-    .setting small { display: block; margin-top: 3px; color: #718098; font-size: 8px; }
+    .setting { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 11px 0; border-top: 1px solid rgba(255,255,255,.05); }
+    .setting strong { display: block; font-size: 13px; }
+    .setting small { display: block; margin-top: 4px; color: #718098; font-size: 11px; line-height: 1.5; }
     .setting.disabled { opacity: .48; }
-    .coming { color: #94a3ba; font-size: 8px; font-weight: 800; }
+    .coming { flex: 0 0 auto; color: #94a3ba; font-size: 11px; font-weight: 800; white-space: nowrap; }
     .toggle { position: relative; flex: 0 0 auto; width: 38px; height: 22px; }
     .toggle input { position: absolute; opacity: 0; }
     .toggle span { position: absolute; inset: 0; border-radius: 999px; background: rgba(255,255,255,.16); transition: .18s; }
@@ -203,14 +210,14 @@
     .link-btn:hover { text-decoration: underline; }
     .glossary-body { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 10px; color: #8fa0b8; font-size: 10px; line-height: 1.5; }
     .glossary-body .ghost { flex: 0 0 auto; }
-    .error { display: none; margin-top: 12px; padding: 11px 13px; border: 1px solid rgba(255,141,141,.2); border-radius: 12px; color: #ffc1c1; background: rgba(255,104,104,.06); font-size: 10px; line-height: 1.55; }
+    .error { display: none; margin-top: 12px; padding: 11px 13px; border: 1px solid rgba(255,141,141,.2); border-radius: 12px; color: #ffc1c1; background: rgba(255,104,104,.06); font-size: 12px; line-height: 1.55; }
     .error.visible { display: block; }
     .run-row { margin-top: 15px; }
     .run-row .primary { width: 100%; padding: 14px; }
     .preview { min-width: 0; position: sticky; top: 28px; }
-    .preview-badge { padding: 7px 10px; border-radius: 999px; color: #07131e; background: var(--mint); font-size: 8px; font-weight: 900; }
-    .preview-canvas { display: grid; place-items: center; min-height: 530px; padding: 30px 24px; background: radial-gradient(circle at 50% 35%,rgba(83,127,242,.13),transparent 50%),rgba(2,8,18,.25); }
-    .pages { width: 100%; max-width: 520px; }
+    .preview-badge { padding: 7px 10px; border-radius: 999px; color: #07131e; background: var(--mint); font-size: 10px; font-weight: 900; }
+    .preview-canvas { display: grid; place-items: center; min-height: 530px; padding: 14px; background: radial-gradient(circle at 50% 35%,rgba(83,127,242,.13),transparent 50%),rgba(2,8,18,.25); }
+    .pages { width: 100%; }
     .paper { position: relative; min-height: 390px; padding: 18px; color: #20302b; border-radius: 2px; background: #f8f7f1; box-shadow: 0 18px 46px rgba(0,0,0,.28); }
     .paper.translated { background: #f4f7f3; }
     .paper-badge { position: absolute; top: 10px; right: 10px; padding: 4px 6px; border-radius: 4px; color: white; background: #18473d; font-size: 7px; font-weight: 900; }
@@ -225,15 +232,15 @@
     .single { max-width: 310px; margin: auto; }
     .dual { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .dual .paper { min-height: 365px; }
-    .preview-note { min-height: 84px; padding: 19px 23px 22px; color: #8291a8; font-size: 10px; line-height: 1.65; }
+    .preview-note { min-height: 84px; padding: 19px 23px 22px; color: #8291a8; font-size: 12px; line-height: 1.65; }
     .preview-note strong { color: #dce7f7; }
     .live-wrap { width: 100%; max-width: 520px; padding: 10px 4px; }
-    .live-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; color: #dce7f7; font-size: 12px; }
+    .live-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; color: #dce7f7; font-size: 13px; }
     .live-head strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .live-dot { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 12px currentColor; animation: live-pulse 1.2s infinite; }
     @keyframes live-pulse { 50% { opacity: .3; } }
     .live-percent { margin-left: auto; color: var(--mint); font-weight: 800; }
-    .live-stage { margin-bottom: 14px; color: #8291a8; font-size: 10px; }
+    .live-stage { margin-bottom: 14px; color: #8291a8; font-size: 12px; }
     .live-pages { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
     .mini-paper { position: relative; aspect-ratio: .72; padding: 10px 7px; border-radius: 3px; background: #f8f7f1; box-shadow: 0 8px 20px rgba(0,0,0,.25); transition: .4s; }
     .mini-paper i { display: block; height: 2px; margin: 3px 0; background: #b7bdb9; }
@@ -244,11 +251,11 @@
     .live-bar { height: 5px; margin-top: 14px; overflow: hidden; border-radius: 99px; background: rgba(255,255,255,.1); }
     .live-bar i { display: block; width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg,var(--mint),var(--blue)); transition: width .4s; }
     .real-frame { width: 100%; height: 545px; border: 0; border-radius: 8px; background: #fff; }
-    .scan-wrap { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; max-width: 520px; }
-    .scan-wrap.mono-mode { grid-template-columns: 1fr; max-width: 320px; margin: auto; }
+    .scan-wrap { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
+    .scan-wrap.mono-mode { grid-template-columns: 1fr; width: 100%; margin: auto; }
     .scan-pane { position: relative; overflow: hidden; border-radius: 3px; background: #fff; box-shadow: 0 10px 26px rgba(0,0,0,.28); }
     .scan-pane > img { display: block; width: 100%; }
-    .pane-tag { position: absolute; top: 4px; right: 4px; z-index: 2; padding: 2px 5px; border-radius: 3px; color: #fff; background: rgba(24,71,61,.92); font-size: 7px; font-weight: 900; }
+    .pane-tag { position: absolute; top: 4px; right: 4px; z-index: 2; padding: 2px 5px; border-radius: 3px; color: #fff; background: rgba(24,71,61,.92); font-size: 9px; font-weight: 900; }
     .scan-reveal { position: absolute; inset: 0; clip-path: inset(0 0 100% 0); }
     .scan-reveal > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
     .demo-overlay { position: absolute; inset: 0; padding: 7% 8%; background: rgba(244,247,243,.97); }
@@ -258,7 +265,7 @@
     .demo-overlay i.w60 { width: 60%; }
     .demo-overlay i.w40 { width: 40%; }
     .scan-line { position: absolute; left: -6px; right: -6px; height: 2px; z-index: 3; background: linear-gradient(90deg, transparent, var(--mint), transparent); box-shadow: 0 0 14px rgba(114,223,202,.95); transition: top .5s linear; }
-    .scan-meta { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 520px; margin-bottom: 10px; color: #a3b1c5; font-size: 10px; }
+    .scan-meta { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; max-width: 520px; margin-bottom: 10px; color: #a3b1c5; font-size: 12px; }
     .scan-meta strong { color: #dce7f7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .scan-meta .live-dot { display: inline-block; margin-right: 7px; }
     .task-list { display: grid; gap: 12px; max-height: 620px; padding: 16px; overflow: auto; overscroll-behavior: contain; }
@@ -277,6 +284,138 @@
     .task-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 10px; color: #718098; font-size: 12px; }
     .task-meta .quality-ok { color: var(--mint); font-weight: 800; }
     .task-meta .quality-warn { color: #e8ca93; font-weight: 800; }
+    .ai-summary { margin-top: 10px; padding: 10px 12px; border: 1px solid #2b3a4d; border-radius: 8px; background: #101b28; font-size: 12px; line-height: 1.7; color: #b8c4d4; }
+    .ai-title { font-weight: 800; color: #dce7f7; margin-bottom: 6px; }
+    .ai-title span { margin-left: 8px; font-weight: 400; color: #718098; font-size: 11px; }
+    .ai-row { display: flex; gap: 8px; }
+    .ai-row + .ai-row { margin-top: 3px; }
+    .ai-label { flex: 0 0 auto; color: var(--mint); font-weight: 800; }
+    .ai-label::after { content: "："; }
+    .chat-panel { margin-top: 10px; padding: 10px 12px; border: 1px solid #2b3a4d; border-radius: 8px; background: #101b28; }
+    .chat-thread { display: grid; gap: 8px; max-height: 260px; overflow: auto; }
+    .chat-msg { font-size: 12px; line-height: 1.6; color: #b8c4d4; }
+    .chat-msg.user { text-align: right; }
+    .chat-msg.user span { display: inline-block; text-align: left; padding: 6px 10px; border-radius: 9px; background: rgba(114,223,202,.1); color: #dce7f7; }
+    .chat-msg.assistant span { display: inline-block; white-space: pre-wrap; }
+    .chat-hint { color: #718098; font-size: 12px; line-height: 1.6; }
+    .chat-input-row { display: flex; gap: 8px; margin-top: 9px; }
+    .chat-input { flex: 1; min-width: 0; padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px; background: rgba(2,8,18,.35); color: #edf4ff; font-size: 13px; }
+    .chat-input:focus { outline: none; border-color: rgba(114,223,202,.45); }
+    .chat-input-row button { flex: 0 0 auto; padding: 9px 14px; border: 0; border-radius: 9px; color: #06131e; background: var(--mint); font-size: 12px; font-weight: 800; }
+    .chat-input-row button:disabled { opacity: .5; }
+    .chat-quick { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+    .chat-quick-btn { padding: 5px 10px; border: 1px solid rgba(114,223,202,.35); border-radius: 999px; color: #9fd8cc; background: rgba(114,223,202,.06); font-size: 11px; }
+    .chat-quick-btn:hover { border-color: var(--mint); color: #d8f5ee; }
+    .chat-cite { color: var(--blue); font-weight: 800; text-decoration: none; }
+    .chat-cite:hover { text-decoration: underline; }
+    .rp-sent { cursor: pointer; border-bottom: 1px dotted rgba(114,223,202,.45); }
+    .rp-sent:hover { background: rgba(114,223,202,.14); color: #eaf6f2; }
+    .rp-sent-mode { display: inline-flex; align-items: center; gap: 5px; color: #9fb2c9; font-size: 11px; cursor: pointer; }
+    .rp-sent-mode input { accent-color: var(--mint); }
+    /* 独立日志抽屉:大窗口增量追加,替代任务卡片内嵌日志(避免整表重建卡顿) */
+    .log-drawer { width: min(860px, 96vw); display: flex; flex-direction: column; }
+    .log-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 4px 0 8px; }
+    .log-follow { display: inline-flex; align-items: center; gap: 6px; color: #9fb2c9; font-size: 12px; cursor: pointer; }
+    .log-follow input { accent-color: var(--mint); }
+    #log-meta { color: #718098; font-size: 11px; }
+    .log-drawer-content { flex: 1; min-height: 0; margin: 0; padding: 12px 14px; overflow: auto; border-radius: 10px; background: rgba(2,8,18,.45); color: #9fb2c9; font: 12px/1.6 Consolas, "Courier New", monospace; white-space: pre-wrap; word-break: break-all; }
+    .log-drawer .settings-note { flex: 0 0 auto; }
+    /* 阅读器(PDF.js):全屏模态,左 PDF 右侧栏 */
+    .reader-modal-backdrop { display: none; position: fixed; inset: 0; z-index: 60; background: rgba(2, 6, 14, .92); }
+    .reader-modal-backdrop.open { display: block; }
+    .reader-modal { position: absolute; inset: 12px; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 18px; background: #0b1626; box-shadow: 0 34px 90px rgba(0, 0, 0, .5); overflow: hidden; }
+    .reader-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+    .reader-toolbar-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .reader-toolbar-left strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+    .reader-toolbar-group { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+    .reader-page-input { width: 52px; padding: 5px 6px; border: 1px solid var(--line); border-radius: 8px; background: rgba(2,8,18,.35); color: var(--text); text-align: center; font-size: 12px; }
+    .reader-total { color: #718098; font-size: 12px; }
+    .reader-zoom-val { min-width: 44px; text-align: center; color: #9fb2c9; font-size: 11px; }
+    .reader-split { flex: 1; display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr); gap: 12px; padding: 12px 16px; min-height: 0; }
+    .reader-pdf-box { position: relative; overflow: auto; display: flex; justify-content: center; align-items: flex-start; background: rgba(2,8,18,.4); border-radius: 10px; padding: 10px; }
+    .reader-pdf-box canvas { display: block; background: #fff; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+    .reader-loading { position: absolute; inset: 0; display: grid; place-items: center; color: #718098; font-size: 12px; }
+    .reader-side { display: flex; flex-direction: column; min-height: 0; border: 1px solid var(--line); border-radius: 10px; background: rgba(2,8,18,.3); }
+    .reader-side-tabs { display: flex; gap: 6px; padding: 8px 10px 0; }
+    .reader-tab { padding: 5px 12px; border: 1px solid var(--line); border-radius: 999px; color: #8492a8; background: transparent; font-size: 11px; font-weight: 700; }
+    .reader-tab.selected { color: #06131e; border-color: var(--mint); background: var(--mint); }
+    .reader-side-body { flex: 1; overflow: auto; padding: 10px 12px; display: grid; gap: 10px; align-content: start; }
+    .rs-pair { border-bottom: 1px solid rgba(255,255,255,.06); padding-bottom: 10px; }
+    .rs-pair-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .rs-pair-tag { color: #5b6a80; font-size: 10px; margin-right: auto; }
+    .rs-en { color: #6b7d94; font-size: 11px; line-height: 1.5; margin-bottom: 3px; }
+    .rs-sent { cursor: pointer; border-bottom: 1px dotted rgba(114,223,202,.45); }
+    .rs-sent:hover { background: rgba(114,223,202,.14); color: #eaf6f2; }
+    .rs-zh { font-size: 13px; line-height: 1.7; color: #dce7f7; white-space: pre-wrap; }
+    .rs-zh-edited { color: #d8f5ee; }
+    .rs-edited-chip { margin-left: 8px; padding: 1px 6px; border-radius: 999px; color: #06131e; background: var(--mint); font-size: 10px; font-weight: 800; }
+    .rs-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px; }
+    .rs-fig { border: 1px solid rgba(255,255,255,.08); border-radius: 10px; padding: 8px 10px; }
+    .rs-fig-head { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #dce7f7; }
+    .rs-fig img { display: block; max-width: 100%; max-height: 150px; margin: 6px auto; border-radius: 6px; background: #f8f7f1; }
+    .rs-fig-zh { font-size: 12px; line-height: 1.6; color: #b8c4d4; }
+    .rs-fig-orig { margin-top: 3px; font-size: 11px; color: #5b6a80; line-height: 1.5; }
+    .rs-answer { margin-top: 8px; padding: 8px 10px; border-left: 2px solid var(--mint); background: rgba(114,223,202,.05); font-size: 12px; line-height: 1.7; color: #cfe3dd; white-space: pre-wrap; }
+    .reader-modal .rp-edit-area { min-height: 60px; font-size: 12px; }
+    .rp-toolbar-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .rp-compare { display: inline-flex; align-items: center; gap: 5px; }
+    .rp-compare-input { width: 130px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; background: rgba(2,8,18,.35); color: var(--text); font-size: 11px; }
+    .aichat-body { padding: 16px 20px 18px; display: grid; gap: 12px; }
+    .aichat-docs-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; color: #9fb2c9; font-size: 12px; }
+    .aichat-docs-label { flex: 0 0 auto; }
+    .aichat-docs { display: flex; flex-wrap: wrap; gap: 6px 10px; }
+    #aichat-thread { max-height: 300px; min-height: 60px; overflow: auto; display: grid; gap: 8px; align-content: start; }
+    #aichat-thread .chat-hint { color: #718098; font-size: 12px; line-height: 1.6; }
+    .rp-granularity { border: 1px solid var(--line); border-radius: 8px; background: rgba(2,8,18,.35); color: #bed0e9; font-size: 11px; padding: 3px 6px; }
+    .rp-sent-group { margin: 7px 0; }
+    .rp-sent-group .rp-zh { margin-top: 2px; }
+    .rp-figref { color: var(--blue); cursor: pointer; border-bottom: 1px dotted rgba(147,183,255,.6); }
+    .rp-figref:hover { color: #fff; border-bottom-color: #fff; }
+    .fig-row.fig-flash, .rs-fig.fig-flash { animation: fig-flash 1.6s ease; }
+    @keyframes fig-flash { 0%, 60% { background: rgba(114,223,202,.16); outline: 1px solid rgba(114,223,202,.5); } 100% { background: transparent; } }
+    .mm-body { display: grid; gap: 2px; }
+    .mm-node { font-size: 12px; line-height: 1.7; color: #b8c4d4; border-left: 2px solid rgba(114,223,202,.25); }
+    .mm-node:first-child { color: #dce7f7; font-weight: 800; border-left-color: transparent; }
+    .mm-meta { margin-top: 8px; color: #718098; font-size: 11px; }
+    .fig-panel { display: grid; gap: 10px; max-height: 320px; overflow: auto; }
+    .fig-row { border-bottom: 1px solid rgba(255,255,255,.06); padding-bottom: 8px; }
+    .fig-img { display: block; max-width: 100%; max-height: 220px; margin: 0 auto 8px; border-radius: 6px; background: #f8f7f1; }
+    .fig-img-link { display: block; }
+    .fig-img-link:hover .fig-img { outline: 2px solid rgba(114,223,202,.5); }
+    .fig-row:last-child { border-bottom: 0; padding-bottom: 0; }
+    .fig-head { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #dce7f7; }
+    .fig-head strong { color: var(--mint); }
+    .fig-head span { color: #718098; font-size: 11px; }
+    .fig-head .keep-view { margin-left: auto; }
+    .fig-translated { margin-top: 4px; font-size: 12px; line-height: 1.55; color: #b8c4d4; }
+    .fig-translated.muted { color: #5b6a80; }
+    .fig-original { margin-top: 2px; font-size: 11px; line-height: 1.5; color: #5b6a80; }
+    .reader-panel { max-height: 460px; overflow: auto; }
+    .rp-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; color: #9fb2c9; font-size: 12px; }
+    .rp-page { margin: 14px 0 6px; padding-bottom: 4px; border-bottom: 1px solid rgba(114,223,202,.3); color: var(--mint); font-size: 12px; font-weight: 800; }
+    .rp-untranslated { margin-left: 8px; color: #718098; font-weight: 400; font-size: 11px; }
+    .rp-pair { margin: 9px 0; }
+    .rp-en { color: #6b7d94; font-size: 11px; line-height: 1.5; }
+    .rp-zh { margin-top: 3px; font-size: 13px; line-height: 1.75; color: #dce7f7; }
+    .rp-zh.muted { color: #5b6a80; font-size: 11px; }
+    .rp-pair-tag { color: #5b6a80; font-size: 10px; margin-right: auto; }
+    .rp-pair.rp-editing { border: 1px solid rgba(114,223,202,.35); border-radius: 10px; padding: 8px; }
+    .rp-edit-area { width: 100%; min-height: 72px; padding: 8px 10px; border: 1px solid rgba(114,223,202,.4); border-radius: 8px; background: rgba(2,8,18,.4); color: #edf4ff; font: inherit; font-size: 13px; line-height: 1.7; resize: vertical; }
+    .rp-edit-area:focus { outline: none; border-color: var(--mint); }
+    .rp-edited { color: #d8f5ee; }
+    .rp-edited-chip { margin-left: 8px; padding: 1px 6px; border-radius: 999px; color: #06131e; background: var(--mint); font-size: 10px; font-weight: 800; }
+    .rp-pair-head { display: flex; justify-content: flex-end; min-height: 14px; }
+    .rp-pair-head .link-btn { font-size: 10px; font-weight: 700; letter-spacing: 0; }
+    .rp-alt { margin-top: 5px; padding: 7px 10px; border-left: 2px solid rgba(114,223,202,.45); background: rgba(114,223,202,.05); font-size: 12px; line-height: 1.7; color: #cfe3dd; white-space: pre-wrap; }
+    .rp-alt-label { display: block; margin-bottom: 3px; color: #718098; font-size: 10px; }
+    .rp-applied { color: var(--mint); font-size: 11px; font-weight: 800; }
+    .rp-applying { color: #718098; font-size: 11px; }
+    .rp-alt .link-btn { font-size: 10px; font-weight: 700; letter-spacing: 0; }
+    .multichat-panel { margin: 12px 16px 0; padding: 12px 14px; border: 1px solid #2b3a4d; border-radius: 12px; background: #101b28; }
+    .multichat-panel[hidden] { display: none; }
+    .multichat-docs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-bottom: 10px; color: #9fb2c9; font-size: 12px; }
+    .multichat-doc { display: inline-flex; align-items: center; gap: 5px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+    .multichat-doc input { accent-color: var(--mint); }
     .task-issues { margin-top: 10px; display: grid; gap: 4px; }
     .task-issue { color: #e8ca93; font-size: 12px; line-height: 1.5; }
     .keep-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
@@ -285,14 +424,14 @@
     .task-issue-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
     .keep-view { flex: 0 0 auto; color: var(--blue); font-size: 12px; font-weight: 800; text-decoration: none; }
     .keep-view:hover { text-decoration: underline; }
-    .estimate-line { margin-top: 9px; color: #8fa0b8; font-size: 12px; line-height: 1.6; }
+    .estimate-line { margin-top: 9px; color: #8fa0b8; font-size: 13px; line-height: 1.6; }
     .glossary-body .dd { flex: 1; min-width: 0; }
     .task-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
     .task-actions a, .task-actions button { padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; color: #bed0e9; background: transparent; text-decoration: none; font-size: 12px; font-weight: 800; }
     .task-actions a:hover, .task-actions button:hover { background: rgba(255,255,255,.06); }
     .task-log { display: none; max-height: 150px; margin-top: 10px; padding: 10px 12px; overflow: auto; border-radius: 9px; color: #9fb2c9; background: rgba(0,0,0,.28); font: 12px/1.6 Consolas, monospace; white-space: pre-wrap; word-break: break-all; }
     .task-log.open { display: block; }
-    .setup-note { display: none; max-width: 1510px; margin: 18px auto -24px; padding: 12px 15px; border: 1px solid rgba(230,176,82,.2); border-radius: 12px; color: #e8ca93; background: rgba(230,176,82,.06); font-size: 10px; }
+    .setup-note { display: none; max-width: 1510px; margin: 18px auto -24px; padding: 12px 15px; border: 1px solid rgba(230,176,82,.2); border-radius: 12px; color: #e8ca93; background: rgba(230,176,82,.06); font-size: 12px; }
     .setup-note.visible { display: block; }
     code { color: #dce8ff; }
     @media (max-width: 1160px) {
@@ -323,6 +462,40 @@
 
       .preview-canvas { padding: 22px 17px; }
     }
+    /* 在 B 方案中给阅读内容更多空间，不缩放整个页面。 */
+    .header, .layout { max-width: 1760px; }
+    .layout { grid-template-columns: minmax(210px,.34fr) minmax(850px,1.66fr); gap: 28px; }
+    .workspace { grid-template-columns: minmax(380px,.8fr) minmax(440px,1.2fr); }
+    .setting strong, .task-actions a, .task-actions button, .rp-zh { font-size: 14px; }
+    .setting small, .task-meta, .mm-node, .chat-hint { font-size: 13px; }
+    .mm-body { gap: 7px; padding: 8px; max-height: 65vh; overflow: auto; }
+    .mm-node { border-radius: 4px; background: rgba(114,223,202,.04); padding-top: 5px; padding-bottom: 5px; }
+    #assistant-launcher { position: fixed; right: 26px; bottom: 24px; z-index: 20; display: flex; align-items: center; gap: 8px; padding: 10px 20px 10px 10px; border: 1px solid rgba(114,223,202,.5); border-radius: 24px; background: #102638; color: var(--mint); box-shadow: 0 12px 36px #0008; }
+    #assistant-launcher svg { width: 58px; height: 58px; animation: robot-float 4s ease-in-out infinite; }
+    #assistant-launcher span { text-align: left; font-size: 15px; font-weight: 800; }
+    #assistant-launcher small { display: block; margin-top: 4px; color: #b5c8d8; font-size: 11px; font-weight: 400; }
+    .robot-eyes { transform-origin: 40px 41px; animation: robot-blink 5s infinite; }
+    @keyframes robot-float { 50% { transform: translateY(-4px) rotate(-4deg); } }
+    @keyframes robot-blink { 0%, 44%, 48%, 100% { transform: scaleY(1); } 46% { transform: scaleY(.15); } }
+    dialog.assistant-dialog { width: min(1080px,94vw); height: min(820px,90dvh); max-width: none; max-height: 96dvh; padding: 0; color: var(--text); background: #101c31; }
+    dialog.assistant-dialog[open] { display: flex; flex-direction: column; }
+    dialog.assistant-dialog::backdrop { background: #020813bd; backdrop-filter: blur(8px); }
+    dialog.assistant-dialog.expanded { width: 96vw; height: 96dvh; }
+    .assistant-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .assistant-actions .preview-badge { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+    .assistant-dialog .aichat-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 16px; padding: 24px; }
+    .assistant-dialog #aichat-docs { max-height: 100px; overflow: auto; }
+    .assistant-dialog #aichat-thread { flex: 1; min-height: 100px; max-height: none; padding: 8px; gap: 18px; }
+    .assistant-dialog .chat-msg { font-size: 15px; line-height: 1.85; }
+    .assistant-dialog .chat-msg span { max-width: 92%; padding: 14px 18px; border-radius: 16px; }
+    .assistant-dialog .chat-input-row { align-items: stretch; padding: 8px; background: #07101f; border: 1px solid #35475f; border-radius: 18px; }
+    .assistant-dialog textarea { border: 0; background: transparent; resize: none; font: 15px/1.6 var(--sans); color: var(--text); }
+    .assistant-dialog .chat-input-row button { border-radius: 12px; min-width: 86px; }
+    #assistant-error { color: #ffc1c1; font-size: 13px; }
+    @media (max-width: 1200px) { .layout { grid-template-columns: 1fr; } }
+    @media (max-width: 900px) { .workspace { grid-template-columns: 1fr; } }
+    @media (max-width: 600px) { .assistant-dialog .panel-head { align-items: flex-start; gap: 10px; padding: 16px; } .assistant-dialog .aichat-body { padding: 14px; } .assistant-actions .preview-badge { display: none; } #assistant-launcher { right: 14px; bottom: 14px; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
   </style>
 </head>
 <body>
@@ -383,12 +556,14 @@
                 <button class="mode" data-output="mono">中文译文</button>
                 <button class="mode selected" data-output="dual">左右对照</button>
               </div>
+              <input id="dual-layout" type="hidden" value="side">
 
               <div class="content">
                 <div class="section-title"><span>内容处理</span><span>按需开启</span></div>
                 <div class="setting"><div><strong>扫描页 OCR</strong><small>检测到重度扫描件时启用兼容处理</small></div><label class="toggle"><input id="ocr" type="checkbox" checked><span></span></label></div>
-                <div class="setting"><div><strong>翻译表格文字</strong><small>实验功能；保留数字、单位和单元格</small></div><label class="toggle"><input id="table" type="checkbox" checked><span></span></label></div>
-                <div class="setting disabled"><div><strong>翻译图片文字</strong><small>需要独立 OCR、擦除与回绘流水线</small></div><span class="coming">尚未开放</span></div>
+                <div class="setting"><div><strong>翻译表格文字</strong><small>实验功能，默认关闭。简单表格效果尚可；合并单元格、嵌套表头、密集排版的复杂表格可能错位或丢内容，开启后请重点核对表格页。数字、单位和单元格结构会尽量保留</small></div><label class="toggle"><input id="table" type="checkbox"><span></span></label></div>
+                <div class="setting"><div><strong>翻译图中文字（实验）</strong><small>默认保留原图文字。仅尝试翻译引擎可识别的 PDF 图中文字层，不支持通用图片 OCR 与背景修复；可能影响图例与标签位置，开启后请人工核对。</small></div><label class="toggle"><input id="figure" type="checkbox"><span></span></label></div>
+                <div class="setting"><div><strong>数学公式与参考文献</strong><small>默认不翻译：公式由引擎按原样排版，参考文献条目保留英文原文，此行为由引擎保证，无需设置</small></div><span class="coming">默认不译</span></div>
                 <div class="setting disabled"><div><strong>处理源文件水印</strong><small>必须先完成检测、预览与权限确认</small></div><span class="coming">尚未开放</span></div>
                 <div class="setting" id="glossary-setting"><div><strong id="glossary-auto-title">自动术语表</strong><small id="glossary-auto-hint">抽取并统一全文专业术语，完成后可导出复用</small></div><label class="toggle"><input id="glossary" type="checkbox" checked><span></span></label></div>
               </div>
@@ -401,13 +576,32 @@
         <div class="workspace-right">
         <section class="panel preview">
           <div class="panel-head"><div><strong>实时版式预览</strong><small id="preview-subtitle">选择输出形式，立即查看差异</small></div><span class="preview-badge" id="preview-badge">左右对照</span></div>
+          <div class="preview-timing" id="preview-timing" hidden></div>
           <div class="preview-canvas"><div class="pages" id="pages"></div></div>
           <div class="preview-note" id="preview-note"></div>
         </section>
+
+        <dialog class="panel assistant-dialog" id="aichat-panel" aria-labelledby="assistant-title">
+          <div class="panel-head"><div><strong id="assistant-title">译页 · 论文助手</strong><small id="aichat-subtitle">跨文档提问 · 引用可跳转译文页</small></div><div class="assistant-actions"><span class="preview-badge" id="aichat-model">当前模型</span><button class="ghost small" id="assistant-expand" type="button">展开全屏</button><button class="ghost small" id="assistant-close" type="button" aria-label="关闭论文助手">关闭</button></div></div>
+          <div class="aichat-body">
+            <div class="aichat-docs-row"><span class="aichat-docs-label">参与问答（最多 4 篇已完成任务）：</span><div class="aichat-docs" id="aichat-docs"><span class="chat-hint">读取中…</span></div></div>
+            <div class="chat-thread" id="aichat-thread" role="log" aria-live="polite"><div class="chat-hint">勾选任务后提问，例如：对比这几篇论文的方法与结果。</div></div>
+            <div class="chat-quick" id="assistant-prompts"><button class="chat-quick-btn" type="button">总结核心贡献</button><button class="chat-quick-btn" type="button">对比研究方法与实验结果</button><button class="chat-quick-btn" type="button">有哪些局限与后续研究方向？</button></div>
+            <div id="assistant-error" role="alert" hidden></div>
+            <div class="chat-input-row">
+              <textarea class="chat-input" id="aichat-input" rows="2" aria-label="向论文助手提问" placeholder="基于已完成的译文提问… Enter 发送，Shift+Enter 换行" spellcheck="false"></textarea>
+              <button id="aichat-send" type="button">发送 ↗</button>
+            </div>
+          </div>
+        </dialog>
         </div>
       </div>
     </main>
   </div>
+
+  <button id="assistant-launcher" type="button" aria-haspopup="dialog" aria-controls="aichat-panel" aria-label="打开论文助手">
+    <svg viewBox="0 0 80 80" aria-hidden="true"><path d="M40 12v9" stroke="currentColor" stroke-width="4"/><circle cx="40" cy="9" r="5" fill="currentColor"/><rect x="14" y="23" width="52" height="40" rx="16" fill="currentColor"/><rect x="21" y="30" width="38" height="24" rx="10" fill="#102638"/><g class="robot-eyes" fill="#72dfca"><rect x="29" y="36" width="5" height="10" rx="2.5"/><rect x="46" y="36" width="5" height="10" rx="2.5"/></g><path d="M8 36v13m64-13v13M30 69h20" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></svg><span>论文助手<small>和论文聊一聊</small></span>
+  </button>
 
   <div class="drawer-backdrop" id="settings-backdrop">
     <aside class="settings-drawer" role="dialog" aria-modal="true" aria-labelledby="settings-title">
@@ -454,13 +648,24 @@
           <div class="field"><label for="qps"><span>并发请求 QPS</span><span>1 – 16</span></label><input id="qps" type="number" min="1" max="16" step="1" value="4"></div>
           <div class="field"><label for="pages-range"><span>页码范围</span><span>留空翻译全部</span></label><input id="pages-range" placeholder="如 1-5,8,11-" spellcheck="false"></div>
         </div>
+        <div class="field"><label for="max-pages-part"><span>长文档分批（每部分页数）</span><span>20 – 500 · 留空不分批</span></label><input id="max-pages-part" type="number" min="20" max="500" step="10" placeholder="不分批" spellcheck="false">
+          <p class="settings-note" style="margin-top:6px">超长论文建议设 30–50：引擎按页数拆分逐段翻译后自动合并回单个 PDF，降低一次性排版失败与超时的风险</p>
+        </div>
         <div class="setting">
-          <div><strong>疑难 PDF 兼容模式</strong><small>排版异常或导出异常时启用；关闭清理与富文本，用画质换成功率</small></div>
+          <div><strong>疑难 PDF 兼容模式</strong><small>排版异常或导出异常时启用；关闭清理与富文本，用画质换成功率。注意：开启后左右对照的译文页将排在左侧、原文页在右侧（与默认布局相反）</small></div>
           <label class="toggle"><input id="enhance" type="checkbox"><span></span></label>
         </div>
         <div class="setting">
           <div><strong>忽略翻译缓存</strong><small>更换术语表/提示词后强制全部段落重翻；默认利用缓存加速重复翻译</small></div>
           <label class="toggle"><input id="ignore-cache" type="checkbox"><span></span></label>
+        </div>
+        <div class="setting">
+          <div><strong>完成后生成 AI 速览</strong><small>翻译结束后用同一模型总结：一句话概括、研究问题、方法、主要结果与局限</small></div>
+          <label class="toggle"><input id="ai-summary" type="checkbox" checked><span></span></label>
+        </div>
+        <div class="field"><label for="custom-prompt"><span>自定义翻译要求</span><span>追加在内置翻译规则之后</span></label><textarea id="custom-prompt" rows="2" maxlength="500" placeholder="如：面向数据库领域读者；专有名词首次出现时保留英文原名"></textarea></div>
+        <div class="field"><label for="prompt-template-view"><span>内置翻译规则</span><span><button class="link-btn" id="prompt-template-toggle" type="button">查看 / 编辑</button></span></label><textarea id="prompt-template-view" rows="4" hidden spellcheck="false"></textarea>
+          <p class="settings-note" id="prompt-template-note" hidden>修改后对该设置保存之后的任务生效；清空并保存即恢复默认。版本升级后内置规则会更新，自定义版本不会被覆盖。</p>
         </div>
         <div class="field"><label for="font-family"><span>译文字体风格</span><span>匹配原论文风格</span></label><select id="font-family" data-enhance><option value="">自动匹配</option><option value="serif">衬线体（学术常用）</option><option value="sans-serif">无衬线体（现代风格）</option><option value="script">手写/斜体</option></select></div>
         <div class="glossary-box">
@@ -499,7 +704,54 @@
     </aside>
   </div>
 
-  <script>
+  <div class="drawer-backdrop" id="log-backdrop">
+    <aside class="settings-drawer log-drawer" role="dialog" aria-modal="true" aria-labelledby="log-title">
+      <div class="drawer-head">
+        <div><div class="eyebrow">TRANSLATION LOG</div><h2 id="log-title">日志</h2></div>
+        <span class="drawer-actions"><button class="ghost" id="log-copy">复制全部</button><button class="ghost" id="log-close">关闭</button></span>
+      </div>
+      <div class="log-toolbar"><label class="log-follow"><input type="checkbox" id="log-follow-check" checked>自动跟随最新</label><span id="log-meta"></span></div>
+      <pre class="log-drawer-content" id="log-content"></pre>
+      <p class="settings-note" style="margin-top:12px">向上滚动查看历史，滚回底部恢复自动跟随。</p>
+    </aside>
+  </div>
+
+  <div class="reader-modal-backdrop" id="reader-modal-backdrop">
+    <div class="reader-modal" role="dialog" aria-modal="true" aria-labelledby="reader-modal-title">
+      <div class="reader-toolbar">
+        <div class="reader-toolbar-left">
+          <strong id="reader-file-name"></strong>
+          <span class="reader-toolbar-group">
+            <button class="ghost small" id="reader-src-trans">译文</button>
+            <button class="ghost small" id="reader-src-orig">原文</button>
+          </span>
+        </div>
+        <div class="reader-toolbar-group">
+          <button class="ghost small" id="reader-prev">◀</button>
+          <input class="reader-page-input" id="reader-page-num" type="number" min="1" value="1">
+          <span class="reader-total" id="reader-total"></span>
+          <button class="ghost small" id="reader-next">▶</button>
+          <button class="ghost small" id="reader-zoom-out">－</button>
+          <span class="reader-zoom-val" id="reader-zoom-val">适配</span>
+          <button class="ghost small" id="reader-zoom-in">＋</button>
+          <button class="ghost small" id="reader-close">关闭</button>
+        </div>
+      </div>
+      <div class="reader-split">
+        <div class="reader-pdf-box" id="reader-pdf-box"><canvas id="reader-canvas"></canvas><div class="reader-loading" id="reader-loading">加载中…</div></div>
+        <div class="reader-side">
+          <div class="reader-side-tabs">
+            <button class="reader-tab selected" data-reader-tab="pairs">译文段落</button>
+            <button class="reader-tab" data-reader-tab="figures">图表</button>
+          </div>
+          <div class="reader-side-body" id="reader-side-body"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/pdfjs/pdf.min.js"></script>
+    <script>
     const $ = (selector) => document.querySelector(selector);
     const state = {
       files: [], glossary: null, glossaryEntries: 0, output: "dual",
@@ -507,7 +759,18 @@
       signature: "", pollTimer: null, estimates: new Map(), estimateSeq: 0,
       qualityDetails: new Map(), previewKey: "", previewOverride: false,
       keepOriginalPages: new Map(), hadActiveJobs: false,
-      keepOriginalPages: new Map(),
+      modelSpeed: null, speedKey: "", speedLoading: false,
+      chatOpen: new Set(), chatThreads: new Map(), chatBusy: new Set(),
+      mindmapOpen: new Set(), mindmaps: new Map(), mindmapBusy: new Set(),
+      figuresOpen: new Set(),
+      readerOpen: new Set(),
+      readerGranularity: "para",
+      compareModel: "", compareModels: [], compareModelsKey: "",
+      retranslations: new Map(), retransBusy: new Set(),
+      readerSentExplain: true,
+      readerEditing: new Set(),
+      pdfReader: null, pdfReaderAnswers: new Map(), pdfReaderQuestions: new Map(),
+      multiChat: { open: false, docs: new Map(), thread: [], busy: false, order: [] },
       serviceKind: "local", vendorId: "openai",
     };
     const outputNames = { mono: "中文译文", dual: "左右对照" };
@@ -540,6 +803,55 @@
       const remainingSecs = Math.round(elapsedSecs * (100 - job.progress) / job.progress);
       if (remainingSecs < 60) return `${remainingSecs} 秒`;
       return `${Math.ceil(remainingSecs / 60)} 分钟`;
+    }
+
+    function runningTimeText(job) {
+      if (job.status !== "running" || !job.startedAt) return "";
+      const elapsed = `已用 ${elapsedText(job)}`;
+      let text = job.progress > 5 ? `${elapsed} · 预计还需 ${estimateRemaining(job)}` : elapsed;
+      // 服务端看门狗(默认 12 分钟)会自动终止停滞任务;期间提示用户当前没有进展
+      const last = job.lastProgressAt ? new Date(job.lastProgressAt).getTime() : NaN;
+      if (Number.isFinite(last)) {
+        const silentMs = Date.now() - last;
+        if (silentMs > 120_000) text += ` · 已 ${Math.floor(silentMs / 60000)} 分钟无进展`;
+      }
+      return text;
+    }
+
+    function fmtDuration(seconds) {
+      if (seconds < 90) return `${Math.max(5, Math.round(seconds / 5) * 5)} 秒`;
+      const mins = seconds / 60;
+      if (mins < 60) return `${Math.round(mins)} 分钟`;
+      return `${(mins / 60).toFixed(1)} 小时`;
+    }
+
+    function speedKeyNow() {
+      return `${$("#base-url").value.trim()}|${$("#model").value.trim()}`;
+    }
+
+    // 本地模型测速：提交前的时长预估需要实测生成速度。
+    // 结果按 地址|模型 缓存在 state（服务端另有 15 分钟缓存），换模型/地址后重新测。
+    async function ensureModelSpeed() {
+      if (state.serviceKind !== "local" || state.speedLoading) return;
+      if (!$("#model").value.trim()) return;
+      const key = speedKeyNow();
+      if (state.modelSpeed && state.speedKey === key) return;
+      state.speedKey = key;
+      state.speedLoading = true;
+      try {
+        const response = await fetch("/api/providers/speed", {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-api-key": $("#api-key").value },
+          body: JSON.stringify({ baseUrl: $("#base-url").value.trim(), model: $("#model").value.trim() }),
+        });
+        const data = await response.json().catch(() => ({}));
+        state.modelSpeed = response.ok ? data : { error: data.error || "测速失败" };
+      } catch (error) {
+        state.modelSpeed = { error: error.message };
+      } finally {
+        state.speedLoading = false;
+        renderEstimate();
+      }
     }
 
     function estimateKey(file) {
@@ -587,6 +899,17 @@
         // 中文译文输出通常为输入的 1.2–1.6 倍,加提示词开销后给出全程参考区间
         bits.push(`输入约 ${formatTokens(tokens)} tokens`);
         bits.push(`全程约 ${formatTokens(Math.round(tokens * 2.4))}–${formatTokens(Math.round(tokens * 3.2))} tokens`);
+        // 本地模型按实测生成速度给出时长区间;云端无法免费测速,用经验速度粗估。
+        // 单路测速偏保守,实际并行翻译(QPS)会更快
+        const speed = state.serviceKind === "local" && state.modelSpeed?.tokensPerSec && state.speedKey === speedKeyNow()
+          ? state.modelSpeed.tokensPerSec : null;
+        if (speed) {
+          bits.push(`预计 ${fmtDuration(tokens * 1.2 / speed * 1.15)}–${fmtDuration(tokens * 1.6 / speed * 1.15)}（按实测 ${speed} tok/s 估算）`);
+        } else if (state.serviceKind !== "local") {
+          bits.push(`预计 ${fmtDuration(tokens * 1.2 / 60 * 1.15)}–${fmtDuration(tokens * 1.6 / 15 * 1.15)}（按云端常见速度粗估）`);
+        } else if (state.modelSpeed?.error && state.speedKey === speedKeyNow()) {
+          bits.push(`时长未知（${state.modelSpeed.error}）`);
+        }
         // BabelDOC 按段落调用模型,整篇无需一次放入上下文;超长文档仅提示分批控制成本
         if (tokens > 500000) bits.push("文档较大,建议用页码范围分批控制成本与稳定性");
       }
@@ -594,6 +917,7 @@
       const text = [...bits, ...problems].join(" · ");
       line.textContent = text;
       line.hidden = !text;
+      void ensureModelSpeed();
     }
 
     function paper(translated = false) {
@@ -602,6 +926,7 @@
 
     function renderPreview() {
       const pages = $("#pages");
+      updatePreviewTiming(null);
       $("#preview-badge").textContent = outputNames[state.output];
       $("#preview-subtitle").textContent = "选择输出形式，立即查看差异";
       state.previewKey = "idle";
@@ -614,8 +939,18 @@
       }
     }
 
+    // 实时预览面板头部的已用/预计剩余时间(仅运行中任务显示)
+    function updatePreviewTiming(job) {
+      const el = $("#preview-timing");
+      if (!el) return;
+      if (!job || job.status !== "running" || !job.startedAt) { el.hidden = true; el.innerHTML = ""; return; }
+      const eta = job.progress > 5 ? estimateRemaining(job) : null;
+      el.innerHTML = `<span>已用 ${escapeHtml(elapsedText(job))}</span>${eta ? `<span class="timing-eta">预计还需 ${escapeHtml(eta)}</span>` : ""}`;
+      el.hidden = false;
+    }
+
     function scanMetaHtml(job) {
-      return `<div class="scan-meta"><span class="live-dot"></span><strong>${escapeHtml(job.fileName)}</strong><span id="scan-stage">${escapeHtml(job.stage || "")}</span><span class="live-percent" id="live-percent">${job.progress || 0}%</span></div>`;
+      return `<div class="scan-meta"><span class="live-dot"></span><strong>${escapeHtml(job.fileName)}</strong><span id="scan-stage">${escapeHtml(job.stage || "")}</span><span id="scan-time">${escapeHtml(runningTimeText(job))}</span><span class="live-percent" id="live-percent">${job.progress || 0}%</span></div>`;
     }
 
     function demoOverlayHtml() {
@@ -638,6 +973,7 @@
       $("#pages").innerHTML = `${scanMetaHtml(job)}<div class="scan-wrap${mono ? " mono-mode" : ""}">${mono ? monoPanes : dualPanes}<div class="scan-line" id="scan-line" style="top:${Math.min(100, job.progress || 0)}%"></div></div>`;
       $("#preview-badge").textContent = `翻译中 ${job.progress || 0}%`;
       $("#preview-subtitle").textContent = "任务进度实时更新";
+      updatePreviewTiming(job);
       $("#preview-note").innerHTML = "<strong>过程示意：</strong>扫描线代表真实翻译进度；引擎在全部段落翻译完成后才生成译文，扫描经过后右侧出现的是版式示意而非逐段真译文。任务完成后这里会显示真实译文页。";
     }
 
@@ -646,6 +982,9 @@
       $("#live-percent").textContent = `${percent}%`;
       const stage = $("#scan-stage");
       if (stage) stage.textContent = job.stage || "";
+      const timeEl = $("#scan-time");
+      if (timeEl) timeEl.textContent = runningTimeText(job);
+      updatePreviewTiming(job);
       $("#preview-badge").textContent = `翻译中 ${percent}%`;
       $("#scan-line").style.top = `${percent}%`;
       const reveal = $("#scan-reveal");
@@ -658,7 +997,8 @@
       $("#pages").innerHTML = `<div class="scan-wrap mono-mode"><div class="scan-pane"><span class="pane-tag">译文</span><img src="${img}" alt="译文页" onerror="window.__previewImgError()"></div></div>`;
       $("#preview-badge").textContent = "真实预览";
       $("#preview-subtitle").textContent = "最新完成任务的译文页面";
-      $("#preview-note").innerHTML = `<strong>真实译文预览：</strong>这是最新完成任务「${escapeHtml(job.fileName)}」的译文页（由服务端渲染）。扫描全程见上方说明；下载完整 PDF 与质检报告请打开任务列表。`;
+      updatePreviewTiming(job);
+      $("#preview-note").innerHTML = `<strong>真实译文预览：</strong>这是最新完成任务「${escapeHtml(job.fileName)}」的译文页。完整 PDF 下载、阅读器与质检详情位于任务列表；辅助报告保留在后台。`;
     }
 
     window.__previewImgError = () => {
@@ -687,19 +1027,21 @@
       const translated = Math.ceil((job.progress || 0) / 100 * 8);
       $("#pages").innerHTML = `<div class="live-wrap">
         <div class="live-head"><span class="live-dot"></span><strong>${escapeHtml(job.fileName)}</strong><span class="live-percent" id="live-percent">${job.progress || 0}%</span></div>
-        <div class="live-stage" id="live-stage">${escapeHtml(job.stage || "等待执行")}</div>
+        <div class="live-stage" id="live-stage">${escapeHtml([job.stage || "等待执行", runningTimeText(job)].filter(Boolean).join(" · "))}</div>
         <div class="live-pages" id="live-pages">${miniPagesHtml(8, translated)}</div>
         <div class="live-bar"><i id="live-bar-fill" style="width:${job.progress || 0}%"></i></div>
       </div>`;
       $("#preview-badge").textContent = `翻译中 ${job.progress || 0}%`;
       $("#preview-subtitle").textContent = "任务进度实时更新";
+      updatePreviewTiming(job);
       $("#preview-note").innerHTML = "<strong>过程示意：</strong>引擎在全部段落翻译完成后才一次性渲染 PDF，无法逐页实时显示；上面的小页随真实进度翻成中文。任务完成后这里会显示真实译文页面。";
     }
 
     function updateMiniProgress(job) {
       const percent = job.progress || 0;
       $("#live-percent").textContent = `${percent}%`;
-      $("#live-stage").textContent = job.stage || "";
+      $("#live-stage").textContent = [job.stage || "等待执行", runningTimeText(job)].filter(Boolean).join(" · ");
+      updatePreviewTiming(job);
       $("#live-bar-fill").style.width = `${percent}%`;
       $("#preview-badge").textContent = `翻译中 ${percent}%`;
       const translated = Math.ceil(percent / 100 * 8);
@@ -717,6 +1059,7 @@
       $("#pages").innerHTML = `<iframe class="real-frame" src="${url}" title="译文预览"></iframe>`;
       $("#preview-badge").textContent = "真实预览";
       $("#preview-subtitle").textContent = "最新完成任务的译文页面";
+      updatePreviewTiming(job);
       $("#preview-note").innerHTML = `<strong>真实译文预览：</strong>由浏览器直接渲染最新完成的任务「${escapeHtml(job.fileName)}」。缩放、翻页用页面内控件；下载和质检报告在任务列表。`;
     }
 
@@ -876,8 +1219,7 @@
       // 本地大模型服务：按调用本地大模型的通用方式（OpenAI 兼容 /v1），地址与模型完全由用户填写
       $("#protocol").value = "openai";
       $("#protocol").disabled = true;
-      let savedLocal = {};
-      try { savedLocal = JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch {}
+      let savedLocal = readSavedSettings();
       $("#base-url").value = savedLocal.localBaseUrl || "http://127.0.0.1:11434/v1";
       $("#model").value = savedLocal.localModel || "qwen2.5:7b";
       // 本地服务一般无需鉴权，但 vLLM --api-key、LM Studio 密码、本地中转网关等场景需要，允许选填
@@ -893,16 +1235,21 @@
 
     function applyCloudSelection(keepModel = false) {
       const selection = currentSelection();
+      const saved = readSavedSettings();
       if (selection.custom) {
         $("#protocol").disabled = false;
       } else {
         $("#protocol").value = selection.protocol;
         $("#protocol").disabled = true;
       }
-      $("#base-url").value = selection.baseUrl;
+      // 自定义中转没有预设地址/模型：恢复上次使用的值。
+      // 地址一旦清空，按地址存储的 API key 就取不回来，表现为"一切换界面 key 就没了"
+      $("#base-url").value = selection.custom ? (saved.customBaseUrl || "") : selection.baseUrl;
       $("#model-list").innerHTML = modelEntries(selection).map((m) =>
         `<option value="${escapeHtml(m.id)}" ${m.ctx ? `data-ctx="${m.ctx}"` : ""} ${m.think ? 'data-think="1"' : ""}></option>`).join("");
-      if (!keepModel || !modelEntries(selection).some((m) => m.id === $("#model").value)) {
+      if (selection.custom) {
+        $("#model").value = saved.customModel || saved.model || "";
+      } else if (!keepModel || !modelEntries(selection).some((m) => m.id === $("#model").value)) {
         $("#model").value = (modelEntries(selection)[0] || {}).id || "";
       }
       $("#api-key").disabled = false;
@@ -917,6 +1264,9 @@
     }
 
     const APIKEYS_STORE = "yiye-apikeys-v1";
+    function readSavedSettings() {
+      try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch { return {}; }
+    }
     function resetKeyMask() {
       // key 默认隐藏:切换服务/重新载入后总是恢复掩码,不保留明文状态
       $("#api-key").type = "password";
@@ -925,19 +1275,26 @@
     function keySlot() {
       if (state.serviceKind === "local") {
         const localBaseUrl = $("#base-url").value.trim();
-        return localBaseUrl ? `local:${localBaseUrl}` : null;
+        // 地址为空也落到固定槽位,保证"先填 key 后填地址"时 key 不会静默丢弃
+        return localBaseUrl ? `local:${localBaseUrl}` : "local:";
       }
       const vendor = VENDORS.find((item) => item.id === state.vendorId);
       if (vendor?.custom) {
         const baseUrl = $("#base-url").value.trim();
-        return baseUrl ? `custom:${baseUrl}` : null;
+        return baseUrl ? `custom:${baseUrl}` : "custom:";
       }
       return `vendor:${state.vendorId}`;
     }
     function loadStoredKey() {
       const slot = keySlot();
-      if (!slot) return "";
-      try { return (JSON.parse(localStorage.getItem(APIKEYS_STORE)) || {})[slot] || ""; } catch { return ""; }
+      let all = {};
+      try { all = JSON.parse(localStorage.getItem(APIKEYS_STORE)) || {}; } catch { return ""; }
+      if (all[slot]) return all[slot];
+      // 该地址没有单独存过 key 时回退到公共槽位（key 是在地址为空时填的），
+      // 避免"先粘 key 后填地址"或改正地址后 key 看起来消失
+      if (slot.startsWith("custom:")) return all["custom:"] || "";
+      if (slot.startsWith("local:")) return all["local:"] || "";
+      return "";
     }
     function storeKey(value) {
       const slot = keySlot();
@@ -1251,19 +1608,25 @@
         baseUrl: $("#base-url").value.trim(),
         model: $("#model").value.trim(),
         output: state.output,
+        dualLayout: $("#dual-layout").value,
         qps: Number($("#qps").value) || 4,
         pages: $("#pages-range").value.trim(),
+        maxPagesPerPart: Number($("#max-pages-part").value) || 0,
         enhance: $("#enhance").checked,
         ignoreCache: $("#ignore-cache").checked,
+        aiSummary: $("#ai-summary").checked,
+        customPrompt: $("#custom-prompt").value.trim(),
         fontFamily: $("#font-family").value,
         ocr: $("#ocr").checked,
         table: $("#table").checked,
+        figure: $("#figure").checked,
         glossary: $("#glossary").checked,
       };
     }
 
     function saveSettings() {
       try {
+        const prev = readSavedSettings();
         const payload = {
           serviceKind: state.serviceKind,
           vendorId: state.vendorId,
@@ -1271,12 +1634,17 @@
           thinking: $("#thinking").value,
           target: $("#target").value,
           output: state.output,
+          dualLayout: $("#dual-layout").value,
           qps: $("#qps").value,
           pages: $("#pages-range").value,
+          maxPagesPerPart: Number($("#max-pages-part").value) || 0,
           ocr: $("#ocr").checked,
           table: $("#table").checked,
+          figure: $("#figure").checked,
           enhance: $("#enhance").checked,
           ignoreCache: $("#ignore-cache").checked,
+          aiSummary: $("#ai-summary").checked,
+          customPrompt: $("#custom-prompt").value.trim(),
           fontFamily: $("#font-family").value,
         };
         // 本地与云端的地址/模型分开记忆，切换类型互不覆盖
@@ -1286,6 +1654,15 @@
         } else {
           payload.baseUrl = $("#base-url").value.trim();
           payload.model = $("#model").value.trim();
+        }
+        // 自定义中转的地址/模型单独记住：切到预设供应商再切回来时恢复，
+        // 否则地址清空会连带按地址存储的 API key 一起"消失"
+        if (state.serviceKind === "cloud" && state.vendorId === "custom") {
+          payload.customBaseUrl = payload.baseUrl;
+          payload.customModel = payload.model;
+        } else {
+          if (prev.customBaseUrl) payload.customBaseUrl = prev.customBaseUrl;
+          if (prev.customModel) payload.customModel = prev.customModel;
         }
         localStorage.setItem(SETTINGS_KEY, JSON.stringify(payload));
       } catch {}
@@ -1313,8 +1690,12 @@
       if (saved.pages) $("#pages-range").value = saved.pages;
       if (typeof saved.ocr === "boolean") $("#ocr").checked = saved.ocr;
       if (typeof saved.table === "boolean") $("#table").checked = saved.table;
+      if (typeof saved.figure === "boolean") $("#figure").checked = saved.figure;
       if (typeof saved.enhance === "boolean") $("#enhance").checked = saved.enhance;
       if (typeof saved.ignoreCache === "boolean") $("#ignore-cache").checked = saved.ignoreCache;
+      $("#dual-layout").value = "side";
+      if (typeof saved.customPrompt === "string") $("#custom-prompt").value = saved.customPrompt;
+      if (typeof saved.aiSummary === "boolean") $("#ai-summary").checked = saved.aiSummary;
       if (saved.fontFamily) $("#font-family").value = saved.fontFamily;
       if (outputNames[saved.output]) {
         state.output = saved.output;
@@ -1351,10 +1732,598 @@
       return `<div class="task-issues">${shown}${more}</div>${reviseButton ? `<div class="task-issue" style="margin-top:6px">${reviseButton}</div>` : ""}`;
     }
 
+    function aiSummaryHtml(job) {
+      const summary = state.qualityDetails.get(job.id)?.aiSummary;
+      if (!summary?.content || job.status !== "completed") return "";
+      // 模型可能把【标签】和内容分两行输出,裸标签行与其后首个无标签行合并为一行
+      const lines = summary.content.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+      const rows = [];
+      for (let i = 0; i < lines.length; i += 1) {
+        const match = lines[i].match(/^【(.+?)】\s*(.*)$/);
+        if (!match) { rows.push({ text: lines[i] }); continue; }
+        if (!match[2] && lines[i + 1] && !/^【/.test(lines[i + 1])) {
+          rows.push({ label: match[1], text: lines[i + 1] });
+          i += 1;
+        } else rows.push({ label: match[1], text: match[2] });
+      }
+      const html = rows.map((row) => row.label
+        ? `<div class="ai-row"><span class="ai-label">${escapeHtml(row.label)}</span><span>${escapeHtml(row.text) || "—"}</span></div>`
+        : `<div class="ai-row"><span>${escapeHtml(row.text)}</span></div>`).join("");
+      return `<div class="ai-summary"><div class="ai-title">✦ AI 速览<span>${escapeHtml(summary.model || "")}</span></div>${html}</div>`;
+    }
+
+    // 助手回答中的【第 N 页】渲染为跳转译文 PDF 对应页的链接(页码标记容忍有无空格)
+    function renderChatContent(job, text) {
+      const pdfName = (job.outputs || []).find((name) => name.toLowerCase().endsWith(".pdf"));
+      let html = escapeHtml(text);
+      if (pdfName) {
+        const href = `/api/jobs/${job.id}/result/${encodeURIComponent(pdfName)}?inline=1#page=`;
+        html = html.replace(/【第\s*(\d+)(?:\s*[-–]\s*\d+)?\s*页】/g, (all, num) => ` <a class="chat-cite" href="${href}${num}" target="_blank" rel="noopener">第 ${num} 页</a> `);
+      }
+      return html.replace(/\n/g, "<br>");
+    }
+
+    function chatPanelHtml(job) {
+      if (!state.chatOpen.has(job.id)) return "";
+      const thread = (state.chatThreads.get(job.id) || []).slice(-20);
+      const busy = state.chatBusy.has(job.id);
+      const msgs = thread.map((m) => m.role === "assistant"
+        ? `<div class="chat-msg assistant"><span>${renderChatContent(job, m.content)}</span></div>`
+        : `<div class="chat-msg user"><span>${escapeHtml(m.content)}</span></div>`).join("");
+      const quick = ["这篇论文的核心贡献是什么", "方法与实验是怎么做的", "论文有哪些局限性", "挑出译文中最难理解的三句话并逐句解析", "做一份结构化文献解读：研究背景与设计逻辑、数据与实验价值、创新点、局限性，分四部分输出"]
+        .map((q) => `<button type="button" class="chat-quick-btn" data-chat-quick="${escapeHtml(q)}">${escapeHtml(q)}</button>`).join("");
+      return `<div class="chat-panel">
+        <div class="chat-thread">${msgs || '<div class="chat-hint">基于本任务译文全文提问，回答中的页码引用可点击跳转原文位置。</div>'}</div>
+        <div class="chat-quick">${quick}</div>
+        <div class="chat-input-row">
+          <input class="chat-input" data-chat-input="${job.id}" placeholder="基于译文提问…" ${busy ? "disabled" : ""}>
+          <button data-chat-send="${job.id}" ${busy ? "disabled" : ""}>${busy ? "回答中…" : "发送"}</button>
+        </div>
+      </div>`;
+    }
+
+    async function sendChat(jobId, questionOverride) {
+      const input = document.querySelector(`[data-chat-input="${jobId}"]`);
+      const question = (questionOverride ?? input?.value ?? "").trim();
+      if (!question || state.chatBusy.has(jobId)) return;
+      if (!questionOverride && input) input.value = "";
+      const thread = state.chatThreads.get(jobId) || [];
+      thread.push({ role: "user", content: question });
+      state.chatThreads.set(jobId, thread);
+      state.chatBusy.add(jobId);
+      renderTasks();
+      try {
+        const response = await fetch(`/api/jobs/${jobId}/chat`, {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-api-key": $("#api-key").value.trim() },
+          body: JSON.stringify({ question, history: thread.slice(0, -1), model: config() }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "问答失败");
+        thread.push({ role: "assistant", content: data.answer });
+      } catch (error) {
+        thread.push({ role: "assistant", content: `⚠ ${error.message}` });
+      } finally {
+        state.chatBusy.delete(jobId);
+        if (thread.length > 20) state.chatThreads.set(jobId, thread.slice(-20));
+        renderTasks();
+      }
+    }
+
+    // markdown 无序列表 → 缩进树(思维导图面板用)
+    function mindmapNodesHtml(markdown) {
+      return markdown.split("\n").map((line) => {
+        if (!line.trim() || line.trim().startsWith("```")) return "";
+        const depth = Math.min(8, Math.floor((line.match(/^\s*/)[0].length) / 2));
+        const text = line.replace(/^\s*[-*]\s*/, "").replace(/^#+\s*/, "").trim();
+        if (!text) return "";
+        return `<div class="mm-node" style="padding-left:${8 + depth * 18}px">${escapeHtml(text)}</div>`;
+      }).join("");
+    }
+
+    function mindmapPanelHtml(job) {
+      if (!state.mindmapOpen.has(job.id)) return "";
+      const busy = state.mindmapBusy.has(job.id);
+      const mm = state.mindmaps.get(job.id);
+      let body;
+      if (busy) body = '<div class="chat-hint">正在基于译文全文生成思维导图…（约需十几秒）</div>';
+      else if (mm?.markdown) {
+        const mdHref = `data:text/plain;charset=utf-8,${encodeURIComponent(mm.markdown)}`;
+        body = `${mindmapNodesHtml(mm.markdown)}
+        <div class="mm-meta">由 ${escapeHtml(mm.model || "")} 生成 · <a download="${escapeHtml(job.fileName.replace(/\.pdf$/i, ""))}-思维导图.md" href="${mdHref}">下载 .md</a>（可导入 markmap / XMind）· <button class="link-btn" data-mindmap-refresh="${job.id}">重新生成</button></div>`;
+      } else body = `<div class="chat-hint" role="status">${escapeHtml(mm?.error || "尚未生成思维导图")}</div><button class="link-btn" data-mindmap-refresh="${job.id}">重新生成</button>`;
+      return `<div class="chat-panel"><div class="mm-body">${body}</div></div>`;
+    }
+
+    async function fetchMindmap(jobId, refresh = false) {
+      if (state.mindmapBusy.has(jobId)) return;
+      state.mindmapBusy.add(jobId);
+      renderTasks();
+      try {
+        const response = await fetch(`/api/jobs/${jobId}/mindmap`, {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-api-key": $("#api-key").value.trim() },
+          body: JSON.stringify({ refresh, model: config() }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "思维导图生成失败");
+        if (!data.markdown?.trim()) throw new Error("模型返回空导图，请重试或更换模型");
+        state.mindmaps.set(jobId, data);
+      } catch (error) {
+        state.mindmaps.set(jobId, { error: error.message });
+      } finally {
+        state.mindmapBusy.delete(jobId);
+        renderTasks();
+      }
+    }
+
+    // 图表速读:全部图/表的原文图注 ↔ 译文图注对照列表
+    function figuresPanelHtml(job) {
+      if (!state.figuresOpen.has(job.id)) return "";
+      const detail = state.qualityDetails.get(job.id);
+      const figures = detail?.figures || [];
+      if (!figures.length) return '<div class="chat-panel"><div class="chat-hint">未在译文中识别出图注（Figure/Table 编号）</div></div>';
+      const firstPdf = (job.outputs || []).find((name) => name.toLowerCase().endsWith(".pdf"));
+      const rows = figures.map((f) => {
+        const viewHref = firstPdf && f.page ? `/api/jobs/${job.id}/result/${encodeURIComponent(firstPdf)}?inline=1#page=${f.page}` : "";
+        const explain = `请详细解释${f.kind} ${f.num}：它展示了什么内容、关键数据或趋势是什么、与论文的结论有什么关系？`
+          + (f.translated ? `\n（${f.kind} ${f.num} 图注：${f.translated}）` : "");
+        return `<div class="fig-row" data-fig-key="${f.kind}:${f.num}">
+          ${f.crop ? `<a class="fig-img-link" href="/api/jobs/${job.id}/figure/${f.crop.split("/").pop()}" target="_blank" rel="noopener" title="点击查看大图"><img class="fig-img" loading="lazy" src="/api/jobs/${job.id}/figure/${f.crop.split("/").pop()}" alt="${escapeHtml(f.kind)} ${f.num}"></a>` : ""}
+          <div class="fig-head"><strong>${escapeHtml(f.kind)} ${f.num}</strong>${f.page ? `<span>第 ${f.page} 页</span>` : ""}${viewHref ? `<a class="keep-view" href="${viewHref}" target="_blank" rel="noopener">查看</a>` : ""}<button class="link-btn" data-fig-explain="${job.id}" data-fig-question="${escapeHtml(explain)}">AI 解释</button></div>
+          ${f.translated ? `<div class="fig-translated">${escapeHtml(f.translated)}</div>` : '<div class="fig-translated muted">译文图注未识别</div>'}
+          ${f.original ? `<div class="fig-original">${escapeHtml(f.original)}</div>` : ""}
+        </div>`;
+      }).join("");
+      return `<div class="chat-panel fig-panel">${rows}</div>`;
+    }
+
+    // 多文档问答:跨多篇已完成任务的综合/对比提问(对标 NotebookLM)
+    // ── 应用内阅读器(PDF.js):查看译文/原文 + 点句解释 + 校对写回 ──
+    async function openReaderModal(jobId) {
+      if (typeof pdfjsLib === "undefined") { showError("PDF 阅读器组件未加载"); return; }
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdfjs/pdf.worker.min.js";
+      const job = state.jobs.find((j) => j.id === jobId);
+      if (!job) return;
+      let detail = state.qualityDetails.get(jobId);
+      if (!detail) {
+        try {
+          const data = await fetch(`/api/jobs/${jobId}`).then((r) => r.json());
+          state.qualityDetails.set(jobId, data.qualityDetail || {});
+          detail = state.qualityDetails.get(jobId);
+        } catch { detail = {}; }
+      }
+      if (!detail?.paragraphs?.length) { showError("该任务没有逐段对照数据（较早版本生成的任务，重试一次即可生成）"); return; }
+      const pdfName = (job.outputs || []).find((name) => name.toLowerCase().endsWith(".pdf"));
+      if (!pdfName) { showError("任务没有译文 PDF"); return; }
+      state.pdfReader = {
+        jobId, doc: null, page: 1, total: detail.paragraphs.length, zoom: 0,
+        rendering: false, pending: false,
+        src: "trans", srcUrl: `/api/jobs/${jobId}/result/${encodeURIComponent(pdfName)}?inline=1`,
+        sideTab: "pairs",
+      };
+      $("#reader-file-name").textContent = job.fileName;
+      $("#reader-modal-backdrop").classList.add("open");
+      syncBodyLock();
+      await loadReaderDoc();
+    }
+
+    async function loadReaderDoc() {
+      const r = state.pdfReader;
+      $("#reader-loading").hidden = false;
+      try {
+        r.doc = await pdfjsLib.getDocument({
+          url: r.srcUrl,
+          cMapUrl: "/pdfjs/cmaps/",
+          cMapPacked: true,
+          standardFontDataUrl: "/pdfjs/standard_fonts/",
+        }).promise;
+        r.total = r.doc.numPages;
+        $("#reader-total").textContent = `/ ${r.total}`;
+        r.page = Math.min(r.page, r.total);
+        await renderReaderPage();
+      } catch (error) {
+        $("#reader-loading").textContent = `PDF 加载失败：${error.message}`;
+      }
+    }
+
+    async function renderReaderPage() {
+      const r = state.pdfReader;
+      if (!r.doc) return;
+      if (r.rendering) { r.pending = true; return; }
+      r.rendering = true;
+      try {
+        $("#reader-loading").hidden = false;
+        const page = await r.doc.getPage(r.page);
+        const base = page.getViewport({ scale: 1 });
+        const box = $("#reader-pdf-box");
+        const scale = r.zoom > 0 ? r.zoom : Math.max(0.4, (box.clientWidth - 24) / base.width);
+        const viewport = page.getViewport({ scale });
+        const canvas = $("#reader-canvas");
+        const ctx = canvas.getContext("2d");
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        canvas.style.width = `${viewport.width}px`;
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        $("#reader-zoom-val").textContent = r.zoom > 0 ? `${Math.round(scale * 100)}%` : "适配";
+        $("#reader-page-num").value = r.page;
+      } finally {
+        r.rendering = false;
+        $("#reader-loading").hidden = true;
+        renderReaderSidebar();
+        if (r.pending) { r.pending = false; renderReaderPage(); }
+      }
+    }
+
+    function readerPagePairs() {
+      const r = state.pdfReader;
+      const detail = state.qualityDetails.get(r.jobId) || {};
+      const edits = detail.edits || {};
+      const page = (detail.paragraphs || []).find((p) => p.page === r.page);
+      return { page, edits };
+    }
+
+    function renderReaderSidebar() {
+      const r = state.pdfReader;
+      const body = $("#reader-side-body");
+      if (!body || !r.doc) return;
+      const { page, edits } = readerPagePairs();
+      if (!page) { body.innerHTML = '<div class="chat-hint">本页没有可显示的段落</div>'; return; }
+      const job = state.jobs.find((j) => j.id === r.jobId) || {};
+      if (r.sideTab === "figures") {
+        const figs = (state.qualityDetails.get(r.jobId)?.figures || []).filter((f) => f.page === r.page);
+        body.innerHTML = figs.length ? figs.map((f) => {
+          const explain = `请详细解释${f.kind} ${f.num}：它展示了什么内容、关键数据或趋势是什么、与论文的结论有什么关系？` + (f.translated ? `\n（${f.kind} ${f.num} 图注：${f.translated}）` : "");
+          const ansKey = `f${f.num}`;
+          const ans = state.pdfReaderAnswers.get(ansKey);
+          return `<div class="rs-pair rs-fig" data-rs-fig="${escapeHtml(f.kind)}:${f.num}">
+            <div class="rs-fig-head"><strong>${escapeHtml(f.kind)} ${f.num}</strong>${f.crop ? `<a class="keep-view" href="/api/jobs/${job.id}/figure/${f.crop.split("/").pop()}" target="_blank" rel="noopener">大图</a>` : ""}</div>
+            ${f.crop ? `<img class="fig-img" loading="lazy" src="/api/jobs/${job.id}/figure/${f.crop.split("/").pop()}" alt="">` : ""}
+            ${f.translated ? `<div class="rs-fig-zh">${escapeHtml(f.translated)}</div>` : ""}
+            ${f.original ? `<div class="rs-fig-orig">${escapeHtml(f.original)}</div>` : ""}
+            <div class="rs-actions"><button class="link-btn" data-reader-explain="${escapeHtml(explain)}" data-anskey="${ansKey}">AI 解释</button></div>
+            ${ans ? `<div class="rs-answer">${escapeHtml(ans.text || ans.error || "")}</div>` : ""}
+          </div>`;
+        }).join("") : '<div class="chat-hint">本页没有图表</div>';
+        return;
+      }
+      // 段落页签
+      const pageIndex = (state.qualityDetails.get(r.jobId)?.paragraphs || []).findIndex((p) => p.page === r.page);
+      const same = page.translated === false;
+      body.innerHTML = page.pairs.map((pair, idx) => {
+        const ekey = `${r.page}:${idx}`;
+        const editing = state.readerEditing.has(ekey);
+        const editedEntry = Object.prototype.hasOwnProperty.call(edits, ekey) ? edits[ekey] : null;
+        const editedText = editedEntry ? editedEntry.text : null;
+        const isEdited = editedText != null && editedText !== pair.zh;
+        const shownZh = editing ? "" : (editedText != null ? editedText : pair.zh);
+        // 点句解释:每个英文句子可点击,送入任务问答通道(带全文上下文)
+        const enSent = state.readerSentExplain && pair.en
+          ? splitSentences(pair.en).map((s, si) => {
+              const question = `请解释论文中的这句英文：\n\n"${s}"\n\n要求：先给出中文翻译，再解析句子的语法结构或专业含义。`;
+              const ak = `s${pageIndex}_${idx}_${si}`;
+              state.pdfReaderQuestions.set(ak, question);
+              return `<span class="rs-sent" data-reader-explain="1" data-anskey="${escapeHtml(ak)}" data-job="${r.jobId}">${wrapFigRefs(r.jobId, escapeHtml(s))}</span> `;
+            }).join("")
+          : (pair.en ? wrapFigRefs(r.jobId, escapeHtml(pair.en)) : "");
+        return `<div class="rs-pair">
+          <div class="rs-pair-head"><span class="rs-pair-tag">${escapeHtml(ekey)}</span>${pair.en && !same ? `<button class="link-btn" data-retranslate="${job.id}" data-rkey="${escapeHtml(`${job.id}:${pageIndex}:${idx}`)}" data-en="${escapeHtml(pair.en)}">重译</button>` : ""}<button class="link-btn" data-edit-edit="${escapeHtml(ekey)}" data-job="${r.jobId}" data-orig="${escapeHtml(pair.zh)}">${editing ? "收起" : "编辑"}</button></div>
+          ${pair.en ? `<div class="rs-en">${enSent}</div>` : ""}
+          ${editing
+            ? `<textarea class="rp-edit-area" data-edit-input="${escapeHtml(ekey)}" data-job="${job.id}">${escapeHtml(editedText != null ? editedText : pair.zh)}</textarea>
+               <div class="rs-actions"><button class="link-btn" data-edit-save="${job.id}" data-ekey="${escapeHtml(ekey)}" data-orig="${escapeHtml(pair.zh)}">保存</button><button class="link-btn" data-edit-apply="${job.id}" data-ekey="${escapeHtml(ekey)}" data-page="${page.page}" data-orig="${escapeHtml(pair.zh)}">保存并写入 PDF</button><button class="link-btn" data-edit-cancel="${escapeHtml(ekey)}">取消</button></div>`
+            : shownZh
+              ? `<div class="rs-zh ${isEdited ? "rs-zh-edited" : ""}">${wrapFigRefs(job.id, escapeHtml(shownZh))}${isEdited ? '<span class="rs-edited-chip">已校对</span>' : ""}</div>`
+              : '<div class="rs-zh muted">（该段落无译文，可点「编辑」补写）</div>'}
+        </div>`;
+      }).join("");
+    }
+
+    // 主页 AI 问答:文档勾选框渲染(签名守卫避免轮询重建打断点击)
+    function renderAiChatDocs() {
+      const box = $("#aichat-docs");
+      if (!box) return;
+      const completed = state.jobs.filter((job) => job.status === "completed");
+      const m = state.multiChat;
+      for (const id of m.docs.keys()) {
+        if (!completed.some((job) => job.id === id)) m.docs.delete(id);
+      }
+      if (!m.docs.size && completed.length) m.docs.set(completed[0].id, true);
+      const sig = completed.map((job) => job.id).join(",");
+      const selectedCount = [...state.multiChat.docs.values()].filter(Boolean).length;
+      const subtitle = $("#aichat-subtitle");
+      if (subtitle) subtitle.textContent = selectedCount
+        ? `已选 ${selectedCount} 篇 · 用当前模型跨文档提问`
+        : "勾选已完成任务后提问，回答中的页码引用可点击跳转";
+      // 任务集合未变化时不重建勾选框,避免打断点击
+      if (box.dataset.sig === sig) return;
+      box.dataset.sig = sig;
+      box.innerHTML = completed.length
+        ? completed.map((job) => `<label class="multichat-doc" title="${escapeHtml(job.fileName)}"><input type="checkbox" data-multichat-doc="${job.id}" ${state.multiChat.docs.get(job.id) ? "checked" : ""}>${escapeHtml(job.fileName)}</label>`).join("")
+        : '<span class="chat-hint">暂无已完成任务，翻译完成后可在此提问</span>';
+    }
+
+    function renderAiChatThread() {
+      const thread = $("#aichat-thread");
+      if (!thread) return;
+      const m = state.multiChat;
+      const msgs = m.thread.map((msg) => msg.role === "user"
+        ? `<div class="chat-msg user"><span>${escapeHtml(msg.content)}</span></div>`
+        : `<div class="chat-msg assistant"><span>${renderMultiChatContent(msg.content)}</span></div>`).join("");
+      thread.innerHTML = (msgs || '<div class="chat-hint">你好，我是你的论文助手。<br>选择一篇论文深读，或选择多篇对比方法、贡献与实验。回答可能有误，请结合页码核对原文。</div>') + (m.busy ? '<div class="chat-hint" role="status">正在阅读论文并组织回答…</div>' : "");
+      thread.scrollTop = thread.scrollHeight;
+      $("#aichat-send").disabled = m.busy;
+      $("#aichat-send").textContent = m.busy ? "回答中…" : "发送 ↗";
+      $("#aichat-docs").querySelectorAll("input").forEach((box) => { box.disabled = m.busy; });
+      const badge = $("#aichat-model");
+      if (badge) badge.textContent = $("#model").value.trim() || "未设置模型";
+    }
+
+    function renderAiChat() {
+      renderAiChatDocs();
+      renderAiChatThread();
+    }
+
+    // 回答中的【文档 N 第 M 页】渲染为对应任务译文 PDF 的页码跳转链接(容忍有无空格)
+    function renderMultiChatContent(text) {
+      let html = escapeHtml(text);
+      html = html.replace(/【文档\s*(\d+)\s*第\s*(\d+)(?:\s*[-–]\s*\d+)?\s*页】/g, (all, docNum, page) => {
+        const job = state.multiChat.order[Number(docNum) - 1];
+        if (!job) return all;
+        const pdf = (job.outputs || []).find((name) => name.toLowerCase().endsWith(".pdf"));
+        if (!pdf) return all;
+        return ` <a class="chat-cite" href="/api/jobs/${job.id}/result/${encodeURIComponent(pdf)}?inline=1#page=${page}" target="_blank" rel="noopener">《${escapeHtml(job.fileName.replace(/\.pdf$/i, ""))}》第 ${page} 页</a> `;
+      });
+      return html.replace(/\n/g, "<br>");
+    }
+
+    async function sendMultiChat() {
+      const m = state.multiChat;
+      const input = $("#aichat-input");
+      const question = input?.value.trim();
+      if (m.busy) return;
+      const errorBox = $("#assistant-error");
+      const selected = [...m.docs.entries()].filter(([id, v]) => v && state.jobs.some((job) => job.id === id && job.status === "completed")).map(([k]) => k).slice(0, 4);
+      const validation = !selected.length ? "请先选择至少一篇已完成的论文。" : !question ? "请输入要提问的内容。" : "";
+      errorBox.textContent = validation;
+      errorBox.hidden = !validation;
+      if (validation) return;
+      m.order = selected.map((id) => state.jobs.find((job) => job.id === id)).filter(Boolean);
+      m.thread.push({ role: "user", content: question });
+      m.busy = true;
+      input.value = "";
+      renderAiChatThread();
+      try {
+        const response = await fetch("/api/chat-multi", {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-api-key": $("#api-key").value.trim() },
+          // 使用当前界面配置的模型(本地 Ollama 或云 API)
+          body: JSON.stringify({
+            job_ids: selected,
+            question,
+            history: m.thread.slice(0, -1),
+            model: config(),
+          }),
+          signal: AbortSignal.timeout(180000),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "多文档问答失败");
+        if (Array.isArray(data.docs)) m.order = data.docs.map((d) => state.jobs.find((job) => job.id === d.id)).filter(Boolean);
+        m.thread.push({ role: "assistant", content: data.answer });
+      } catch (error) {
+        m.thread.push({ role: "assistant", content: `⚠ ${error.message}` });
+        if (!input.value) input.value = question;
+      } finally {
+        m.busy = false;
+        if (m.thread.length > 20) m.thread = m.thread.slice(-20);
+        renderAiChatThread();
+      }
+    }
+
+    // 英文句子切分:句末标点+空格+大写/数字处断句;缩写(et al./Fig./e.g.)与小片段并回前句
+    function splitSentences(text) {
+      const raw = text.split(/(?<=[.!?])\s+(?=[A-Z0-9"“(])/);
+      const merged = [];
+      for (const part of raw) {
+        const t = part.trim();
+        if (!t) continue;
+        const prev = merged[merged.length - 1];
+        if (prev && (/\b(al|e\.g|i\.e|vs|Fig|Eq|No|Dr|Prof|ca|resp)\.$/i.test(prev) || t.length < 3)) {
+          merged[merged.length - 1] = `${prev} ${t}`;
+        } else merged.push(t);
+      }
+      return merged.length ? merged : [text];
+    }
+
+    // 中文句子切分:句号/问号/叹号/分号后断句
+    function splitZhSentences(text) {
+      const raw = text.split(/(?<=[。！？；])/);
+      const merged = [];
+      for (const part of raw) {
+        const t = part.trim();
+        if (t) merged.push(t);
+      }
+      return merged.length ? merged : [text];
+    }
+
+    // 句对齐:按字符长度比例把中文句子分组对齐到英文句子(最后一句兜底接收剩余)
+    function alignSentences(enList, zhList) {
+      if (!enList.length) return zhList.map((z) => ({ en: "", zh: z }));
+      if (!zhList.length) return enList.map((e) => ({ en: e, zh: "" }));
+      if (enList.length === zhList.length) return enList.map((en, i) => ({ en, zh: zhList[i] }));
+      const totalEn = enList.reduce((sum, en) => sum + en.length, 0) || 1;
+      const totalZh = zhList.reduce((sum, z) => sum + z.length, 0) || 1;
+      const groups = [];
+      let zhIdx = 0;
+      let zhAcc = 0;
+      let enAcc = 0;
+      for (let i = 0; i < enList.length; i += 1) {
+        enAcc += enList[i].length;
+        const limit = (enAcc / totalEn) * totalZh;
+        const chunk = [];
+        while (zhIdx < zhList.length && (i === enList.length - 1 || zhAcc + zhList[zhIdx].length <= limit || !chunk.length)) {
+          chunk.push(zhList[zhIdx]);
+          zhAcc += zhList[zhIdx].length;
+          zhIdx += 1;
+        }
+        groups.push({ en: enList[i], zh: chunk.join("") });
+      }
+      return groups;
+    }
+
+    // 对比重译:本地 Ollama 时自动发现已装模型供对比选择;云 API 手输模型名
+    async function refreshCompareModels() {
+      const list = $("#rp-compare-list");
+      if (!list) return;
+      if (state.serviceKind !== "local") return; // 云 API 的模型名自由输入,不预取
+      const key = $("#base-url").value.trim();
+      if (state.compareModelsKey === key) return;
+      state.compareModelsKey = key;
+      try {
+        const data = await fetch(`/api/providers/models?baseUrl=${encodeURIComponent(key)}&protocol=openai`, {
+          headers: { "x-api-key": $("#api-key").value },
+        }).then((r) => r.json());
+        state.compareModels = Array.isArray(data.models) ? data.models : [];
+        list.innerHTML = state.compareModels.map((m) => `<option value="${escapeHtml(m)}">`).join("");
+      } catch {}
+    }
+
+    // 逐段对照阅读:原文段落(浅灰小字)在上、译文段落(主文)在下,按版面顺序排列。
+    // 页码范围外的页面保留原文(en 与 zh 相同),只展示一遍并标注,避免重复刷屏
+    function readerPanelHtml(job) {
+      if (!state.readerOpen.has(job.id)) return "";
+      const detail = state.qualityDetails.get(job.id);
+      const pages = detail?.paragraphs || [];
+      const edits = detail?.edits || {};
+      if (!pages.length) return '<div class="chat-panel"><div class="chat-hint">该任务没有逐段对照数据（较早版本生成的任务，重试一次即可生成）</div></div>';
+      const pairsHtml = pages.map((page, pageIndex) => `
+        <div class="rp-page">第 ${page.page} 页${page.translated === false ? '<span class="rp-untranslated">未翻译 · 保留原文</span>' : ""}</div>
+        ${page.pairs.map((pair, pairIndex) => {
+          const same = page.translated === false;
+          const key = `${job.id}:${pageIndex}:${pairIndex}`;
+          const entry = state.retranslations.get(key);
+          const alts = entry?.alts || [];
+          const retransBtn = pair.en && !same ? `<button class="link-btn" data-retranslate="${job.id}" data-rkey="${escapeHtml(key)}" data-en="${escapeHtml(pair.en)}">重译</button>` : "";
+          const altHtml = alts.map((alt, ai) => `
+            <div class="rp-alt">
+              <span class="rp-alt-label">备选 ${ai + 1} · ${escapeHtml(alt.model || "")}${alt.applied ? " · ✓ 已写入 adjusted-output.pdf" : ""}${alt.applying ? " · 写入中…" : ""}</span>
+              ${escapeHtml(alt.text)}
+              ${!alt.applying && !alt.applied && job.status === "completed" ? `<button class="link-btn" data-apply-alt="${job.id}" data-rkey="${escapeHtml(key)}" data-alt-idx="${ai}" data-page="${page.page}" data-old="${escapeHtml(pair.zh)}">应用到 PDF</button>` : ""}
+            </div>`).join("");
+          const sentMode = state.readerGranularity === "sent" && !same && pair.en && pair.zh;
+          let enHtml = "";
+          let zhHtml = "";
+          if (pair.en) {
+            if (sentMode) {
+              // 句对齐:英文句与中文句按长度比例交错排列,每句可点击解释
+              const aligned = alignSentences(splitSentences(pair.en), splitZhSentences(pair.zh));
+              enHtml = aligned.map((group) => `
+                <div class="rp-sent-group">
+                  ${group.en ? `<div class="rp-en"><span class="rp-sent" data-sent="${escapeHtml(group.en)}" data-job="${job.id}" data-paragraph="${escapeHtml(pair.en)}">${escapeHtml(group.en)}</span></div>` : ""}
+                  ${group.zh ? `<div class="rp-zh">${escapeHtml(group.zh)}</div>` : ""}
+                </div>`).join("");
+              zhHtml = "";
+            } else {
+              enHtml = wrapFigRefs(job.id, escapeHtml(pair.en));
+              zhHtml = wrapFigRefs(job.id, escapeHtml(pair.zh));
+            }
+          }
+          // 译文编辑校对:editKey = "页:段序",edits.json 持久化,写回 PDF 复用红action 管线
+          const editKey = `${page.page}:${pairIndex}`;
+          const editedEntry = Object.prototype.hasOwnProperty.call(edits, editKey) ? edits[editKey] : null;
+          const editedText = editedEntry ? editedEntry.text : null;
+          const isEdited = editedText != null && editedText !== pair.zh;
+          const editingPair = state.readerEditing.has(editKey);
+          const editBtns = same ? "" : editingPair
+            ? `<button class="link-btn" data-edit-save="${job.id}" data-ekey="${escapeHtml(editKey)}" data-orig="${escapeHtml(pair.zh)}">保存</button><button class="link-btn" data-edit-apply="${job.id}" data-ekey="${escapeHtml(editKey)}" data-page="${page.page}" data-orig="${escapeHtml(pair.zh)}">保存并写入 PDF</button><button class="link-btn" data-edit-cancel="${escapeHtml(editKey)}">取消</button>`
+            : `<button class="link-btn" data-edit-edit="${escapeHtml(editKey)}">编辑</button>${isEdited ? `<button class="link-btn" data-edit-apply="${job.id}" data-ekey="${escapeHtml(editKey)}" data-page="${page.page}" data-orig="${escapeHtml(pair.zh)}">写入 PDF</button>` : ""}`;
+          const zhBlock = editingPair
+            ? `<textarea class="rp-edit-area" data-edit-input="${escapeHtml(editKey)}" data-job="${job.id}">${escapeHtml(editedText != null ? editedText : pair.zh)}</textarea>`
+            : (editedText != null || pair.zh)
+              ? `<div class="rp-zh ${isEdited ? "rp-edited" : ""}">${wrapFigRefs(job.id, escapeHtml(editedText != null ? editedText : pair.zh))}${isEdited ? '<span class="rp-edited-chip">已校对</span>' : ""}</div>`
+              : !same ? '<div class="rp-zh muted">（该段落无译文，可点「编辑」补写）</div>' : "";
+          return `
+          <div class="rp-pair ${editingPair ? "rp-editing" : ""}">
+            <div class="rp-pair-head"><span class="rp-pair-tag">${escapeHtml(editKey)}</span>${pair.en ? retransBtn : ""}${same ? "" : editBtns}</div>
+            ${pair.en ? `<div class="rp-en">${enHtml}</div>` : ""}
+            ${zhBlock}
+            ${altHtml}
+          </div>`;
+        }).join("")}
+      `).join("");
+      const docHtml = `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><title>${escapeHtml(job.fileName)} 逐段对照</title><style>body{max-width:860px;margin:24px auto;padding:0 16px;font-family:"Microsoft YaHei",sans-serif;color:#222}.rp-page{font-weight:800;border-bottom:2px solid #2c3e50;margin:26px 0 12px;padding-bottom:4px}.rp-pair{margin:10px 0}.rp-en{color:#777;font-size:13px;line-height:1.5}.rp-zh{font-size:15px;line-height:1.8;margin-top:3px}.rp-sent-group{margin:8px 0}.rp-sent-group .rp-zh{margin-top:2px}</style></head><body><h1>${escapeHtml(job.fileName)} 逐段对照</h1>${pages.map((page) => `<div class="rp-page">第 ${page.page} 页${page.translated === false ? "（未翻译 · 保留原文）" : ""}</div>${page.pairs.map((pair) => {
+        const same = page.translated === false;
+        if (state.readerGranularity === "sent" && !same && pair.en && pair.zh) {
+          const aligned = alignSentences(splitSentences(pair.en), splitZhSentences(pair.zh));
+          return aligned.map((g) => `<div class="rp-pair">${g.en ? `<div class="rp-en">${escapeHtml(g.en)}</div>` : ""}${g.zh ? `<div class="rp-zh">${escapeHtml(g.zh)}</div>` : ""}</div>`).join("");
+        }
+        return `<div class="rp-pair">${pair.en ? `<div class="rp-en">${escapeHtml(pair.en)}</div>` : ""}${pair.zh ? `<div class="rp-zh">${escapeHtml(pair.zh)}</div>` : ""}</div>`;
+      }).join("")}`).join("")}</body></html>`;
+      const htmlHref = `data:text/html;charset=utf-8,${encodeURIComponent(docHtml)}`;
+      void refreshCompareModels();
+      const compareOptions = (state.compareModels || []).map((m) => `<option value="${escapeHtml(m)}">`).join("");
+      return `<div class="chat-panel reader-panel">
+        <div class="rp-toolbar"><span>共 ${pages.length} 页</span><span class="rp-toolbar-right"><label class="rp-sent-mode"><input type="checkbox" data-reader-sent ${state.readerSentExplain ? "checked" : ""}>点句解释</label><select class="rp-granularity" data-reader-granularity><option value="para" ${state.readerGranularity === "para" ? "selected" : ""}>段落对照</option><option value="sent" ${state.readerGranularity === "sent" ? "selected" : ""}>句对齐</option></select><span class="rp-compare"><label class="rp-sent-mode">对比模型</label><input class="rp-compare-input" data-compare-model list="rp-compare-list" placeholder="当前模型" value="${escapeHtml(state.compareModel || "")}" spellcheck="false"></span><a class="keep-view" download="${escapeHtml(job.fileName.replace(/\.pdf$/i, ""))}-逐段对照.html" href="${htmlHref}">下载 HTML</a></span></div>
+        <datalist id="rp-compare-list">${compareOptions}</datalist>
+        ${pairsHtml}
+      </div>`;
+    }
+
+    // 正文中的图表引用(图 3 / Figure 2 / 表 2)渲染为可点击跳转,定位到图表速读对应条目
+    function wrapFigRefs(jobId, escapedHtml) {
+      return escapedHtml.replace(/(图|表|Figure|Fig\.?|Table)\s*(\d+)/g, (all, kind, num) => {
+        const key = `${kind === "图" || kind.toLowerCase().startsWith("fig") ? "图" : "表"}:${num}`;
+        return `<span class="rp-figref" data-figref="${jobId}" data-kind="${key.split(":")[0]}" data-num="${num}">${all}</span>`;
+      });
+    }
+
+    function jumpToFigureRow(jobId, kind, num) {
+      state.figuresOpen.add(jobId);
+      renderTasks();
+      requestAnimationFrame(() => {
+        const row = document.querySelector(`.fig-row[data-fig-key="${kind}:${num}"]`);
+        if (row) {
+          row.scrollIntoView({ block: "center", behavior: "smooth" });
+          row.classList.add("fig-flash");
+          setTimeout(() => row.classList.remove("fig-flash"), 1800);
+        } else showError(`图表速读中没有 ${kind} ${num} 的条目`);
+      });
+    }
+
+    // 阅读器内的图表引用跳转:切到图表页签并翻到图所在页,高亮对应条目
+    function readerJumpToFigure(jobId, kind, num) {
+      const r = state.pdfReader;
+      if (!r || r.jobId !== jobId) return;
+      const figs = state.qualityDetails.get(jobId)?.figures || [];
+      const fig = figs.find((f) => f.kind === kind && String(f.num) === String(num));
+      if (!fig) { showError(`图表速读数据中没有 ${kind} ${num} 的记录`); return; }
+      r.sideTab = "figures";
+      document.querySelectorAll(".reader-tab").forEach((t) => t.classList.toggle("selected", t.dataset.readerTab === "figures"));
+      if (r.page === fig.page) {
+        renderReaderSidebar();
+        flashReaderFig(kind, num);
+      } else {
+        r.page = fig.page;
+        void renderReaderPage().then(() => flashReaderFig(kind, num));
+      }
+    }
+
+    function flashReaderFig(kind, num, tries = 0) {
+      const row = document.querySelector(`#reader-side-body .rs-fig[data-rs-fig="${kind}:${num}"]`);
+      if (!row) {
+        // 渲染尚未完成(翻页中),等下一帧再找
+        if (tries < 30) requestAnimationFrame(() => flashReaderFig(kind, num, tries + 1));
+        return;
+      }
+      row.scrollIntoView({ block: "center", behavior: "smooth" });
+      row.classList.add("fig-flash");
+      setTimeout(() => row.classList.remove("fig-flash"), 1800);
+    }
+
     function taskHtml(job) {
       const active = ["queued", "running"].includes(job.status);
       const pillClass = ` ${job.status}`;
-      const downloads = (job.outputs || []).map((name) => {
+      const downloads = (job.outputs || []).filter((name) => name.toLowerCase().endsWith(".pdf")).map((name) => {
         const href = `/api/jobs/${job.id}/result/${encodeURIComponent(name)}`;
         const preview = name.toLowerCase().endsWith(".pdf") ? `<a href="${href}?inline=1" target="_blank" rel="noopener">预览</a>` : "";
         return `${preview}<a href="${href}">下载 ${escapeHtml(name.split("/").pop())}</a>`;
@@ -1362,9 +2331,15 @@
       const cancel = active ? `<button data-cancel="${job.id}">取消</button>` : "";
       const retry = !active && job.status !== "completed" ? `<button data-retry="${job.id}">重试</button>` : "";
       const del = !active ? `<button data-delete="${job.id}">删除</button>` : "";
-      const logButton = job.log?.length ? `<button data-log="${job.id}">${state.expanded.has(job.id) ? "隐藏日志" : "日志"}</button>` : "";
-      const logLines = state.expanded.has(job.id) && job.log?.length
-        ? `<pre class="task-log open">${escapeHtml(job.log.join("\n"))}</pre>` : "";
+      const chat = job.status === "completed" ? `<button data-chat="${job.id}">${state.chatOpen.has(job.id) ? "收起问答" : "问答"}</button>` : "";
+      const mindmap = job.status === "completed" ? `<button data-mindmap="${job.id}">${state.mindmapOpen.has(job.id) ? "收起导图" : "思维导图"}</button>` : "";
+      const hasFigures = job.status === "completed" && (state.qualityDetails.get(job.id)?.figures?.length || 0) > 0;
+      const figures = hasFigures ? `<button data-figures="${job.id}">${state.figuresOpen.has(job.id) ? "收起图表" : "图表速读"}</button>` : "";
+      const hasReader = job.status === "completed" && (state.qualityDetails.get(job.id)?.paragraphs?.length || 0) > 0;
+      const reader = hasReader ? `<button data-reader="${job.id}">${state.readerOpen.has(job.id) ? "收起阅读" : "逐段对照"}</button>` : "";
+      const viewer = job.status === "completed" && (job.outputs || []).some((name) => name.toLowerCase().endsWith(".pdf"))
+        ? `<button data-open-reader="${job.id}">阅读器</button>` : "";
+      const logButton = job.log?.length ? `<button data-log-open="${job.id}">${escapeHtml(job.fileName.replace(/\.pdf$/i, ""))} 日志</button>` : "";
       const metaBits = [];
       if (job.startedAt && job.finishedAt) metaBits.push(`耗时 ${Math.max(1, Math.round((new Date(job.finishedAt) - new Date(job.startedAt)) / 1000))} 秒`);
       if (job.stats?.paragraphs) metaBits.push(`段落 ${job.stats.paragraphs.done}/${job.stats.paragraphs.total}`);
@@ -1372,6 +2347,10 @@
       if (job.promptTokens) metaBits.push(`提示 ${formatTokens(job.promptTokens)}`);
       if (job.completionTokens) metaBits.push(`补全 ${formatTokens(job.completionTokens)}`);
       if (job.stats?.scannedCheck) metaBits.push("已扫描检测");
+      // 引擎按段落缓存翻译结果:重试/重复翻译时 token 计数为 0 即全部命中缓存
+      if (job.status === "completed" && !job.tokensUsed && !job.completionTokens && job.quality) {
+        metaBits.push("✓ 段落全部命中缓存，未重复调用模型");
+      }
       let qualityHtml = "";
       if (job.quality) {
         qualityHtml = job.quality.issueCount
@@ -1385,13 +2364,17 @@
       }
       return `<article class="task-item">
         <div class="task-top"><strong title="${escapeHtml(job.fileName)}">${escapeHtml(job.fileName)}</strong><span class="status-pill${pillClass}">${escapeHtml(statusNames[job.status] || job.status)}</span></div>
-        <div class="task-stage"><span>${escapeHtml(job.stage || "")}</span><span>${job.progress || 0}%${job.status === "running" && job.progress > 5 ? ` · 已用 ${elapsedText(job)} · 预计还需 ${estimateRemaining(job)}` : ""}</span></div>
+        <div class="task-stage"><span>${escapeHtml(job.stage || "")}</span><span>${job.progress || 0}%${runningTimeText(job) ? ` · ${escapeHtml(runningTimeText(job))}` : ""}</span></div>
         <div class="task-progress"><i style="width:${job.progress || 0}%"></i></div>
         ${metaBits.length || qualityHtml ? `<div class="task-meta">${metaBits.map((bit) => `<span>${escapeHtml(bit)}</span>`).join("")}${qualityHtml}</div>` : ""}
+        ${aiSummaryHtml(job)}
+        ${readerPanelHtml(job)}
+        ${mindmapPanelHtml(job)}
+        ${figuresPanelHtml(job)}
         ${qualityIssuesHtml(job)}
+        ${chatPanelHtml(job)}
         ${job.error ? `<div class="task-error">${escapeHtml(job.error)}</div>` : ""}
-        ${job.outputs?.length || cancel || retry || del || logButton ? `<div class="task-actions">${downloads}${cancel}${retry}${del}${logButton}</div>` : ""}
-        ${logLines}
+        ${job.outputs?.length || cancel || retry || del || chat || mindmap || figures || reader || viewer || logButton ? `<div class="task-actions">${downloads}${cancel}${retry}${del}${chat}${mindmap}${figures}${reader}${viewer}${logButton}</div>` : ""}
       </article>`;
     }
 
@@ -1409,8 +2392,24 @@
       $("#tasks-count").textContent = activeCount ? `${activeCount} 个进行中 · 共 ${state.jobs.length} 个` : `共 ${state.jobs.length} 个`;
       const html = state.jobs.map(taskHtml).join("");
       if (html === state.signature) return;
+      // innerHTML 重建会重置滚动位置:恢复任务列表与展开日志的滚动,
+      // 日志贴近底部视为"跟随最新"继续钉底,向上翻阅时保持原位置不被拉走
+      const logScrolls = new Map();
+      list.querySelectorAll("pre.task-log").forEach((el) => {
+        if (el.dataset.jobId) {
+          const follow = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+          logScrolls.set(el.dataset.jobId, follow ? -1 : el.scrollTop);
+        }
+      });
+      const listScroll = list.scrollTop;
       state.signature = html;
       list.innerHTML = html;
+      list.scrollTop = listScroll;
+      list.querySelectorAll("pre.task-log").forEach((el) => {
+        const saved = logScrolls.get(el.dataset.jobId);
+        if (saved === undefined) return;
+        el.scrollTop = saved === -1 ? el.scrollHeight : saved;
+      });
     }
 
     function notifyEnabled() {
@@ -1463,7 +2462,8 @@
               if (!alive.has(id)) state.qualityDetails.delete(id);
             }
           }
-          const pending = jobs.filter((job) => job.quality?.issueCount && !state.qualityDetails.has(job.id));
+          // 已完成任务都拉详情:除了质检问题页,还要拿到 AI 速览/逐段对照/图表数据
+          const pending = jobs.filter((job) => job.status === "completed" && !state.qualityDetails.has(job.id));
           if (pending.length) {
             await Promise.all(pending.map(async (job) => {
               try {
@@ -1475,6 +2475,8 @@
           renderTasks();
           updatePreview();
           updateTimeline();
+          renderAiChatDocs();
+          updateLogModal();
         }
       } catch {}
     }
@@ -1539,11 +2541,15 @@
     }
 
     async function retryJob(id) {
-      const headers = {};
+      const headers = { "content-type": "application/json" };
       const apiKey = $("#api-key").value.trim();
       if (apiKey) headers["x-api-key"] = apiKey;
       try {
-        const response = await fetch(`/api/jobs/${id}/retry`, { method: "POST", headers });
+        const response = await fetch(`/api/jobs/${id}/retry`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ ignoreCache: $("#ignore-cache").checked }),
+        });
         const job = await response.json();
         if (!response.ok) throw new Error(job.error || "重试失败");
         await refreshJobs();
@@ -1560,7 +2566,7 @@
           throw new Error(data.error || "删除失败");
         }
         state.qualityDetails.delete(id);
-        state.expanded.delete(id);
+        if (state.logModalJobId === id) closeLogModal();
         await refreshJobs();
       } catch (error) { showError(error.message); }
     }
@@ -1642,11 +2648,19 @@
       }
     }
 
+    function updateDualLayoutVisibility() {
+      // 兼容旧设置；当前只开放左右同页，不需要额外版式控件。
+      $("#dual-layout").value = "side";
+    }
+
     document.querySelectorAll("[data-output]").forEach((button) => button.addEventListener("click", () => {
       state.output = button.dataset.output;
       state.previewOverride = true;
       document.querySelectorAll("[data-output]").forEach((item) => item.classList.toggle("selected", item === button));
-      renderPreview();
+      updateDualLayoutVisibility();
+      // 任务进行中保持实时预览不被打断(选择仍对提交生效);空闲时才切换演示视图
+      const hasActive = state.jobs.some((item) => ["queued", "running"].includes(item.status));
+      if (!hasActive) renderPreview();
       saveSettings();
     }));
     $("#file-input").addEventListener("change", (event) => { setFiles([...event.target.files]); event.target.value = ""; });
@@ -1678,9 +2692,17 @@
     $("#test-button").addEventListener("click", testProvider);
     $("#models-button").addEventListener("click", refreshModels);
     $("#run-button").addEventListener("click", startJob);
-    for (const id of ["base-url", "model", "qps", "pages-range", "target", "ocr", "table", "glossary", "enhance", "thinking", "ignore-cache", "font-family"]) {
+    for (const id of ["base-url", "model", "qps", "pages-range", "max-pages-part", "target", "ocr", "table", "figure", "glossary", "enhance", "thinking", "ignore-cache", "ai-summary", "dual-layout", "custom-prompt", "font-family"]) {
       $(`#${id}`).addEventListener("change", saveSettings);
     }
+    $("#dual-layout").addEventListener("change", () => {
+      // 任务进行中保持实时预览不被打断;空闲时才切换演示视图
+      const hasActive = state.jobs.some((item) => ["queued", "running"].includes(item.status));
+      if (!hasActive) {
+        state.previewOverride = true;
+        renderPreview();
+      }
+    });
     $("#chips").addEventListener("click", (event) => {
       const button = event.target.closest("[data-remove]");
       if (button) { state.files.splice(Number(button.dataset.remove), 1); renderFiles(); renderEstimate(); }
@@ -1704,15 +2726,539 @@
       if (retry) return retryJob(retry.dataset.retry);
       const del = event.target.closest("[data-delete]");
       if (del) return deleteJob(del.dataset.delete);
-      const log = event.target.closest("[data-log]");
+      const chatToggle = event.target.closest("[data-chat]");
+      if (chatToggle) {
+        const id = chatToggle.dataset.chat;
+        state.chatOpen.has(id) ? state.chatOpen.delete(id) : state.chatOpen.add(id);
+        renderTasks();
+        return;
+      }
+      const mmToggle = event.target.closest("[data-mindmap]");
+      if (mmToggle) {
+        const id = mmToggle.dataset.mindmap;
+        if (state.mindmapOpen.has(id)) state.mindmapOpen.delete(id);
+        else {
+          state.mindmapOpen.add(id);
+          void fetchMindmap(id);
+        }
+        renderTasks();
+        return;
+      }
+      const mmRefresh = event.target.closest("[data-mindmap-refresh]");
+      if (mmRefresh) return void fetchMindmap(mmRefresh.dataset.mindmapRefresh, true);
+      const figToggle = event.target.closest("[data-figures]");
+      if (figToggle) {
+        const id = figToggle.dataset.figures;
+        state.figuresOpen.has(id) ? state.figuresOpen.delete(id) : state.figuresOpen.add(id);
+        renderTasks();
+        return;
+      }
+      const readerToggle = event.target.closest("[data-reader]");
+      if (readerToggle) {
+        const id = readerToggle.dataset.reader;
+        state.readerOpen.has(id) ? state.readerOpen.delete(id) : state.readerOpen.add(id);
+        renderTasks();
+        return;
+      }
+      const openViewer = event.target.closest("[data-open-reader]");
+      if (openViewer) return void openReaderModal(openViewer.dataset.openReader);
+      const editEdit = event.target.closest("[data-edit-edit]");
+      if (editEdit) {
+        state.readerEditing.add(editEdit.dataset.editEdit);
+        renderTasks();
+        return;
+      }
+      const editCancel = event.target.closest("[data-edit-cancel]");
+      if (editCancel) {
+        state.readerEditing.delete(editCancel.dataset.editCancel);
+        renderTasks();
+        return;
+      }
+      const editSave = event.target.closest("[data-edit-save]");
+      if (editSave) {
+        const jobId = editSave.dataset.job;
+        const ekey = editSave.dataset.ekey;
+        const input = document.querySelector(`[data-edit-input="${CSS.escape(ekey)}"]`);
+        const text = input ? input.value : "";
+        void (async () => {
+          try {
+            const response = await fetch(`/api/jobs/${jobId}/save-edit`, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ key: ekey, text, origText: editSave.dataset.orig }),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || "保存失败");
+            const detail = state.qualityDetails.get(jobId);
+            if (detail) {
+              detail.edits = detail.edits || {};
+              if (data.edits[ekey]) detail.edits[ekey] = data.edits[ekey];
+              else delete detail.edits[ekey];
+            }
+            state.readerEditing.delete(ekey);
+          } catch (error) {
+            showError(error.message);
+          } finally {
+            renderTasks();
+          }
+        })();
+        return;
+      }
+      const editApply = event.target.closest("[data-edit-apply]");
+      if (editApply) {
+        const jobId = editApply.dataset.job;
+        const ekey = editApply.dataset.ekey;
+        const detail = state.qualityDetails.get(jobId);
+        const entry = detail?.edits?.[ekey];
+        const input = document.querySelector(`[data-edit-input="${CSS.escape(ekey)}"]`);
+        const newText = entry?.text ?? input?.value ?? "";
+        const origText = editApply.dataset.orig;
+        if (!newText.trim()) { showError("没有可写入的译文"); return; }
+        void (async () => {
+          try {
+            const response = await fetch(`/api/jobs/${jobId}/apply-paragraph`, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ page: Number(editApply.dataset.page), oldText: origText, newText }),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || "写入 PDF 失败");
+            if (detail) {
+              detail.edits = detail.edits || {};
+              const entry = detail.edits[ekey] || { origText };
+              entry.text = newText;
+              entry.lastApplied = newText;
+              detail.edits[ekey] = entry;
+            }
+            showError("✓ 已写入 adjusted-output.pdf，可在任务下载区获取");
+          } catch (error) {
+            showError(error.message);
+          } finally {
+            renderTasks();
+          }
+        })();
+        return;
+      }
+      const figref = event.target.closest("[data-figref]");
+      if (figref) {
+        jumpToFigureRow(figref.dataset.figref, figref.dataset.kind, figref.dataset.num);
+        return;
+      }
+      const retrans = event.target.closest("[data-retranslate]");
+      if (retrans) {
+        const jobId = retrans.dataset.retranslate;
+        const key = retrans.dataset.rkey;
+        if (state.retransBusy.has(key)) return;
+        // 对比重译:工具栏选了对比模型时用它,否则用当前模型;结果累积为多个备选
+        const model = state.compareModel || "";
+        state.retransBusy.add(key);
+        renderTasks();
+        void (async () => {
+          try {
+            const response = await fetch(`/api/jobs/${jobId}/retranslate`, {
+              method: "POST",
+              headers: { "content-type": "application/json", "x-api-key": $("#api-key").value.trim() },
+              body: JSON.stringify({ en: retrans.dataset.en, model: model || undefined }),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || "重译失败");
+            const entry = state.retranslations.get(key) || { alts: [] };
+            entry.alts = entry.alts || [];
+            entry.alts.push({ text: data.translation, model: data.model });
+            state.retranslations.set(key, entry);
+          } catch (error) {
+            const entry = state.retranslations.get(key) || { alts: [] };
+            entry.alts = entry.alts || [];
+            entry.alts.push({ text: `⚠ ${error.message}`, model: model || "当前模型", error: true });
+            state.retranslations.set(key, entry);
+          } finally {
+            state.retransBusy.delete(key);
+            renderTasks();
+          }
+        })();
+        return;
+      }
+      const applyAlt = event.target.closest("[data-apply-alt]");
+      if (applyAlt) {
+        const jobId = applyAlt.dataset.applyAlt;
+        const key = applyAlt.dataset.rkey;
+        const altIdx = Number(applyAlt.dataset.altIdx);
+        const entry = state.retranslations.get(key);
+        const alt = entry?.alts?.[altIdx];
+        if (!alt?.text || alt.applying || alt.applied) return;
+        alt.applying = true;
+        renderTasks();
+        void (async () => {
+          try {
+            const response = await fetch(`/api/jobs/${jobId}/apply-paragraph`, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ page: Number(applyAlt.dataset.page), oldText: applyAlt.dataset.old, newText: alt.text }),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || "应用失败");
+            alt.applied = true;
+          } catch (error) {
+            alt.error = error.message;
+            alt.applied = false;
+          } finally {
+            alt.applying = false;
+            renderTasks();
+          }
+        })();
+        return;
+      }
+      const chatSend = event.target.closest("[data-chat-send]");
+      if (chatSend) return void sendChat(chatSend.dataset.chatSend);
+      const quick = event.target.closest("[data-chat-quick]");
+      if (quick) {
+        const input = quick.closest(".chat-panel")?.querySelector("[data-chat-input]");
+        if (input && !input.disabled) void sendChat(input.dataset.chatInput, quick.dataset.chatQuick);
+        return;
+      }
+      const figExplain = event.target.closest("[data-fig-explain]");
+      if (figExplain) {
+        const id = figExplain.dataset.figExplain;
+        if (state.chatBusy.has(id)) return;
+        state.chatOpen.add(id);
+        void sendChat(id, figExplain.dataset.figQuestion);
+        return;
+      }
+      const sent = event.target.closest("[data-sent]");
+      if (sent) {
+        const jobId = sent.dataset.job;
+        if (state.chatBusy.has(jobId)) return;
+        state.chatOpen.add(jobId);
+        void sendChat(jobId, `请解释论文中的这句英文：\n\n"${sent.dataset.sent}"\n\n要求：先给出中文翻译，再解析句子的语法结构或专业含义。\n（该句所在完整段落：${sent.dataset.paragraph}）`);
+        return;
+      }
+      const log = event.target.closest("[data-log-open]");
       if (log) {
-        state.expanded.has(log.dataset.log) ? state.expanded.delete(log.dataset.log) : state.expanded.add(log.dataset.log);
+        if (state.logModalJobId !== log.dataset.logOpen) openLogModal(log.dataset.logOpen);
+      }
+    });
+    $("#task-list").addEventListener("change", (event) => {
+      if (event.target.matches("[data-reader-sent]")) {
+        state.readerSentExplain = event.target.checked;
+        renderTasks();
+      }
+      if (event.target.matches("[data-compare-model]")) {
+        state.compareModel = event.target.value.trim();
+      }
+      if (event.target.matches("[data-reader-granularity]")) {
+        state.readerGranularity = event.target.value;
         renderTasks();
       }
     });
+    $("#task-list").addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && event.target.matches("[data-chat-input]")) {
+        void sendChat(event.target.dataset.chatInput);
+      }
+    });
+    // 内置翻译规则:查看/编辑(保存到服务端数据目录,空 = 恢复默认)
+    async function loadPromptTemplateView() {
+      const area = $("#prompt-template-view");
+      if (!area) return;
+      try {
+        const data = await fetch("/api/prompt-template").then((r) => r.json());
+        area.value = data.template || "";
+        area.hidden = false;
+        const note = $("#prompt-template-note");
+        if (note) note.hidden = false;
+      } catch { showError("内置规则加载失败"); }
+    }
+    $("#prompt-template-toggle")?.addEventListener("click", () => {
+      const area = $("#prompt-template-view");
+      if (area.hidden) void loadPromptTemplateView();
+      else area.hidden = true;
+    });
+    // 离开编辑框或点保存时提交(防抖 800ms)
+    let promptSaveTimer = null;
+    $("#prompt-template-view")?.addEventListener("input", () => {
+      clearTimeout(promptSaveTimer);
+      promptSaveTimer = setTimeout(async () => {
+        const area = $("#prompt-template-view");
+        try {
+          const response = await fetch("/api/prompt-template", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ template: area.value }),
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "保存失败");
+          const note = $("#prompt-template-note");
+          if (note) note.textContent = data.customized
+            ? "✓ 已保存自定义规则，对之后提交的任务生效"
+            : "已恢复内置默认规则";
+        } catch (error) {
+          showError(error.message);
+        }
+      }, 800);
+    });
+
     $("#tasks-open").addEventListener("click", () => { $("#tasks-backdrop").classList.add("open"); refreshJobs(); syncBodyLock(); });
-    $("#tasks-close").addEventListener("click", () => { $("#tasks-backdrop").classList.remove("open"); syncBodyLock(); });
     $("#tasks-clear").addEventListener("click", clearFinishedJobs);
+    // ── 独立日志抽屉:增量追加不整表重建,向上滚动暂停跟随 ──
+    function openLogModal(jobId) {
+      state.logModalJobId = jobId;
+      state.logFollow = true;
+      state.logRenderedLines = 0;
+      $("#log-content").textContent = "";
+      $("#log-backdrop").classList.add("open");
+      syncBodyLock();
+      updateLogModal();
+    }
+    function closeLogModal() {
+      state.logModalJobId = null;
+      $("#log-backdrop").classList.remove("open");
+      syncBodyLock();
+    }
+    function updateLogModal() {
+      const jobId = state.logModalJobId;
+      if (!jobId) return;
+      const job = state.jobs.find((j) => j.id === jobId);
+      const box = $("#log-content");
+      if (!job) { closeLogModal(); return; } // 任务被删除则关闭抽屉
+      const title = $("#log-title");
+      if (title) title.textContent = `${job.fileName} · ${job.status}`;
+      const lines = job.log || [];
+      const rendered = state.logRenderedLines || 0;
+      if (lines.length >= rendered) {
+        // 只追加新增行,保留既有 DOM 与滚动位置
+        const fresh = lines.slice(rendered);
+        if (fresh.length) box.append(fresh.map((line) => `${line}\n`).join(""));
+      } else {
+        box.textContent = lines.join("\n"); // 日志被清空/重置,整体重建
+      }
+      state.logRenderedLines = lines.length;
+      const follow = $("#log-follow-check");
+      if (follow?.checked) box.scrollTop = box.scrollHeight;
+      const meta = $("#log-meta");
+      if (meta) meta.textContent = `${lines.length} 行`;
+    }
+    $("#log-close").addEventListener("click", closeLogModal);
+    $("#log-backdrop").addEventListener("click", (event) => { if (event.target === event.currentTarget) closeLogModal(); });
+    $("#log-copy").addEventListener("click", () => {
+      const job = state.jobs.find((j) => j.id === state.logModalJobId);
+      if (!job) return;
+      navigator.clipboard.writeText((job.log || []).join("\n")).then(() => {
+        const btn = $("#log-copy");
+        btn.textContent = "已复制";
+        setTimeout(() => { btn.textContent = "复制全部"; }, 1500);
+      }).catch(() => showError("复制失败，请手动选择文本"));
+    });
+    $("#log-follow-check").addEventListener("change", (event) => {
+      if (event.target.checked) {
+        const box = $("#log-content");
+        box.scrollTop = box.scrollHeight;
+      }
+    });
+    $("#log-content").addEventListener("scroll", () => {
+      const box = $("#log-content");
+      state.logFollow = box.scrollHeight - box.scrollTop - box.clientHeight < 24;
+      const check = $("#log-follow-check");
+      if (check) check.checked = state.logFollow;
+    });
+    // 主页 AI 问答:文档勾选(最多 4 篇)、发送、回车
+    $("#aichat-panel").addEventListener("change", (event) => {
+      if (!event.target.closest("[data-multichat-doc]")) return;
+      const m = state.multiChat;
+      const boxes = [...document.querySelectorAll("#aichat-docs [data-multichat-doc]")];
+      const checked = boxes.filter((box) => box.checked);
+      if (checked.length > 4) {
+        event.target.checked = false;
+        showError("多文档问答最多支持 4 篇");
+        return;
+      }
+      for (const box of boxes) m.docs.set(box.dataset.multichatDoc, box.checked);
+      // 换文档即开启新上下文，避免旧回答的文档编号指向新论文。
+      m.thread = [];
+      m.order = [];
+      renderAiChatDocs();
+      renderAiChatThread();
+    });
+    $("#aichat-send").addEventListener("click", () => void sendMultiChat());
+    $("#aichat-input").addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.shiftKey && !event.isComposing) { event.preventDefault(); void sendMultiChat(); }
+    });
+    $("#assistant-launcher").addEventListener("click", () => {
+      renderAiChat();
+      $("#aichat-panel").showModal();
+      $("#aichat-input").focus();
+    });
+    $("#assistant-close").addEventListener("click", () => $("#aichat-panel").close());
+    $("#assistant-expand").addEventListener("click", (event) => {
+      const expanded = $("#aichat-panel").classList.toggle("expanded");
+      event.currentTarget.textContent = expanded ? "恢复窗口" : "展开全屏";
+    });
+    $("#assistant-prompts").addEventListener("click", (event) => {
+      const button = event.target.closest("button");
+      if (button && !state.multiChat.busy) { $("#aichat-input").value = button.textContent; $("#aichat-input").focus(); }
+    });
+    // ── 阅读器模态交互 ──
+    function closeReaderModal() {
+      $("#reader-modal-backdrop").classList.remove("open");
+      syncBodyLock();
+      state.pdfReader = null;
+      state.pdfReaderAnswers.clear();
+    }
+    $("#reader-close").addEventListener("click", closeReaderModal);
+    $("#reader-modal-backdrop").addEventListener("click", (event) => {
+      if (event.target === event.currentTarget) closeReaderModal();
+    });
+    $("#reader-src-trans").addEventListener("click", () => {
+      const r = state.pdfReader;
+      if (!r || r.src === "trans") return;
+      const pdfName = (state.jobs.find((j) => j.id === r.jobId)?.outputs || []).find((n) => n.toLowerCase().endsWith(".pdf"));
+      if (!pdfName) return;
+      r.src = "trans";
+      r.srcUrl = `/api/jobs/${r.jobId}/result/${encodeURIComponent(pdfName)}?inline=1`;
+      r.page = 1;
+      $("#reader-src-trans").classList.add("selected");
+      $("#reader-src-orig").classList.remove("selected");
+      loadReaderDoc();
+    });
+    $("#reader-src-orig").addEventListener("click", () => {
+      const r = state.pdfReader;
+      if (!r || r.src === "orig") return;
+      r.src = "orig";
+      r.srcUrl = `/api/jobs/${r.jobId}/original`;
+      r.page = 1;
+      $("#reader-src-orig").classList.add("selected");
+      $("#reader-src-trans").classList.remove("selected");
+      loadReaderDoc();
+    });
+    $("#reader-prev").addEventListener("click", () => {
+      const r = state.pdfReader;
+      if (r && r.page > 1) { r.page -= 1; renderReaderPage(); renderReaderSidebar(); }
+    });
+    $("#reader-next").addEventListener("click", () => {
+      const r = state.pdfReader;
+      if (r && r.page < r.total) { r.page += 1; renderReaderPage(); renderReaderSidebar(); }
+    });
+    $("#reader-page-num").addEventListener("change", (event) => {
+      const r = state.pdfReader;
+      if (!r) return;
+      const num = Math.min(r.total, Math.max(1, Math.round(Number(event.target.value) || 1)));
+      if (num !== r.page) { r.page = num; renderReaderPage(); renderReaderSidebar(); }
+    });
+    $("#reader-zoom-in").addEventListener("click", () => {
+      const r = state.pdfReader;
+      if (!r) return;
+      r.zoom = Math.min(3, (r.zoom || 1) + 0.2);
+      renderReaderPage();
+    });
+    $("#reader-zoom-out").addEventListener("click", () => {
+      const r = state.pdfReader;
+      if (!r) return;
+      r.zoom = Math.max(0.4, (r.zoom || 1) - 0.2);
+      renderReaderPage();
+    });
+    document.querySelectorAll(".reader-tab").forEach((tab) => tab.addEventListener("click", () => {
+      const r = state.pdfReader;
+      if (!r) return;
+      r.sideTab = tab.dataset.readerTab;
+      document.querySelectorAll(".reader-tab").forEach((t) => t.classList.toggle("selected", t === tab));
+      renderReaderSidebar();
+    }));
+    $("#reader-side-body").addEventListener("click", (event) => {
+      const figref = event.target.closest("[data-figref]");
+      if (figref) { readerJumpToFigure(figref.dataset.figref, figref.dataset.kind, figref.dataset.num); return; }
+      const explain = event.target.closest("[data-reader-explain]");
+      if (explain) {
+        const r = state.pdfReader;
+        if (!r) return;
+        const ansKey = explain.dataset.anskey;
+        if (state.chatBusy.has(r.jobId)) return;
+        state.pdfReaderAnswers.set(ansKey, { text: "解析中…" });
+        renderReaderSidebar();
+        void (async () => {
+          try {
+            const response = await fetch(`/api/jobs/${r.jobId}/chat`, {
+              method: "POST",
+              headers: { "content-type": "application/json", "x-api-key": $("#api-key").value.trim() },
+              body: JSON.stringify({ question: explain.dataset.readerExplain.replace(/\\n/g, "\n"), model: config() }),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || "解析失败");
+            state.pdfReaderAnswers.set(ansKey, { text: data.answer, model: data.model });
+          } catch (error) {
+            state.pdfReaderAnswers.set(ansKey, { text: `⚠ ${error.message}` });
+          } finally {
+            renderReaderSidebar();
+          }
+        })();
+        return;
+      }
+      const editEdit = event.target.closest("[data-edit-edit]");
+      if (editEdit) {
+        state.readerEditing.add(editEdit.dataset.editEdit);
+        renderReaderSidebar();
+        return;
+      }
+      const editCancelM = event.target.closest("[data-edit-cancel]");
+      if (editCancelM) {
+        state.readerEditing.delete(editCancelM.dataset.editCancel);
+        renderReaderSidebar();
+        return;
+      }
+      const editSaveM = event.target.closest("[data-edit-save]");
+      if (editSaveM) {
+        const jobId = editSaveM.dataset.job;
+        const ekey = editSaveM.dataset.ekey;
+        const input = document.querySelector(`[data-edit-input="${CSS.escape(ekey)}"]`);
+        const text = input ? input.value : "";
+        void (async () => {
+          try {
+            const response = await fetch(`/api/jobs/${jobId}/save-edit`, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ key: ekey, text, origText: editSaveM.dataset.orig }),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || "保存失败");
+            const edits = state.qualityDetails.get(jobId)?.edits || {};
+            if (data.edits[ekey]) edits[ekey] = data.edits[ekey];
+            else delete edits[ekey];
+            state.readerEditing.delete(ekey);
+          } catch (error) {
+            showError(error.message);
+          } finally {
+            renderReaderSidebar();
+          }
+        })();
+        return;
+      }
+      const editApplyM = event.target.closest("[data-edit-apply]");
+      if (editApplyM) {
+        const jobId = editApplyM.dataset.job;
+        const ekey = editApplyM.dataset.ekey;
+        const edits = state.qualityDetails.get(jobId)?.edits || {};
+        const input = document.querySelector(`[data-edit-input="${CSS.escape(ekey)}"]`);
+        const newText = input ? input.value : (edits[ekey]?.text || "");
+        if (!newText.trim()) { showError("没有可写入的译文"); return; }
+        void (async () => {
+          try {
+            const response = await fetch(`/api/jobs/${jobId}/apply-paragraph`, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ page: Number(editApplyM.dataset.page), oldText: editApplyM.dataset.orig, newText }),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || "写入失败");
+            edits[ekey] = { ...(edits[ekey] || { origText: editApplyM.dataset.orig }), text: newText, lastApplied: newText };
+            showError("✓ 已写入 adjusted-output.pdf");
+          } catch (error) {
+            showError(error.message);
+          } finally {
+            renderReaderPage();
+            renderReaderSidebar();
+          }
+        })();
+        return;
+      }
+    });
+
     $("#tasks-backdrop").addEventListener("click", (event) => { if (event.target === event.currentTarget) { event.currentTarget.classList.remove("open"); syncBodyLock(); } });
     ["dragenter", "dragover"].forEach((name) => $("#drop").addEventListener(name, (event) => { event.preventDefault(); $("#drop").classList.add("dragging"); }));
     ["dragleave", "drop"].forEach((name) => $("#drop").addEventListener(name, (event) => { event.preventDefault(); $("#drop").classList.remove("dragging"); }));
@@ -1758,7 +3304,7 @@
       state.vendorId = button.dataset.vendor;
       applyCloudSelection();
     });
-    $("#model").addEventListener("input", () => { renderServiceSummary(); renderEstimate(); });
+    $("#model").addEventListener("input", () => { renderServiceSummary(); renderEstimate(); saveSettings(); });
     $("#api-key").addEventListener("input", () => storeKey($("#api-key").value.trim()));
     $("#key-toggle").addEventListener("click", () => {
       const input = $("#api-key");
@@ -1772,6 +3318,8 @@
       renderServiceSummary();
       clearTimeout(discoverTimer);
       discoverTimer = setTimeout(() => {
+        // 地址变化要落盘（尤其自定义中转的 customBaseUrl），否则没切换面板就刷新/切走会丢
+        saveSettings();
         // 地址切换后加载该地址记住的 key；用户正在输入 key 时不覆盖
         if (document.activeElement !== $("#api-key") && !$("#api-key").disabled) {
           $("#api-key").value = loadStoredKey();
@@ -1786,12 +3334,15 @@
     $("#target").addEventListener("change", renderServiceSummary);
 
     loadSettings();
+    updateDualLayoutVisibility();
     renderServiceSummary();
     loadGlossaryLibrary();
     updateNotifyButton();
     renderPreview();
     checkHealth();
     refreshJobs().then(schedulePoll);
+    renderAiChatDocs();
+    renderAiChatThread();
   </script>
 </body>
 </html>

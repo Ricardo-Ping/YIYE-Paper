@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pymupdf
 
-from engine_worker import quality_check, translated_page_text, typography_issues
+from engine_worker import quality_check, translated_page_text, typography_issues, _render_report_html, revise_pdf
 
 
 def make_output_pdf(path: str, pages: list[dict]) -> None:
@@ -24,6 +24,32 @@ def make_output_pdf(path: str, pages: list[dict]) -> None:
 
 
 class QualityCheckTest(unittest.TestCase):
+    def test_dual_revision_keeps_wide_page_and_rejects_out_of_bounds(self):
+        source = self.dir / "revision-input.pdf"
+        translated = self.dir / "revision-dual.pdf"
+        output = self.dir / "revision-result.pdf"
+        with pymupdf.open() as doc:
+            doc.new_page(width=300, height=400).insert_text((30, 60), "Original paper")
+            doc.save(source)
+        with pymupdf.open() as doc:
+            doc.new_page(width=600, height=400).insert_text((330, 60), "Translated")
+            doc.save(translated)
+        self.assertEqual(revise_pdf(str(translated), str(source), str(output), [1], "dual"), 0)
+        with pymupdf.open(output) as doc:
+            self.assertEqual(doc[0].rect.width, 600)
+            self.assertEqual(doc[0].get_text().count("Original paper"), 2)
+        invalid_output = self.dir / "invalid-revision.pdf"
+        self.assertEqual(revise_pdf(str(translated), str(source), str(invalid_output), [2], "dual"), 2)
+        self.assertFalse(invalid_output.exists())
+
+    def test_html_report_displays_issue_rows_and_escapes_content(self):
+        report = {"ok": False, "issueCount": 1, "generatedAt": "2026-09-29", "inputPages": 1,
+                  "expectedPages": 1, "outputs": [{"file": "<paper>.pdf", "issues": [],
+                  "pages": [{"page": 1, "issues": ["译文缺失"]}]}]}
+        rendered = _render_report_html(report)
+        self.assertIn("<td>&lt;paper&gt;.pdf</td><td>1</td><td>译文缺失</td>", rendered)
+        self.assertNotIn("<paper>", rendered)
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.dir = Path(self.tmp.name)
@@ -224,17 +250,31 @@ class TypographyTest(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def test_text_over_image_flagged(self):
+    def _page_with_image(self):
         doc = pymupdf.open()
         page = doc.new_page()
         pix = pymupdf.Pixmap(pymupdf.csRGB, pymupdf.IRect(0, 0, 200, 200))
         pix.clear_with(200)
         page.insert_image(pymupdf.Rect(72, 72, 272, 272), pixmap=pix)
+        return doc, page
+
+    def test_text_over_image_flagged(self):
+        """多行宽正文大面积压图 → 报告 text_image_overlap。"""
+        doc, page = self._page_with_image()
         page.insert_textbox(pymupdf.Rect(80, 80, 264, 264), "body text covering the figure area completely" * 3, fontsize=9)
         doc.save(str(self.dir / "overlap.pdf"))
         doc.close()
         issues = typography_issues(pymupdf.open(str(self.dir / "overlap.pdf"))[0])
         self.assertIn("text_image_overlap", issues)
+
+    def test_short_label_inside_figure_not_flagged(self):
+        """图内短标签(单行、窄块)是正常版式,不报告。"""
+        doc, page = self._page_with_image()
+        page.insert_textbox(pymupdf.Rect(100, 120, 220, 140), "each candidate plan", fontsize=7)
+        doc.save(str(self.dir / "label.pdf"))
+        doc.close()
+        issues = typography_issues(pymupdf.open(str(self.dir / "label.pdf"))[0])
+        self.assertEqual(issues, [])
 
     def test_normal_page_not_flagged(self):
         doc = pymupdf.open()
@@ -243,7 +283,7 @@ class TypographyTest(unittest.TestCase):
         doc.save(str(self.dir / "normal.pdf"))
         doc.close()
         issues = typography_issues(pymupdf.open(str(self.dir / "normal.pdf"))[0])
-        self.assertEqual([i for i in issues if i in ("font_too_small", "text_image_overlap")], [])
+        self.assertEqual(issues, [])
 
 
 if __name__ == "__main__":

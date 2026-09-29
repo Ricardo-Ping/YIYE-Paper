@@ -16,10 +16,32 @@ test("provider defaults and limits", () => {
   assert.equal(ollama.output, "dual");
   assert.throws(() => validateConfig({ baseUrl: "file:///secret" }), /HTTP/);
   assert.equal(validateConfig({ target: "ja" }).target, "zh-CN");
+  // 自定义翻译要求:空白折叠(含换行) + 500 字截断
+  assert.equal(validateConfig({ customPrompt: "  面向  行内读者。\n保留公式  " }).customPrompt, "面向 行内读者。 保留公式");
+  assert.equal(validateConfig({ customPrompt: "x".repeat(600) }).customPrompt.length, 500);
+  assert.equal(validateConfig({}).customPrompt, "");
+  // 长文档分批:范围钳制 20–500,非法/未填一律 0(不分批)
+  assert.equal(validateConfig({ maxPagesPerPart: 50 }).maxPagesPerPart, 50);
+  assert.equal(validateConfig({ maxPagesPerPart: 5 }).maxPagesPerPart, 0);
+  assert.equal(validateConfig({ maxPagesPerPart: 9999 }).maxPagesPerPart, 0);
+  assert.equal(validateConfig({ maxPagesPerPart: "abc" }).maxPagesPerPart, 0);
   assert.equal(validateConfig({ target: "zh-TW" }).target, "zh-TW");
   assert.equal(validateConfig({ output: "alternate" }).output, "dual");
+  assert.throws(() => validateConfig({ dualLayout: "alternating" }), /页码映射/);
   // 本地服务一律走 OpenAI 兼容协议
   assert.equal(validateConfig({ provider: "ollama", protocol: "anthropic" }).protocol, "openai");
+});
+
+test("glossary term filtering for retranslation", async () => {
+  const { parseGlossaryEntries, filterGlossaryTerms } = await import("../server.mjs");
+  const csv = "source,target\nLLM,大语言模型\nquery plan,查询计划\nKathDB-FAO,凯特数据库";
+  const entries = parseGlossaryEntries(csv);
+  assert.equal(entries.length, 3);
+  assert.deepEqual(entries[0], ["LLM", "大语言模型"]);
+  const hit = filterGlossaryTerms(entries, "The LLM generates a query plan for KathDB-FAO.");
+  assert.equal(hit.length, 3);
+  const none = filterGlossaryTerms(entries, "Totally unrelated text about coffee.");
+  assert.equal(none.length, 0);
 });
 
 test("page range validation", () => {
@@ -84,6 +106,7 @@ test("thinking config maps to upstream protocols", () => {
   const anthropicBody = { model: "claude-opus-5", temperature: 0.3 };
   applyThinkingToUpstream(anthropicBody, { reasoning: "high" }, "anthropic");
   assert.deepEqual(anthropicBody.thinking, { type: "enabled", budget_tokens: 16384 });
+  assert.ok(anthropicBody.max_tokens > anthropicBody.thinking.budget_tokens);
   assert.equal(anthropicBody.temperature, undefined);
   // thinking disabled 不注入(anthropic 默认无思考)
   const offUpstream = { model: "claude-opus-5", temperature: 0.3 };
@@ -102,4 +125,56 @@ test("thinking config maps to upstream protocols", () => {
   assert.equal(none.generationConfig.thinkingConfig, undefined);
 });
 
+test("reading assistant accepts current model and rejects invalid override", async () => {
+  const { readingModelConfig } = await import("../server.mjs");
+  const previous = validateConfig({ provider: "ollama" });
+  assert.equal(readingModelConfig(undefined, previous), previous);
+  const current = readingModelConfig({ provider: "openai", protocol: "anthropic", baseUrl: "https://example.com", model: "reader-model" }, previous);
+  assert.equal(current.protocol, "anthropic");
+  assert.equal(current.model, "reader-model");
+  assert.throws(() => readingModelConfig({ model: "reader-model" }, previous), /配置不完整/);
+  assert.throws(() => readingModelConfig({ model: "reader-model", baseUrl: "file:///secret" }, previous), /HTTP/);
+});
 
+
+
+test("model speed measurement", async () => {
+  const { measureModelSpeed } = await import("../server.mjs");
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return { ok: true, status: 200, json: async () => ({ usage: { completion_tokens: 120 } }) };
+  };
+  try {
+    const first = await measureModelSpeed({ baseUrl: "http://speed-test.local/v1", model: "m1" });
+    assert.equal(first.completionTokens, 120);
+    assert.ok(first.tokensPerSec > 0);
+    assert.equal(first.cached, false);
+    const second = await measureModelSpeed({ baseUrl: "http://speed-test.local/v1", model: "m1" });
+    assert.equal(second.cached, true);
+    assert.equal(calls, 1, "15 分钟内同 地址|模型 应命中缓存");
+    globalThis.fetch = async () => ({ ok: false, status: 404, json: async () => ({}) });
+    await assert.rejects(measureModelSpeed({ baseUrl: "http://speed-test.local/v1", model: "m2" }), /HTTP 404/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("translation stall watchdog", async () => {
+  const { isStalled } = await import("../server.mjs");
+  const now = 1_000_000_000_000;
+  const stallMs = 12 * 60_000;
+  const running = (overrides = {}) => ({ status: "running", startedAt: now - 60_000, lastProgressAt: now - 30_000, ...overrides });
+  // 刚有日志输出 → 未停滞
+  assert.equal(isStalled(running(), now, stallMs), false);
+  // 长时间无日志 → 停滞
+  assert.equal(isStalled(running({ lastProgressAt: now - 13 * 60_000 }), now, stallMs), true);
+  // 没有 lastProgressAt 时退回 startedAt
+  assert.equal(isStalled(running({ lastProgressAt: undefined }), now, stallMs), false);
+  assert.equal(isStalled(running({ lastProgressAt: undefined, startedAt: now - 13 * 60_000 }), now, stallMs), true);
+  // 非运行状态/已请求取消 → 不判停滞
+  assert.equal(isStalled(running({ status: "queued" }), now, stallMs), false);
+  assert.equal(isStalled(running({ status: "completed" }), now, stallMs), false);
+  assert.equal(isStalled(running({ cancelRequested: true, lastProgressAt: now - 13 * 60_000 }), now, stallMs), false);
+});

@@ -5,8 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test test/server.test.mjs",
+    "test": "node --test test/server.test.mjs test/ui.test.mjs",
     "test:e2e": "node test/e2e.mjs"
   }
 }
-
