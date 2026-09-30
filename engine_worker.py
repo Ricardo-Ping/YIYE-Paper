@@ -2630,7 +2630,16 @@ def build_pdf_outline(translated_pdf: str, output_mode: str = "dual", dual_layou
         SECTION_EN = ("abstract", "introduction", "background", "related work", "method", "approach", "experiments", "evaluation", "results", "analysis", "discussion", "conclusion", "limitations", "acknowledg", "references")
 
         def is_section_numbering(text: str) -> bool:
-            return bool(re.match(r"^(\d+(\.\d+)*|[IVX]+)\s*[.、)）]", text) or re.match(r"^第[一二三四五六七八九十]+\s*[章节部分]", text))
+            if re.match(r"^第[一二三四五六七八九十]+\s*[章节部分]", text):
+                return True
+            m = re.match(r"^(\d+(?:\.\d+)*|[IVX]+)\s*([.、)）])", text)
+            if not m:
+                return False
+            # "3)" 单层括号形式多为正文列举项(如 "3) R-Bot (孙...2024)，一个检索..."),
+            # 只有短行才是标题;"3." / "3.1" 点号形式保持原判定
+            if m.group(2) in ")）" and len(text) > 24:
+                return False
+            return True
 
         def bold_section_hit(text: str, bold: bool, mono: bool) -> bool:
             # 等宽字体是代码块特征(NimbusMono/Courier/Consolas),整行大写的
@@ -2649,7 +2658,8 @@ def build_pdf_outline(translated_pdf: str, output_mode: str = "dual", dual_layou
             # 章节词命中要求标题形态:短、无句内标点 —— 否则"相关工作：xxx"开头的
             # 正文段落会被整段误判为章节标题
             if any(stripped.startswith(w) for w in SECTION_ZH):
-                return len(stripped) <= 30 and "，" not in text and "、" not in text
+                # 章节标题不含句内句号:"评估指标。 我们使用..."这类段落起始行要排除
+                return len(stripped) <= 30 and "。" not in text and "，" not in text and "、" not in text
             if any(stripped.startswith(w) for w in SECTION_EN):
                 return len(stripped) <= 40 and "," not in text
             return False
