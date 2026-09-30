@@ -27,9 +27,12 @@ if not exist ".venv\Scripts\python.exe" (
   )
 )
 
-echo 正在启动译页，浏览器将自动打开 http://127.0.0.1:4173 （按 Ctrl+C 停止服务）
+rem 端口与服务端保持同一事实来源:server.mjs 读 YIYE_PORT,未设置时默认 4173
+if not defined YIYE_PORT set YIYE_PORT=4173
+
+echo 正在启动译页，浏览器将自动打开 http://127.0.0.1:%YIYE_PORT% （按 Ctrl+C 停止服务）
 rem 只有当前后端代码已真正启动时才打开页面，避免新版前端误连未重启的旧服务。
-start "" cmd /c "timeout /t 2 /nobreak >nul & curl.exe -fsS http://127.0.0.1:4173/api/runtime-ready >nul && start "" http://127.0.0.1:4173"
+start "" cmd /c "timeout /t 2 /nobreak >nul & curl.exe -fsS http://127.0.0.1:%YIYE_PORT%/api/runtime-ready >nul && start "" http://127.0.0.1:%YIYE_PORT%"
 
 rem 监督循环:服务端检测到代码更新后以退出码 75 优雅退出,这里自动重启,无需手动重开
 :run

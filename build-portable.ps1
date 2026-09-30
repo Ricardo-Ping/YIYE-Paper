@@ -1,4 +1,4 @@
-# 译页 Yiye Paper 便携版打包脚本
+﻿# 译页 Yiye Paper 便携版打包脚本
 # 用法: .\build-portable.ps1
 # 产出: yiye-portable.zip(解压后双击 启动.bat 即可使用)
 
