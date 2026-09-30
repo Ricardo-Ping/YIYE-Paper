@@ -77,6 +77,8 @@ async function main() {
   startChild(process.execPath, [path.join(ROOT, "server.mjs")], {
     YIYE_PORT: String(SERVER_PORT),
     YIYE_DATA_DIR: DATA_DIR,
+    // 测试期间开发者保存 server.mjs 不应触发自动重载打断用例
+    YIYE_AUTO_RELOAD: "off",
   });
   await waitFor(`${MOCK_BASE}/models`, "mock LLM");
   await waitFor(`${BASE}/api/health`, "应用服务");

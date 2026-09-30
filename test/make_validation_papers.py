@@ -35,7 +35,7 @@ def paper_single_column(path: Path):
         textbox(page, pymupdf.Rect(72, y + 20, 540, y + 96), BODY * 2, 10)
         y += 104
     textbox(page, pymupdf.Rect(72, y + 4, 540, y + 120),
-            "References\\n[1] J. Smith, Deep Learning Basics, 2024.\\n[2] A. Lee, Translation Survey, 2025.\\n[3] R. Chen, Evaluation Metrics, 2026.", 9)
+            "References\n[1] J. Smith, Deep Learning Basics, 2024.\n[2] A. Lee, Translation Survey, 2025.\n[3] R. Chen, Evaluation Metrics, 2026.", 9)
     doc.save(path)
     doc.close()
 

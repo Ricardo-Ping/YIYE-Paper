@@ -158,7 +158,7 @@ test("search highlight only wraps text segments, never tag/attribute names", () 
 });
 
 test("pair edit helpers standardize data-job and make the cancel button optional", () => {
-  const ctx = loadFunctions(["pairEditButtonsHtml", "pairEditState", "pairEditAreaHtml", "escapeHtml"], {});
+  const ctx = loadFunctions(["pairEditButtonsHtml", "pairEditState", "pairEditAreaHtml", "escapeHtml"], { state: { paraApplyBusy: new Set() } });
   const btns = ctx.pairEditButtonsHtml("j1", "1:0", 2, "原文", { cancel: false });
   // 保存/写回按钮必须带 data-job(修复历史上 /api/jobs/undefined 的请求),ekey/page/orig 齐全
   assert.match(btns, /data-edit-save="j1"/);
@@ -201,6 +201,7 @@ test("startParagraphApply prefers current input, falls back to saved edit, rejec
     qualityDetails: new Map([["j1", { edits: { "1:0": { text: "已保存的译文" } } }]]),
     pdfReader: null,
     readerEditing: new Set(),
+    paraApplyBusy: new Set(),
   };
   const ctx = loadFunctions(["startParagraphApply", "applyParagraphToPdf"], {
     state,
@@ -216,12 +217,15 @@ test("startParagraphApply prefers current input, falls back to saved edit, rejec
   // 输入框不存在:回退已保存的校对文本
   ctx.startParagraphApply({ dataset: { job: "j1", ekey: "1:0", page: "2", orig: "原文" } });
   await new Promise((resolve) => setTimeout(resolve, 0));
-  assert.equal(calls.length, 1);
+  // 写回成功后同步保存校对记录:apply-paragraph + save-edit 两次调用;
+  // 匹配基准用 lastApplied(无记录时回退引擎原译"原文")
+  assert.equal(calls.length, 2);
   assert.deepEqual(calls[0].body, { page: 2, oldText: "原文", newText: "已保存的译文" });
+  assert.deepEqual(calls[1].body, { key: "1:0", text: "已保存的译文", origText: "原文", lastApplied: "已保存的译文" });
   // 输入框为空且无已存文本:报错且不发请求
   errors.length = 0;
   ctx.startParagraphApply({ dataset: { job: "j1", ekey: "9:9", page: "1", orig: "原文" } });
   await new Promise((resolve) => setTimeout(resolve, 0));
-  assert.equal(calls.length, 1);
+  assert.equal(calls.length, 2); // 空输入不发新请求,仍是此前的 2 次
   assert.match(errors.join("\n"), /没有可写入的译文/);
 });

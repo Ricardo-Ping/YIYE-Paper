@@ -106,6 +106,8 @@ async function submitJob(provider, filePath) {
     glossary: true,
   }));
   form.append("apiKey", provider.apiKey || "");
+  // 基准测试要反复跑同一批 PDF:必须 force,否则服务端 409 去重会让第二次运行全部失败
+  form.append("force", "true");
   const response = await fetch(`${BASE}/api/jobs`, { method: "POST", body: form });
   const job = await response.json();
   if (!response.ok) throw new Error(job.error || `HTTP ${response.status}`);
@@ -154,7 +156,7 @@ function renderReport(providers, pdfs, results, { pages, target }) {
       row.status === "completed" ? "✓" : `✗ ${row.status}`,
       row.durationSeconds ?? "-",
       row.tokensUsed ?? "-",
-      row.quality ? row.quality.issueCount : "-",
+      row.quality ? (row.quality.issueCount ?? "-") : "-",
       glossaryText,
       row.error ? String(row.error).slice(0, 60) : "",
     ].map((cell) => String(cell).replaceAll("|", "\\|")).join(" | ").replace(/^/, "| ").concat(" |"));

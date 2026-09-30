@@ -20,8 +20,19 @@ const server = createServer((req, res) => {
       return res.end(JSON.stringify({ system: lastSystem }));
     }
     if (req.url === "/v1/chat/completions") {
-      const request = JSON.parse(Buffer.concat(body).toString() || "{}");
+      let request;
+      try { request = JSON.parse(Buffer.concat(body).toString() || "{}"); } catch { request = {}; }
       lastSystem = (request.messages || []).map((m) => m.content || "").join("\n");
+      // 重译分支:system 含"资深的学术翻译引擎"且段落含 layout/tables 时,
+      // 返回与首轮翻译不同的文本,用于验证"备选译文 ≠ 原译文"的写回链路
+      const allMsgs = (request.messages || []).map((m) => m.content || "").join("\n");
+      if (/资深的学术翻译引擎/.test(lastSystem) && /tables|figures/i.test(allMsgs)) {
+        return res.writeHead(200, { "content-type": "application/json" }), res.end(JSON.stringify({
+          model: request.model,
+          choices: [{ message: { role: "assistant", content: "重译生成的不同译文版本。" }, finish_reason: "stop" }],
+          usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 },
+        }));
+      }
       let content = "深度学习模型改变了自然语言处理。";
       if (/attention mechanism/i.test(request.messages?.at(-1)?.content || "")) content = "注意力机制。";
       if (/关键论断句末标注来源/.test(lastSystem)) content = "多文档比较结论。【文档 1 第 1 页】";
@@ -34,9 +45,15 @@ const server = createServer((req, res) => {
       }));
     }
     if (req.url === "/anthropic/v1/messages") {
-      const request = JSON.parse(Buffer.concat(body).toString() || "{}");
+      let request;
+      try { request = JSON.parse(Buffer.concat(body).toString() || "{}"); } catch { request = {}; }
+      // 网关发送的 system 是纯字符串(Anthropic 协议也允许块数组),两种形态都要兼容
+      const systemText = typeof request.system === "string"
+        ? request.system
+        : (request.system || []).map((block) => block?.text || "").join(" ");
+      const messagesText = (request.messages || []).map((m) => (typeof m.content === "string" ? m.content : "")).join(" ");
       let text = "深度学习模型改变了自然语言处理。";
-      if (/attention mechanism/i.test([...(request.system || ""), ...request.messages.map((m) => m.content)].join(" "))) text = "注意力机制。";
+      if (/attention mechanism/i.test([systemText, messagesText].join(" "))) text = "注意力机制。";
       res.writeHead(200, { "content-type": "application/json" });
       return res.end(JSON.stringify({
         id: "msg_mock",
