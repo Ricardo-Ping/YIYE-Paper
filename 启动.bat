@@ -28,8 +28,18 @@ if not exist ".venv\Scripts\python.exe" (
 )
 
 echo 正在启动译页，浏览器将自动打开 http://127.0.0.1:4173 （按 Ctrl+C 停止服务）
-start "" cmd /c "timeout /t 2 /nobreak >nul & start "" http://127.0.0.1:4173"
-npm start
+rem 只有当前后端代码已真正启动时才打开页面，避免新版前端误连未重启的旧服务。
+start "" cmd /c "timeout /t 2 /nobreak >nul & curl.exe -fsS http://127.0.0.1:4173/api/runtime-ready >nul && start "" http://127.0.0.1:4173"
+
+rem 监督循环:服务端检测到代码更新后以退出码 75 优雅退出,这里自动重启,无需手动重开
+:run
+node server.mjs
+if %errorlevel% equ 75 (
+  echo.
+  echo [自动重载] 检测到服务端代码更新，正在重启服务…
+  timeout /t 2 /nobreak >nul
+  goto run
+)
 echo.
 echo 服务已停止。
 pause

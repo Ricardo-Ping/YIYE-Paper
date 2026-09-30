@@ -169,6 +169,15 @@ async function main() {
     check("qualityDetail 附带页级明细", detail.qualityDetail?.outputs?.length > 0);
     check("术语一致性检查运行", typeof detail.qualityDetail?.glossaryCheck === "object");
 
+    // 4.1 重复上传:同文件同配置的已完成任务 → 409 + duplicateOf 引导复用
+    const dupForm = new FormData();
+    dupForm.append("file", new Blob([await readFile(SAMPLE_PDF)]), "sample-paper.pdf");
+    dupForm.append("config", JSON.stringify({ provider: "openai", baseUrl: MOCK_BASE, model: "mock-large", output: "dual", target: "zh-CN" }));
+    dupForm.append("apiKey", "k");
+    const dupResponse = await fetch(`${BASE}/api/jobs`, { method: "POST", body: dupForm });
+    const dupData = await dupResponse.json().catch(() => ({}));
+    check("重复上传返回409与原任务引用", dupResponse.status === 409 && dupData.duplicateOf === created.id, JSON.stringify(dupData).slice(0, 140));
+
     // 5.5 任务问答（基于译文全文）
     const chatResponse = await fetch(`${BASE}/api/jobs/${created.id}/chat`, {
       method: "POST",
@@ -281,10 +290,45 @@ async function main() {
         output: "mono", target: "zh-CN", qps: 2, ocr: true, table: false, glossary: true,
       }));
       gatewayForm.append("apiKey", "k");
+      // 与已完成任务同文件同配置,force 跳过重复检测才能各建各的任务
+      gatewayForm.append("force", "true");
       const gwJob = await fetch(`${BASE}/api/jobs`, { method: "POST", body: gatewayForm }).then((r) => r.json());
       const gwFinished = await waitForJob(gwJob.id);
       check(`${protocol} 协议经网关翻译完成`, gwFinished.status === "completed", JSON.stringify(gwFinished.error));
     }
+
+    // 6.6b 交替页布局全链路:提交门禁已移除,输出翻倍、质检/逐段对照/页码映射按原文页号
+    const altForm = new FormData();
+    altForm.append("file", new Blob([await readFile(SAMPLE_PDF)]), "sample-paper.pdf");
+    altForm.append("config", JSON.stringify({
+      provider: "openai", baseUrl: MOCK_BASE, model: "mock-large",
+      // enhance 与交替页组合是页序回归的关键场景:enhance 的 --dual-translate-first
+      // 会翻转译文页位置,必须被交替页布局排斥
+      output: "dual", dualLayout: "alternating", target: "zh-CN", qps: 2, ocr: true, table: false, glossary: true, enhance: true,
+    }));
+    altForm.append("apiKey", "k");
+    // 与主任务同文件同配置(dual),force 跳过重复检测
+    altForm.append("force", "true");
+    const altJob = await fetch(`${BASE}/api/jobs`, { method: "POST", body: altForm }).then((r) => r.json());
+    const altFinished = await waitForJob(altJob.id);
+    check("交替页任务完成", altFinished.status === "completed", JSON.stringify(altFinished.error));
+    const altDetail = await fetch(`${BASE}/api/jobs/${altJob.id}`).then((r) => r.json());
+    const altQuality = altDetail.qualityDetail || {};
+    const altExpected = altQuality.expectedPages || 0;
+    check("交替页输出页数翻倍且与预期一致",
+      altExpected > 0 && altExpected % 2 === 0
+      && (altQuality.outputs || []).every((o) => o.actualPages === altExpected && !o.issues.some((issue) => issue.includes("页数"))),
+      JSON.stringify({ expectedPages: altExpected, outputs: altQuality.outputs?.map((o) => ({ actual: o.actualPages, issues: o.issues })) }));
+    check("交替页逐段对照按原文页号配对",
+      (altQuality.paragraphs || []).length === altExpected / 2
+      && (altQuality.paragraphs || []).every((p) => p.pairs?.length > 0),
+      JSON.stringify({ pages: (altQuality.paragraphs || []).map((p) => p.page) }));
+    // 页序断言:译文页必须真的在偶数位(整页中文),否则说明 --dual-translate-first 泄漏进交替页
+    check("交替页译文页在偶数位(页序未被 enhance 翻转)",
+      (altQuality.paragraphs || []).some((p) => p.pairs.some((pair) => pair.zh && /[\u4e00-\u9fff]/.test(pair.zh)))
+      && !(altQuality.outputs || []).some((o) => (o.pages || []).some((item) => item.issues.includes("疑似未翻译"))),
+      JSON.stringify(altQuality.outputs?.map((o) => o.pages)));
+    check("交替页术语一致性运行", typeof altQuality.glossaryCheck === "object", JSON.stringify(altQuality.glossaryCheck));
 
     // 6.7 修订版:把第 1 页替换为原文页
     const revised = await fetch(`${BASE}/api/jobs/${created.id}/revised-pdf`, {
@@ -313,6 +357,8 @@ async function main() {
       output: "mono", target: "zh-CN", qps: 2, ocr: true, table: false, glossary: true,
     }));
     cancelForm.append("apiKey", "k");
+    // 同文件同配置的任务已存在,force 跳过重复检测
+    cancelForm.append("force", "true");
     const cancelTarget = await fetch(`${BASE}/api/jobs`, { method: "POST", body: cancelForm }).then((r) => r.json());
     await sleep(3000);
     await fetch(`${BASE}/api/jobs/${cancelTarget.id}/cancel`, { method: "POST" });

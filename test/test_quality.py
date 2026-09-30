@@ -98,6 +98,20 @@ class QualityCheckTest(unittest.TestCase):
         self.assertIn("占位符残留", flagged[4])
         self.assertEqual(report["issueCount"], 3)
 
+    def test_reference_page_kept_in_english_is_not_flagged(self):
+        references = "\n".join(
+            f"[{i}] A. Author. Proceedings of Example Conference, pages 1-10, 2024."
+            for i in range(1, 9)
+        )
+        make_output_pdf(str(self.out / "out.mono.pdf"), [
+            {"cjk": "正常译文页。" * 10},
+            {"latin": references},
+            {"cjk": "正常译文页。" * 10},
+            {"cjk": "正常译文页。" * 10},
+        ])
+        report = quality_check(self.input_path(), str(self.out), "mono")
+        self.assertTrue(report["ok"], json.dumps(report, ensure_ascii=False))
+
     def test_page_count_mismatch_detected(self):
         make_output_pdf(str(self.out / "out.mono.pdf"), [
             {"cjk": "只有一页译文。" * 10},

@@ -1,14 +1,20 @@
 import { createServer } from "node:http";
-import { existsSync, statSync } from "node:fs";
+import { existsSync, statSync, watch } from "node:fs";
 import { access, mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import { spawn } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const APP_FILE = path.join(ROOT, "app", "index.html");
+const SERVER_FILE = fileURLToPath(import.meta.url);
+const SERVER_START_MTIME_MS = statSync(SERVER_FILE).mtimeMs;
+
+export function isRuntimeStale(currentMtimeMs = statSync(SERVER_FILE).mtimeMs) {
+  return currentMtimeMs !== SERVER_START_MTIME_MS;
+}
 
 // 默认翻译提示词模板(与 engine_worker.py 的 PROMPT_TEMPLATE 保持同步):
 // 从 engine_worker 读取,保证单一事实来源
@@ -59,7 +65,6 @@ export function isPdf(buffer) {
 }
 
 export function validateConfig(input = {}) {
-  if (input.dualLayout === "alternating") throw new Error("交替页面尚未完成质检与页码映射，请使用左右对照");
   const output = ["mono", "dual"].includes(input.output) ? input.output : "dual";
   const dualLayout = input.dualLayout === "alternating" ? "alternating" : "side";
   const provider = ["openai", "ollama"].includes(input.provider) ? input.provider : "ollama";
@@ -99,7 +104,13 @@ export function validateConfig(input = {}) {
     aiSummary: input.aiSummary !== false,
     customPrompt: String(input.customPrompt ?? "").replace(/\s+/g, " ").trim().slice(0, 500),
     figure: input.figure === true,
-    watermark: false,
+    // 水印移除:仅接收"用户检测并勾选确认"的文本列表,引擎在翻译前于派生副本上擦除
+    watermarkSuspects: Array.isArray(input.watermarkSuspects)
+      ? input.watermarkSuspects
+          .map((item) => ({ text: String(item?.text ?? "").trim() }))
+          .filter((item) => item.text.length >= 4 && item.text.length <= 200)
+          .slice(0, 20)
+      : [],
   };
 }
 
@@ -216,8 +227,8 @@ async function loadJobs() {
   }
 }
 
-// BabelDOC 各阶段的进度条为分数形式（如 "Translate Paragraphs (1/1) ----- 12/45"）。
-// 按阶段映射到整体百分比的区间，让扫描线随真实翻译进度移动。
+// 旧分数式进度条(如今仅当 tqdm 补丁未生效时的兜底)按阶段映射到整体百分比的区间。
+// 常规路径直接采用 tqdm 帧里引擎自带的整体百分比,见 parseBabeldocProgress。
 const STAGE_RANGES = [
   { label: "Parse PDF", start: 1, end: 6 },
   { label: "DetectScannedFile", start: 6, end: 10 },
@@ -233,7 +244,24 @@ const STAGE_RANGES = [
   { label: "Save PDF", start: 97, end: 99 },
 ];
 
+// BabelDOC 的进度条有两种形态：
+// 1) 旧分数式(rich 在 Windows 下的 ASCII 回退渲染)："Translate Paragraphs (1/1) ----- 12/45   0:03…"
+// 2) tqdm 分支(engine_worker 的 patch_progress_output 强制启用)：
+//    "Translate Paragraphs (12/45):  45%|████▌     | 45.27/100 [00:52<00:31,  1.01s/it]"
+//    bar 段的 N/100 是引擎按阶段权重算好的整体百分比，直接驱动扫描线；
+//    desc 段的 (current/total) 是阶段内部进度(翻译阶段即段落计数)，(Complete) 表示阶段收尾。
+// 阶段名不含点号 + 分母恰为 100 的双重约束，避免误匹配模型下载的 tqdm 条
+// (如 "model.safetensors:  33%|… 0.87/2.6G")——下载进度一旦入账会把整体进度假钉在高位。
 export function parseBabeldocProgress(line) {
+  const tqdm = line.match(/^([A-Za-z][A-Za-z0-9 ]*?)(?:\s*\((\d+)\/(\d+)\)|\s*\(Complete\))?:\s*\d+(?:\.\d+)?%\|[^|]*\|\s*(\d+(?:\.\d+)?)\/100\b/);
+  if (tqdm) {
+    return {
+      stage: tqdm[1].trim(),
+      current: tqdm[2] !== undefined ? Number(tqdm[2]) : null,
+      total: tqdm[3] !== undefined ? Number(tqdm[3]) : null,
+      overall: Math.min(100, Math.max(0, Number(tqdm[4]))),
+    };
+  }
   const match = line.match(/^([A-Za-z][A-Za-z0-9 .]*?)\s*\(\d+\/\d+\)\s*-{2,}\s*(\d+)\/(\d+)/);
   if (!match) return null;
   return { stage: match[1].trim(), current: Number(match[2]), total: Number(match[3]) };
@@ -286,14 +314,17 @@ function appendLog(job, chunk, apiKey = "", stream = { logBuffer: "" }) {
         job.awaitingCompletionValue = false;
       }
     }
-    // BabelDOC 的进度条是分数不是百分数,解析后映射为整体进度,驱动扫描线;
+    // BabelDOC 进度帧解析后映射为整体进度,驱动扫描线;
     // 同时记录翻译段落数与扫描检测,供任务统计展示
     const progressEvent = parseBabeldocProgress(line);
     if (progressEvent) {
-      const stagePct = stagePercent(progressEvent);
-      if (stagePct !== null && stagePct > (job.progress || 0)) job.progress = Math.min(99, stagePct);
+      // tqdm 帧自带引擎按阶段权重算好的整体百分比,直接采用;旧分数式才回退到阶段区间估算
+      const pct = Number.isFinite(progressEvent.overall)
+        ? Math.min(99, Math.round(progressEvent.overall))
+        : stagePercent(progressEvent);
+      if (pct !== null && pct > (job.progress || 0)) job.progress = pct;
       job.stats = job.stats || {};
-      if (progressEvent.stage === "Translate Paragraphs") {
+      if (progressEvent.stage === "Translate Paragraphs" && progressEvent.total > 0) {
         job.stats.paragraphs = { done: progressEvent.current, total: progressEvent.total };
       }
       if (progressEvent.stage === "DetectScannedFile") job.stats.scannedCheck = true;
@@ -458,7 +489,9 @@ async function runJob(job) {
       job.error = null;
       const firstPdf = job.outputs.find((name) => name.toLowerCase().endsWith(".pdf"));
       if (firstPdf) {
-        await renderPagePng(path.join(job.outputDir, firstPdf), path.join(path.dirname(job.inputPath), "output-page.png"), 0);
+        // 交替页布局输出第 1 页是原文页,预览图取第 2 页(第一张整页译文)
+        const previewIndex = job.config?.output === "dual" && job.config?.dualLayout === "alternating" ? 1 : 0;
+        await renderPagePng(path.join(job.outputDir, firstPdf), path.join(path.dirname(job.inputPath), "output-page.png"), previewIndex);
       }
     }
   } else {
@@ -485,26 +518,29 @@ async function pump() {
         releaseJobSecrets(job);
         continue;
       }
-      await runJob(job);
+      // runJob 自身已兜底子进程错误;这里再兜一层,避免磁盘故障等意外
+      // 沿未捕获异常路径击穿 pump 的 finally、让整个进程随之崩溃
+      try {
+        await runJob(job);
+      } catch (error) {
+        console.error("任务执行异常：", error);
+        job.status = "failed";
+        job.stage = "任务执行异常";
+        job.error = error.message;
+        job.finishedAt = new Date().toISOString();
+        releaseJobSecrets(job);
+        await persistJobs().catch(() => {});
+      }
     }
   } finally {
     pumping = false;
   }
 }
 
-async function createJob(req) {
-  if (!(await engineReady())) {
-    const error = new Error("翻译引擎尚未安装，请先在项目目录运行 uv sync");
-    error.status = 503;
-    throw error;
-  }
-  const length = Number(req.headers["content-length"] || 0);
-  if (length > MAX_FILE_BYTES + 1024 * 1024) {
-    const error = new Error("PDF 超过 200 MB 限制");
-    error.status = 413;
-    throw error;
-  }
-  const request = new Request(`http://${HOST}:${PORT}/api/jobs`, {
+// 上传 PDF 的统一解析:multipart 表单 → 大小/扩展名/魔数校验 → Buffer。
+// 提交任务、页数预估、水印检测三个入口共用。
+async function readUploadPdf(req, endpoint) {
+  const request = new Request(`http://${HOST}:${PORT}${endpoint}`, {
     method: "POST",
     headers: req.headers,
     body: req,
@@ -522,6 +558,22 @@ async function createJob(req) {
   }
   const buffer = Buffer.from(await file.arrayBuffer());
   if (!isPdf(buffer)) throw new Error("文件不是有效的 PDF");
+  return { form, file, originalName, buffer };
+}
+
+async function createJob(req) {
+  if (!(await engineReady())) {
+    const error = new Error("翻译引擎尚未安装，请先在项目目录运行 uv sync");
+    error.status = 503;
+    throw error;
+  }
+  const length = Number(req.headers["content-length"] || 0);
+  if (length > MAX_FILE_BYTES + 1024 * 1024) {
+    const error = new Error("PDF 超过 200 MB 限制");
+    error.status = 413;
+    throw error;
+  }
+  const { form, file, originalName, buffer } = await readUploadPdf(req, "/api/jobs");
 
   let rawConfig = {};
   try { rawConfig = JSON.parse(String(form.get("config") || "{}")); }
@@ -545,11 +597,40 @@ async function createJob(req) {
     glossaryText = parseGlossaryCsv(await readFile(libraryPath, "utf8"));
   }
 
+  // 重复文件检测:相同内容、相同目标语言与输出形式的已完成任务 → 提示复用
+  if (String(form.get("force") || "") !== "true") {
+    const duplicate = findDuplicateJob(buffer, config);
+    if (duplicate) {
+      return {
+        duplicate: {
+          error: `检测到相同文件已翻译完成（${duplicate.fileName}），可直接复用之前的任务。`,
+          duplicateOf: duplicate.id,
+          duplicateFileName: duplicate.fileName,
+        },
+      };
+    }
+  }
+
   const job = await createJobRecord({ buffer, originalName, fileSize: file.size, config, apiKey: apiKey || "ollama", glossaryText });
   queue.push(job.id);
   await persistJobs();
   void pump();
-  return publicJob(job);
+  return { job: publicJob(job) };
+}
+
+// 重复文件检测:内容哈希一致且已有完成任务 → 提示复用,避免重复花费翻译时间。
+// force 跳过检测(MCP 与"仍要翻译"路径使用)。
+function findDuplicateJob(buffer, config) {
+  const hash = createHash("sha256").update(buffer).digest("hex");
+  const target = String(config?.target || "zh-CN");
+  for (const job of jobs.values()) {
+    if (job.status !== "completed" || job.fileHash !== hash) continue;
+    if (String(job.config?.target || "zh-CN") !== target) continue;
+    if (config?.output && job.config?.output && job.config.output !== config.output) continue;
+    if ((config?.dualLayout || "side") !== (job.config?.dualLayout || "side")) continue;
+    return job;
+  }
+  return null;
 }
 
 // 任务记录创建的统一入口:落盘 PDF、渲染预览图、注册网关、写 request.json 并入队。
@@ -593,6 +674,7 @@ async function createJobRecord({ buffer, originalName, fileSize, config, apiKey,
     outputDir,
     requestPath,
   };
+  job.fileHash = createHash("sha256").update(buffer).digest("hex");
   jobs.set(id, job);
   secrets.set(id, apiKey);
   return job;
@@ -957,7 +1039,7 @@ function registerGateway(config, apiKey) {
   config.gatewayId = gatewayId;
 }
 
-function runRevise({ translatedPdf, originalPdf, outPath, keepOriginal, outputMode }) {
+function runRevise({ translatedPdf, originalPdf, outPath, keepOriginal, outputMode, dualLayout = "side" }) {
   return new Promise((resolve, reject) => {
     const child = spawnWorker();
     let stderrTail = "";
@@ -971,8 +1053,96 @@ function runRevise({ translatedPdf, originalPdf, outPath, keepOriginal, outputMo
       if (code === 0 && existsSync(outPath)) return resolve(true);
       reject(new Error(`修订版生成失败：${stderrTail.trim() || `退出码 ${code}`}`));
     });
-    child.stdin.end(JSON.stringify({ mode: "revise", translatedPdf, originalPdf, outPath, keepOriginal, outputMode }), "utf8");
+    child.stdin.end(JSON.stringify({ mode: "revise", translatedPdf, originalPdf, outPath, keepOriginal, outputMode, dualLayout }), "utf8");
   });
+}
+
+// 页级重译:用引擎按单页重新翻译(强制不走缓存),再把输出页替换回交付 PDF 的对应页。
+// dual 交替页布局的译文页在第 2N 页;其余布局按 1:1 映射。
+async function retranslatePage(req, res, job) {
+  if (job.status !== "completed") return json(res, 409, { error: "任务未完成，无法重译" });
+  let body;
+  try {
+    body = await readJsonBody(req, 16 * 1024);
+  } catch {
+    return json(res, 400, { error: "请求体无效" });
+  }
+  const page = Math.round(Number(body?.page));
+  if (!page || page < 1 || page > 20000) return json(res, 400, { error: "页码无效" });
+  const dualLayout = job.config?.dualLayout === "alternating" ? "alternating" : "side";
+  const outputMode = job.config?.output || "dual";
+
+  // 累积应用:已有 adjusted-output.pdf 时在其基础上替换
+  const adjustedName = "adjusted-output.pdf";
+  const translatedName = (job.outputs || []).find((name) => name.toLowerCase().endsWith(".pdf") && name !== "revised-output.pdf" && name !== adjustedName);
+  if (!translatedName) return json(res, 409, { error: "任务没有可用的译文 PDF" });
+
+  // 水印副本优先作为输入,与主翻译保持一致
+  const baseName = job.inputName || path.basename(job.inputPath || "");
+  const cleanedInput = path.join(path.dirname(job.inputPath || "."), "watermark-work", baseName);
+  const inputPath = existsSync(cleanedInput) ? cleanedInput : job.inputPath;
+
+  // 云端任务重译需要凭据:key 不落盘,由前端当前输入框提供;本地 Ollama 无需
+  const apiKey = String(req.headers["x-api-key"] || "").trim();
+  if (job.config.provider === "openai" && !apiKey) {
+    return json(res, 400, { error: "请在上方 API key 输入框填写后重试（key 不落盘，无法复用上次的）" });
+  }
+
+  const tempDir = path.join(job.outputDir, `retrans-${page}-${randomUUID()}`);
+  await mkdir(tempDir, { recursive: true });
+  const requestPath = path.join(tempDir, "request.json");
+  // 旧 gatewayId 属于已完成任务,其网关早已注销;按当前协议重新注册一个,
+  // anthropic/gemini 协议的 BabelDOC 调用才有可用的转换端点
+  const requestConfig = { ...job.config, pages: String(page), ignoreCache: true, aiSummary: false };
+  delete requestConfig.gatewayId;
+  registerGateway(requestConfig, apiKey || "ollama");
+  await writeFile(requestPath, JSON.stringify({ inputPath, outputDir: tempDir, glossaryPath: null, config: requestConfig }, null, 2), "utf8");
+
+  const startedAt = Date.now();
+  try {
+    await new Promise((resolve, reject) => {
+      const child = spawnWorker({ YIYE_API_KEY: apiKey || "ollama" });
+      let stderrTail = "";
+      const timer = setTimeout(() => {
+        stopChild(child);
+        reject(new Error("单页重译超时（5 分钟），请稍后重试"));
+      }, 300_000);
+      child.stdout.on("data", () => {});
+      child.stderr.on("data", (chunk) => { stderrTail = (stderrTail + chunk).slice(-400); });
+      child.once("error", (error) => { clearTimeout(timer); reject(error); });
+      child.once("close", async (code) => {
+        clearTimeout(timer);
+        const pdfs = await walkPdfs(tempDir).catch(() => []);
+        if (code === 0 && pdfs.length) return resolve(pdfs);
+        reject(new Error(`单页重译失败：${stderrTail.trim() || `退出码 ${code}`}`));
+      });
+      child.stdin.end(JSON.stringify({ mode: "translate", requestPath }), "utf8");
+    });
+  } catch (error) {
+    if (requestConfig.gatewayId) gatewayRegistry.delete(requestConfig.gatewayId);
+    await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    return json(res, error.status || 500, { error: error.message });
+  }
+
+  // 定位临时输出中该页对应的输出页(原文第 N 页)
+  const tempPdfs = await walkPdfs(tempDir).catch(() => []);
+  const tempPdfPath = path.join(tempDir, tempPdfs[0]);
+  const targetIndex = outputMode === "dual" && dualLayout === "alternating" ? page * 2 - 1 : page - 1;
+
+  const adjustedPath = path.join(job.outputDir, adjustedName);
+  const sourcePath = job.outputs.includes(adjustedName) ? adjustedPath : path.join(job.outputDir, translatedName);
+  try {
+    await runReplacePage({ sourcePdf: sourcePath, tempPdf: tempPdfPath, outPath: adjustedPath, pageIndex: targetIndex });
+  } catch (error) {
+    if (requestConfig.gatewayId) gatewayRegistry.delete(requestConfig.gatewayId);
+    await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    return json(res, 500, { error: `页替换失败：${error.message}` });
+  }
+  if (requestConfig.gatewayId) gatewayRegistry.delete(requestConfig.gatewayId);
+  await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+  if (!job.outputs.includes(adjustedName)) job.outputs.push(adjustedName);
+  await persistJobs();
+  return json(res, 200, { ok: true, file: adjustedName, page, seconds: Math.round((Date.now() - startedAt) / 1000) });
 }
 
 async function buildRevisedPdf(res, job, body) {
@@ -986,14 +1156,340 @@ async function buildRevisedPdf(res, job, body) {
   if (!translatedPdf) return json(res, 409, { error: "任务没有可用的译文 PDF" });
   const translatedPath = path.join(job.outputDir, translatedPdf);
   const outPath = path.join(job.outputDir, "revised-output.pdf");
+  // 启用了水印移除的任务:修订的"原文页"也用无水印副本,与译文页保持一致
+  const baseName = job.inputName || path.basename(job.inputPath || "");
+  const cleanedOriginal = path.join(path.dirname(job.inputPath || "."), "watermark-work", baseName);
+  const originalPdf = existsSync(cleanedOriginal) ? cleanedOriginal : job.inputPath;
   try {
-    await runRevise({ translatedPdf: translatedPath, originalPdf: job.inputPath, outPath, keepOriginal: pages, outputMode: job.config.output });
+    await runRevise({ translatedPdf: translatedPath, originalPdf, outPath, keepOriginal: pages, outputMode: job.config.output, dualLayout: job.config.dualLayout });
   } catch (error) {
     return json(res, 500, { error: error.message });
   }
   if (!job.outputs.includes("revised-output.pdf")) job.outputs.push("revised-output.pdf");
   await persistJobs();
   return json(res, 200, { ok: true, file: "revised-output.pdf", keptOriginalPages: pages });
+}
+
+// 多文档结构化对比报告:按固定维度(研究问题/方法/实验/结果/局限)生成 markdown 报告
+async function compareReport(req, res) {
+  let body;
+  try {
+    body = await readJsonBody(req, 64 * 1024);
+  } catch {
+    return json(res, 400, { error: "请求体无效" });
+  }
+  const ids = (Array.isArray(body?.job_ids) ? body.job_ids : []).map(String).slice(0, 4);
+  const docs = [];
+  const perDoc = Math.min(12000, Math.floor(40000 / Math.max(2, ids.length || 2)));
+  for (const id of ids) {
+    const job = jobs.get(id);
+    if (!job || job.status !== "completed") continue;
+    try {
+      const text = (await readFile(path.join(job.outputDir, "translated-text.txt"), "utf8")).slice(0, perDoc);
+      docs.push({ job, text });
+    } catch {}
+  }
+  if (docs.length < 2) return json(res, 400, { error: "对比报告至少需要两篇已完成、且有译文全文数据的任务" });
+
+  const cfg = readingModelConfig(body?.model, docs[0].job.config);
+  const context = docs.map((d, i) => `【论文 ${i + 1}：${d.job.fileName}】\n${d.text}`).join("\n\n");
+  const messages = [
+    {
+      role: "system",
+      content: `你是论文综述助手。基于给定的多篇论文中文译文，输出一份结构化对比报告（markdown 格式），严格按以下结构：\n# 多论文对比报告\n## 一、总览\n（用一张 markdown 表格对比各论文的主题/领域）\n## 二、研究问题对比\n## 三、方法对比\n## 四、实验与数据对比\n## 五、主要结果对比\n## 六、局限与启示\n要求：每个小节先逐篇一句话概括，再给出横向对比结论；数据引用原文数字；用中文；不要输出任何结构以外的内容。`,
+    },
+    { role: "user", content: context },
+  ];
+  try {
+    const { answer, model } = await callConfiguredModel(cfg, String(req.headers["x-api-key"] || "").trim(), messages, { maxTokens: 3000, temperature: 0.3 });
+    return json(res, 200, {
+      report: answer,
+      model,
+      docs: docs.map((d) => ({ id: d.job.id, fileName: d.job.fileName })),
+    });
+  } catch (error) {
+    if (error.name === "TimeoutError") return json(res, 504, { error: "对比报告生成超时（180 秒），请稍后重试" });
+    return json(res, error.status || 502, { error: `对比报告生成失败：${error.message}` });
+  }
+}
+
+// 逐段对照数据 → Markdown 导出文本。mode: zh(默认,纯译文)/en(纯原文)/both(双语)。
+// 无译文的段落回退原文,保证导出内容完整。
+export function buildMarkdownExport(pairsPages, mode = "zh", title = "译文") {
+  const lines = [`# ${title}${mode === "both" ? "（双语对照）" : ""}`, ""];
+  for (const page of Array.isArray(pairsPages) ? pairsPages : []) {
+    const keepNote = page.translated === false ? "（未翻译 · 保留原文）" : "";
+    lines.push(`## 第 ${page.page} 页${keepNote}`, "");
+    for (const pair of Array.isArray(page.pairs) ? page.pairs : []) {
+      const zh = String(pair.zh || "").trim();
+      const en = String(pair.en || "").trim();
+      if (mode === "en") {
+        if (en) lines.push(en, "");
+        continue;
+      }
+      if (mode === "both") {
+        if (en) lines.push(`> ${en}`);
+        if (zh || en) lines.push(zh || `> ${en}`, "");
+        continue;
+      }
+      if (zh) lines.push(zh, "");
+      else if (en) lines.push(`> ${en}`, "");
+    }
+  }
+  return lines.join("\n");
+}
+
+// 把人工校对(edits.json,键为"页:段序")合并进逐段对照数据,导出物反映最终译文
+export function applyEditsToPairs(pairsPages, edits) {
+  if (!edits || typeof edits !== "object") return pairsPages;
+  for (const page of Array.isArray(pairsPages) ? pairsPages : []) {
+    (Array.isArray(page.pairs) ? page.pairs : []).forEach((pair, idx) => {
+      const edit = edits[`${page.page}:${idx}`];
+      if (edit && typeof edit.text === "string" && edit.text.trim()) pair.zh = edit.text;
+    });
+  }
+  return pairsPages;
+}
+
+// 人工校对 → CSV(页码,原文,原译文,校对后译文):翻译记忆式复用的数据基础
+export function buildEditsCsv(pairsPages, edits) {
+  const escape = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+  const lines = ["页码,原文,原译文,校对后译文"];
+  for (const page of Array.isArray(pairsPages) ? pairsPages : []) {
+    (Array.isArray(page.pairs) ? page.pairs : []).forEach((pair, idx) => {
+      const edit = edits?.[`${page.page}:${idx}`];
+      if (!edit || !String(edit.text || "").trim()) return;
+      lines.push([
+        escape(page.page),
+        escape(pair.en || ""),
+        escape(pair.zh || ""),
+        escape(edit.text),
+      ].join(","));
+    });
+  }
+  return lines.join("\n");
+}
+
+// 本地模型自动推荐:从模型名解析参数规模(B),按量化后显存需求(约 0.8GB/B + 2GB 开销)
+// 与检测到的显存(nvidia-smi)匹配,推荐装得下的最大模型。
+export function parseModelParams(modelName) {
+  const match = String(modelName || "").toLowerCase().match(/(\d+(?:\.\d+)?)\s*b(?![a-z0-9])/);
+  if (!match) return null;
+  const params = Number(match[1]);
+  return Number.isFinite(params) && params > 0 && params <= 1000 ? params : null;
+}
+
+export function modelRequiredGB(paramsB) {
+  return Math.round((paramsB * 0.8 + 2) * 10) / 10;
+}
+
+export function pickRecommendedModel(models, vramGB) {
+  const ranked = [];
+  for (const model of models) {
+    const params = parseModelParams(model);
+    if (params == null) continue;
+    const requiredGB = modelRequiredGB(params);
+    ranked.push({ model, paramsB: params, requiredGB, fits: vramGB == null ? null : requiredGB <= vramGB });
+  }
+  ranked.sort((a, b) => b.paramsB - a.paramsB);
+  const fitting = ranked.filter((item) => item.fits === true);
+  return { ranked, recommended: fitting.length ? fitting[0].model : null };
+}
+
+function gpuVramGB() {
+  return new Promise((resolve) => {
+    const probe = spawn("nvidia-smi", ["--query-gpu=memory.total", "--format=csv,noheader,nounits"], { windowsHide: true });
+    let out = "";
+    const timer = setTimeout(() => { stopChild(probe); resolve(null); }, 4000);
+    probe.stdout.on("data", (chunk) => { out += chunk; });
+    probe.once("error", () => { clearTimeout(timer); resolve(null); });
+    probe.once("close", (code) => {
+      clearTimeout(timer);
+      if (code !== 0) return resolve(null);
+      const values = out.split("\n").map((line) => Number(line.trim())).filter((value) => Number.isFinite(value) && value > 0);
+      const maxMB = values.length ? Math.max(...values) : null;
+      resolve(maxMB == null ? null : Math.round((maxMB / 1024) * 10) / 10);
+    });
+  });
+}
+
+async function modelRecommendRequest(req, res) {
+  const baseUrl = new URL(req.url, `http://${req.headers.host || `${HOST}:${PORT}`}`).searchParams.get("baseUrl") || "";
+  const apiKey = req.headers["x-api-key"] || "";
+  const provider = await providerModels(baseUrl, apiKey, "openai").catch(() => ({ models: [] }));
+  const models = Array.isArray(provider?.models) ? provider.models : [];
+  const vramGB = await gpuVramGB();
+  const { ranked, recommended } = pickRecommendedModel(models, vramGB);
+  return json(res, 200, { vramGB, recommended, ranked: ranked.slice(0, 12) });
+}
+
+// 从模型输出中提取术语对(容忍 markdown 表格/列表/编号/引号),去重并截断
+const TERM_HEADER_WORDS = new Set(["source", "target", "term", "英文术语", "中文译名", "术语", "英文", "中文"]);
+
+export function extractTermPairsFromText(text) {
+  const pairs = [];
+  const seen = new Set();
+  for (const rawLine of String(text || "").split("\n")) {
+    const line = rawLine.trim().replace(/^[-*]\s*/, "").replace(/^\d+[.、]\s*/, "");
+    if (!line) continue;
+    const cells = line.split(/\s*[|,;\t]\s*/).map((cell) => cell.trim().replace(/^["']|["']$/g, "")).filter(Boolean);
+    if (cells.length < 2) continue;
+    if (/^[-|:\s]+$/.test(cells[0])) continue; // 表格分隔行
+    if (TERM_HEADER_WORDS.has(cells[0].toLowerCase()) && TERM_HEADER_WORDS.has(cells[1].toLowerCase())) continue; // 表头行
+    // 恒等对(英文→英文)保留:作用是钉住该术语在后续翻译中保持英文
+    const source = cells[0].slice(0, 80);
+    const target = cells[1].slice(0, 80);
+    if (!source || !target) continue;
+    const key = `${source.toLowerCase()}\u0000${target.toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    pairs.push({ source, target });
+  }
+  return pairs.slice(0, 100);
+}
+
+// 合并术语条目进已有术语库文本(库内已有同名词跳过),返回合并后文本与新增数
+export function mergeGlossaryEntries(existingText, pairs) {
+  const lines = existingText && existingText.trim() ? existingText.trim().split("\n") : ["source,target"];
+  const known = new Set();
+  for (const line of lines.slice(1)) {
+    const cells = line.split(",").map((cell) => cell.replace(/^"|"$/g, "").trim().toLowerCase());
+    if (cells[0]) known.add(cells[0]);
+  }
+  let added = 0;
+  for (const { source, target } of pairs) {
+    if (known.has(source.toLowerCase())) continue;
+    const quote = (value) => (/["\n,]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value);
+    lines.push(`${quote(source)},${quote(target)}`);
+    known.add(source.toLowerCase());
+    added += 1;
+  }
+  return { text: lines.join("\n"), added };
+}
+
+// 校对记录 → 术语库:用当前模型从人工校对的对照中提炼术语对,合并进术语库
+async function editsGlossaryRequest(req, res) {
+  let body;
+  try {
+    body = await readJsonBody(req, 16 * 1024);
+  } catch {
+    return json(res, 400, { error: "请求体无效" });
+  }
+  const job = jobs.get(String(body?.jobId || ""));
+  if (!job || job.status !== "completed") return json(res, 404, { error: "任务不存在或未完成" });
+  let pairsPages = [];
+  let edits = {};
+  try {
+    pairsPages = (JSON.parse(await readFile(path.join(job.outputDir, "paragraphs.json"), "utf8"))).pages || [];
+  } catch {}
+  try {
+    edits = JSON.parse(await readFile(path.join(job.outputDir, "edits.json"), "utf8"));
+  } catch {}
+  applyEditsToPairs(pairsPages, edits);
+  const proofread = [];
+  for (const page of pairsPages) {
+    page.pairs.forEach((pair, idx) => {
+      const edit = edits?.[`${page.page}:${idx}`];
+      if (edit?.text && pair.en) proofread.push({ en: pair.en, zh: edit.text });
+    });
+  }
+  if (!proofread.length) return json(res, 409, { error: "该任务还没有人工校对记录，请先在阅读器或逐段对照中校对" });
+
+  const cfg = readingModelConfig(body?.model, job.config);
+  const listing = proofread.map((item, index) => `${index + 1}. ${item.en}\n   译文：${item.zh}`).join("\n");
+  const messages = [
+    {
+      role: "system",
+      content: "你是术语提取助手。从人工校对的中英对照中提取值得固化的术语对：专有名词、模型/系统/数据集名、领域术语、固定译法。普通动词和日常词汇不要。每行输出一条，格式为“英文术语,中文译名”，不要输出其他内容；最多 40 条。",
+    },
+    { role: "user", content: `以下是人工校对后的中英对照（译文是人工确认过的）：\n\n${listing}` },
+  ];
+  let answer;
+  let usedModel = "";
+  try {
+    const { answer: text, model } = await callConfiguredModel(cfg, String(req.headers["x-api-key"] || "").trim(), messages, { maxTokens: 1500, temperature: 0.2 });
+    answer = text;
+    usedModel = model;
+  } catch (error) {
+    if (error.name === "TimeoutError") return json(res, 504, { error: "术语提炼超时（180 秒），请稍后重试" });
+    return json(res, error.status || 502, { error: `术语提炼失败：${error.message}` });
+  }
+  const pairs = extractTermPairsFromText(answer);
+  if (!pairs.length) return json(res, 409, { error: "模型未能从校对记录中提炼出术语对，请手动整理" });
+
+  const safeName = sanitizeGlossaryName(String(body?.name || `${job.fileName.replace(/\.pdf$/i, "")}-校对术语`));
+  const libraryPath = path.join(GLOSSARIES_DIR, `${safeName}.csv`);
+  if (!libraryPath.startsWith(path.resolve(GLOSSARIES_DIR) + path.sep)) return json(res, 400, { error: "术语库名称非法" });
+  const existing = await readFile(libraryPath, "utf8").catch(() => null);
+  const { text, added } = mergeGlossaryEntries(existing, pairs);
+  await mkdir(GLOSSARIES_DIR, { recursive: true });
+  await writeFile(libraryPath, text, "utf8");
+  return json(res, 200, { ok: true, name: safeName, added, total: countGlossaryEntries(text), proofread: proofread.length, model: usedModel });
+}
+
+// 页替换:把重译输出的对应页替换进交付 PDF(pymupdf 引擎执行)
+function runReplacePage({ sourcePdf, tempPdf, outPath, pageIndex }) {
+  return new Promise((resolve, reject) => {
+    const child = spawnWorker();
+    let stderrTail = "";
+    const timer = setTimeout(() => {
+      stopChild(child);
+      reject(new Error("页替换超时"));
+    }, 60_000);
+    child.stderr.on("data", (chunk) => { stderrTail = (stderrTail + chunk).slice(-300); });
+    child.once("error", (error) => { clearTimeout(timer); reject(error); });
+    child.once("close", (code) => {
+      clearTimeout(timer);
+      if (code === 0 && existsSync(outPath)) return resolve(true);
+      reject(new Error(`页替换失败：${stderrTail.trim() || `退出码 ${code}`}`));
+    });
+    child.stdin.end(JSON.stringify({ mode: "replace-page", sourcePdf, tempPdf, outPath, pageIndex }), "utf8");
+  });
+}
+
+// 图中文字旁注翻译:矢量图表区域内的文字层(引擎已提取)按需翻译并缓存回 figures.json。
+// 位图(无文字层)不在此范围内——OCR 回绘是另一个未开放的 P2 能力。
+async function figureTextTranslate(req, res, job) {
+  let body;
+  try {
+    body = await readJsonBody(req, 8 * 1024);
+  } catch {
+    return json(res, 400, { error: "请求体无效" });
+  }
+  const kind = body?.kind === "表" ? "表" : "图";
+  const num = String(body?.num ?? "");
+  let figures = [];
+  const figuresPath = path.join(job.outputDir, "figures.json");
+  try {
+    figures = JSON.parse(await readFile(figuresPath, "utf8"));
+  } catch {
+    return json(res, 409, { error: "该任务没有图表速读数据" });
+  }
+  const entry = figures.find((f) => f.kind === kind && String(f.num) === num);
+  if (!entry) return json(res, 404, { error: "未找到该图表的图注记录" });
+  const inner = String(entry.innerText || "").trim();
+  if (!inner) return json(res, 409, { error: "该图表没有可提取的文字层（可能是位图）" });
+  if (entry.translatedInnerText) {
+    return json(res, 200, { original: inner, translated: entry.translatedInnerText, model: entry.translatedInnerTextModel || "", cached: true });
+  }
+  const cfg = readingModelConfig(body?.model, job.config);
+  const messages = [
+    {
+      role: "system",
+      content: "你是论文插图文字整理与翻译助手。输入是从论文插图中按版面顺序提取的文字（可能乱序、含轴标签、图例、碎片和重复）。请整理成通顺的中文：按逻辑重排阅读顺序；专有名词、数字、坐标轴缩写保留英文；按原图分组分点输出；不要解释和总结。",
+    },
+    { role: "user", content: `图表：${kind}${num}。图中提取的文字如下：\n\n${inner.slice(0, 6000)}` },
+  ];
+  try {
+    const { answer, model } = await callConfiguredModel(cfg, String(req.headers["x-api-key"] || "").trim(), messages, { maxTokens: 2000, temperature: 0.2 });
+    entry.translatedInnerText = answer;
+    entry.translatedInnerTextModel = model;
+    await writeFile(figuresPath, JSON.stringify(figures, null, 2), "utf8");
+    return json(res, 200, { original: inner, translated: answer, model });
+  } catch (error) {
+    if (error.name === "TimeoutError") return json(res, 504, { error: "图中文字翻译超时（180 秒），请稍后重试" });
+    return json(res, error.status || 502, { error: `图中文字翻译失败：${error.message}` });
+  }
 }
 
 function runEstimate(filePath) {
@@ -1003,8 +1499,8 @@ function runEstimate(filePath) {
     let stderrTail = "";
     const timer = setTimeout(() => {
       stopChild(child);
-      reject(new Error("预估超时，请重试"));
-    }, 30_000);
+      reject(new Error("页数预估超时（大文件可能超过 90 秒），请重试或改用页码范围"));
+    }, 90_000);
     child.stdout.on("data", (chunk) => { out += chunk; });
     child.stderr.on("data", (chunk) => { stderrTail = (stderrTail + chunk).slice(-300); });
     child.once("error", (error) => { clearTimeout(timer); reject(error); });
@@ -1020,30 +1516,55 @@ function runEstimate(filePath) {
   });
 }
 
+// 水印检测:一次性的 worker 调用,返回跨页重复文字的疑似列表(只检测不改动)。
+function runWatermarkScan(filePath) {
+  return new Promise((resolve, reject) => {
+    const child = spawnWorker();
+    let out = "";
+    let stderrTail = "";
+    const timer = setTimeout(() => {
+      stopChild(child);
+      reject(new Error("水印检测超时，请重试"));
+    }, 60_000);
+    child.stdout.on("data", (chunk) => { out += chunk; });
+    child.stderr.on("data", (chunk) => { stderrTail = (stderrTail + chunk).slice(-300); });
+    child.once("error", (error) => { clearTimeout(timer); reject(error); });
+    child.once("close", (code) => {
+      clearTimeout(timer);
+      const match = out.match(/YIYE_WATERMARK: (.*)/) || [];
+      if (code !== 0 || !match[1]) {
+        return reject(new Error(`水印检测失败：${stderrTail.trim() || "请确认翻译引擎已安装（uv sync）"}`));
+      }
+      try { resolve(JSON.parse(match[1])); } catch { reject(new Error("水印检测结果解析失败")); }
+    });
+    child.stdin.end(JSON.stringify({ mode: "scan-watermark", pdfPath: filePath }), "utf8");
+  });
+}
+
+async function watermarkScanRequest(req) {
+  if (!(await engineReady())) {
+    const error = new Error("翻译引擎尚未安装，请先在项目目录运行 uv sync");
+    error.status = 503;
+    throw error;
+  }
+  const { originalName, buffer } = await readUploadPdf(req, "/api/watermark/scan");
+  const tmpPath = path.join(DATA_DIR, `watermark-${randomUUID()}.pdf`);
+  try {
+    await writeFile(tmpPath, buffer);
+    const result = await runWatermarkScan(tmpPath);
+    return { fileName: originalName, suspects: result.suspects || [] };
+  } finally {
+    await rm(tmpPath, { force: true }).catch(() => {});
+  }
+}
+
 async function estimateRequest(req) {
   if (!(await engineReady())) {
     const error = new Error("翻译引擎尚未安装，请先在项目目录运行 uv sync");
     error.status = 503;
     throw error;
   }
-  const request = new Request(`http://${HOST}:${PORT}/api/estimate`, {
-    method: "POST",
-    headers: req.headers,
-    body: req,
-    duplex: "half",
-  });
-  const form = await request.formData();
-  const file = form.get("file");
-  if (!file || typeof file.arrayBuffer !== "function") throw new Error("请选择 PDF 文件");
-  const originalName = sanitizeFileName(file.name);
-  if (!originalName.toLowerCase().endsWith(".pdf")) throw new Error("仅支持 PDF 文件");
-  if (file.size > MAX_FILE_BYTES) {
-    const error = new Error("PDF 超过 200 MB 限制");
-    error.status = 413;
-    throw error;
-  }
-  const buffer = Buffer.from(await file.arrayBuffer());
-  if (!isPdf(buffer)) throw new Error("文件不是有效的 PDF");
+  const { buffer } = await readUploadPdf(req, "/api/estimate");
   const tmpPath = path.join(DATA_DIR, `estimate-${randomUUID()}.pdf`);
   try {
     await writeFile(tmpPath, buffer);
@@ -1068,6 +1589,43 @@ async function listGlossaries() {
     } catch {}
   }
   return entries.sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
+}
+
+// 术语库条目解析(单条展示与删除用)。已知限制:值内含逗号的引号转义行
+// 在列表/删除中按朴素逗号切分,极端词条可能显示不准。
+export function glossaryEntriesFromText(text) {
+  return parseGlossaryEntries(text).map(([source, target]) => ({ source, target }));
+}
+
+export function removeGlossaryEntry(text, source) {
+  const entries = glossaryEntriesFromText(text);
+  const kept = entries.filter((entry) => entry.source !== source);
+  if (kept.length === entries.length) return { text, removed: false };
+  const quote = (value) => (/["\n,]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value);
+  const body = kept.map((entry) => `${quote(entry.source)},${quote(entry.target)}`).join("\n");
+  return { text: `source,target\n${body}`, removed: true };
+}
+
+async function glossaryEntryRequest(req, res, name) {
+  const safeName = sanitizeGlossaryName(decodeURIComponent(name));
+  const libraryPath = path.join(GLOSSARIES_DIR, `${safeName}.csv`);
+  if (!libraryPath.startsWith(path.resolve(GLOSSARIES_DIR) + path.sep)) return json(res, 400, { error: "非法路径" });
+  if (req.method === "GET") {
+    const text = await readFile(libraryPath, "utf8").catch(() => null);
+    if (text == null) return json(res, 404, { error: "术语表不存在" });
+    return json(res, 200, { name: safeName, entries: glossaryEntriesFromText(text) });
+  }
+  if (req.method === "DELETE") {
+    const text = await readFile(libraryPath, "utf8").catch(() => null);
+    if (text == null) return json(res, 404, { error: "术语表不存在" });
+    const source = String(new URL(req.url, `http://${req.headers.host || `${HOST}:${PORT}`}`).searchParams.get("source") || "").trim();
+    if (!source) return json(res, 400, { error: "缺少要删除的术语" });
+    const { text: merged, removed } = removeGlossaryEntry(text, source);
+    if (!removed) return json(res, 404, { error: "术语不存在" });
+    await writeFile(libraryPath, merged, "utf8");
+    return json(res, 200, { ok: true, name: safeName, total: countGlossaryEntries(merged) });
+  }
+  return json(res, 405, { error: "不支持的请求方式" });
 }
 
 async function glossaryLibraryRequest(req, res, name) {
@@ -1640,9 +2198,9 @@ async function jobRetranslate(req, res, job) {
   let glossaryBlock = "";
   try {
     const request = JSON.parse(await readFile(job.requestPath, "utf8"));
-    if (request.glossaryPath && await readFile(request.glossaryPath, "utf8").then(() => true).catch(() => false)) {
-      const glossaryText = await readFile(request.glossaryPath, "utf8");
-      const terms = filterGlossaryTerms(parseGlossaryEntries(glossaryText), en);
+    if (request.glossaryPath) {
+      const glossaryText = await readFile(request.glossaryPath, "utf8").catch(() => null);
+      const terms = glossaryText ? filterGlossaryTerms(parseGlossaryEntries(glossaryText), en) : [];
       if (terms.length) {
         glossaryBlock = "\n术语表（以下术语必须按给定译名翻译）：\n" + terms.map(([src, tgt]) => `${src} → ${tgt}`).join("\n");
       }
@@ -1704,8 +2262,10 @@ async function applyParagraph(req, res, job) {
   if (!sourceName) return json(res, 409, { error: "任务没有可用的译文 PDF" });
   const sourcePdf = path.join(job.outputDir, sourceName);
   const outPath = path.join(job.outputDir, adjustedName);
+  // 交替页对照:原文第 N 页的译文在输出的第 2N 页,页码需要映射
+  const targetPage = job.config?.output === "dual" && job.config?.dualLayout === "alternating" ? page * 2 : page;
   try {
-    await runApplyParagraph({ sourcePdf, outPath, page, oldText, newText });
+    await runApplyParagraph({ sourcePdf, outPath, page: targetPage, oldText, newText });
   } catch (error) {
     return json(res, 502, { error: error.message });
   }
@@ -1788,39 +2348,34 @@ async function retryJob(req, res, oldJob) {
   return json(res, 202, publicJob(job));
 }
 
+// 读 JSON 文件,不存在/损坏时返回 null——任务产出物的容错读取统一入口
+async function readJsonIfExists(filePath) {
+  try {
+    return JSON.parse(await readFile(filePath, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
 async function loadQualityDetail(job) {
   if (job.status !== "completed") return null;
-  let detail = null;
-  try {
-    detail = JSON.parse(await readFile(path.join(job.outputDir, "quality-report.json"), "utf8"));
-  } catch {}
-  try {
-    const summary = JSON.parse(await readFile(path.join(job.outputDir, "summary.json"), "utf8"));
-    if (detail) detail.aiSummary = summary;
-    else detail = { aiSummary: summary };
-  } catch {}
-  try {
-    const figures = JSON.parse(await readFile(path.join(job.outputDir, "figures.json"), "utf8"));
-    if (Array.isArray(figures)) {
-      if (detail) detail.figures = figures;
-      else detail = { figures };
-    }
-  } catch {}
-  try {
-    const paragraphs = JSON.parse(await readFile(path.join(job.outputDir, "paragraphs.json"), "utf8"));
-    if (Array.isArray(paragraphs?.pages)) {
-      if (detail) detail.paragraphs = paragraphs.pages;
-      else detail = { paragraphs: paragraphs.pages };
-    }
-  } catch {}
+  const dir = job.outputDir;
+  const [report, summary, figures, paragraphs, edits] = await Promise.all([
+    readJsonIfExists(path.join(dir, "quality-report.json")),
+    readJsonIfExists(path.join(dir, "summary.json")),
+    readJsonIfExists(path.join(dir, "figures.json")),
+    readJsonIfExists(path.join(dir, "paragraphs.json")),
+    readJsonIfExists(path.join(dir, "edits.json")),
+  ]);
+  if (!report && !summary && !Array.isArray(figures) && !Array.isArray(paragraphs?.pages) && !(edits && Object.keys(edits).length)) {
+    return null;
+  }
+  const detail = report || {};
+  if (summary) detail.aiSummary = summary;
+  if (Array.isArray(figures)) detail.figures = figures;
+  if (Array.isArray(paragraphs?.pages)) detail.paragraphs = paragraphs.pages;
   // 人工校对的译文编辑:键为"页:段序",含最终文本与最近写入 PDF 的文本
-  try {
-    const edits = JSON.parse(await readFile(path.join(job.outputDir, "edits.json"), "utf8"));
-    if (edits && Object.keys(edits).length) {
-      if (detail) detail.edits = edits;
-      else detail = { edits };
-    }
-  } catch {}
+  if (edits && Object.keys(edits).length) detail.edits = edits;
   return detail;
 }
 
@@ -1832,7 +2387,11 @@ export async function handle(req, res) {
     return res.end(body);
   }
   if (req.method === "GET" && url.pathname === "/api/health") {
-    return json(res, 200, { ok: true, engineReady: await engineReady(), activeJobId: active?.id || null });
+    return json(res, 200, { ok: true, stale: isRuntimeStale(), bootId: BOOT_ID, engineReady: await engineReady(), activeJobId: active?.id || null });
+  }
+  if (req.method === "GET" && url.pathname === "/api/runtime-ready") {
+    const stale = isRuntimeStale();
+    return json(res, stale ? 409 : 200, { ok: !stale, stale, bootId: BOOT_ID });
   }
   if (req.method === "GET" && url.pathname === "/api/prompt-template") {
     // 返回生效中的模板:用户自定义(数据目录)优先,否则内置默认
@@ -1865,11 +2424,14 @@ export async function handle(req, res) {
     if (req.method === "POST") return mcpHandler(req, res);
     return json(res, 405, { error: "MCP 端点仅支持 POST" });
   }
-  if (url.pathname.startsWith("/pdfjs/")) {
-    // 本地化的 PDF.js 静态资源(离线优先,不走 CDN)
-    const rel = url.pathname.slice("/pdfjs/".length).replaceAll("\\", "/");
-    const base = path.resolve(ROOT, "app", "pdfjs") + path.sep;
-    const filePath = path.resolve(path.join(ROOT, "app", "pdfjs", rel));
+  if (url.pathname.startsWith("/pdfjs/") || url.pathname.startsWith("/vendor/")) {
+    // 本地化静态资源(离线优先,不走 CDN):/pdfjs/* 与 /vendor/*(如思维导图库)
+    const [mount, baseDir] = url.pathname.startsWith("/pdfjs/")
+      ? ["/pdfjs/", path.join(ROOT, "app", "pdfjs")]
+      : ["/vendor/", path.join(ROOT, "app", "vendor")];
+    const rel = url.pathname.slice(mount.length).replaceAll("\\", "/");
+    const base = path.resolve(baseDir) + path.sep;
+    const filePath = path.resolve(path.join(baseDir, rel));
     if (!filePath.startsWith(base) || !existsSync(filePath) || statSync(filePath).isDirectory()) {
       return json(res, 404, { error: "not found" });
     }
@@ -1881,11 +2443,14 @@ export async function handle(req, res) {
   }
   const originalMatch = url.pathname.match(/^\/api\/jobs\/([0-9a-f-]+)\/original$/i);
   if (req.method === "GET" && originalMatch) {
-    // 原始上传 PDF 字节(阅读器"原文"视图用)
+    // 阅读器"原文"视图:启用了水印移除的任务优先使用无水印副本,与译文页保持一致
     const job = jobs.get(originalMatch[1]);
     if (!job || !existsSync(job.inputPath)) return json(res, 404, { error: "原文不存在" });
-    res.writeHead(200, { "content-type": "application/pdf", "content-length": statSync(job.inputPath).size, "cache-control": "no-store" });
-    createReadStream(job.inputPath).pipe(res);
+    const baseName = job.inputName || path.basename(job.inputPath || "");
+    const cleanedOriginal = path.join(path.dirname(job.inputPath || "."), "watermark-work", baseName);
+    const originalPath = existsSync(cleanedOriginal) ? cleanedOriginal : job.inputPath;
+    res.writeHead(200, { "content-type": "application/pdf", "content-length": statSync(originalPath).size, "cache-control": "no-store" });
+    createReadStream(originalPath).pipe(res);
     return;
   }
   if (req.method === "GET" && url.pathname === "/api/providers/models") {
@@ -1893,6 +2458,9 @@ export async function handle(req, res) {
     const apiKey = req.headers["x-api-key"] || "";
     const protocol = ["openai", "anthropic", "gemini"].includes(url.searchParams.get("protocol")) ? url.searchParams.get("protocol") : "openai";
     return json(res, 200, await providerModels(baseUrl, String(apiKey), protocol));
+  }
+  if (req.method === "GET" && url.pathname === "/api/providers/recommend") {
+    return modelRecommendRequest(req, res);
   }
   if (req.method === "POST" && url.pathname === "/api/providers/test") {
     const body = await readJsonBody(req);
@@ -1906,12 +2474,17 @@ export async function handle(req, res) {
   if (req.method === "POST" && url.pathname === "/api/estimate") {
     return json(res, 200, await estimateRequest(req));
   }
+  if (req.method === "POST" && url.pathname === "/api/watermark/scan") {
+    return json(res, 200, await watermarkScanRequest(req));
+  }
   if (req.method === "GET" && url.pathname === "/api/jobs") {
     const items = [...jobs.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map(publicJob);
     return json(res, 200, items);
   }
   if (req.method === "POST" && url.pathname === "/api/jobs") {
-    return json(res, 202, await createJob(req));
+    const result = await createJob(req);
+    if (result.duplicate) return json(res, 409, result.duplicate);
+    return json(res, 202, result.job);
   }
   const match = url.pathname.match(/^\/api\/jobs\/([0-9a-f-]+)$/i);
   if (req.method === "GET" && match) {
@@ -1962,11 +2535,39 @@ export async function handle(req, res) {
   if (req.method === "POST" && url.pathname === "/api/chat-multi") {
     return chatMulti(req, res);
   }
+  if (req.method === "POST" && url.pathname === "/api/glossaries/from-edits") {
+    return editsGlossaryRequest(req, res);
+  }
+  if (req.method === "POST" && url.pathname === "/api/compare-report") {
+    return compareReport(req, res);
+  }
   const apply = url.pathname.match(/^\/api\/jobs\/([0-9a-f-]+)\/apply-paragraph$/i);
   if (req.method === "POST" && apply) {
     const job = jobs.get(apply[1]);
     if (!job) return json(res, 404, { error: "任务不存在" });
     return applyParagraph(req, res, job);
+  }
+  const retransPage = url.pathname.match(/^\/api\/jobs\/([0-9a-f-]+)\/retranslate-page$/i);
+  if (req.method === "POST" && retransPage) {
+    const job = jobs.get(retransPage[1]);
+    if (!job) return json(res, 404, { error: "任务不存在" });
+    return retranslatePage(req, res, job);
+  }
+  const qualityReport = url.pathname.match(/^\/api\/jobs\/([0-9a-f-]+)\/quality-report$/i);
+  if (req.method === "GET" && qualityReport) {
+    const job = jobs.get(qualityReport[1]);
+    if (!job || job.status !== "completed") return json(res, 404, { error: "任务不存在或未完成" });
+    const reportPath = path.join(job.outputDir, "quality-report.html");
+    if (!existsSync(reportPath)) return json(res, 404, { error: "该任务没有质检报告" });
+    const body = await readFile(reportPath);
+    res.writeHead(200, { "content-type": "text/html; charset=utf-8", "content-length": body.length, "cache-control": "no-store" });
+    return res.end(body);
+  }
+  const figText = url.pathname.match(/^\/api\/jobs\/([0-9a-f-]+)\/figure-text$/i);
+  if (req.method === "POST" && figText) {
+    const job = jobs.get(figText[1]);
+    if (!job) return json(res, 404, { error: "任务不存在" });
+    return figureTextTranslate(req, res, job);
   }
   const retrans = url.pathname.match(/^\/api\/jobs\/([0-9a-f-]+)\/retranslate$/i);
   if (req.method === "POST" && retrans) {
@@ -1986,13 +2587,64 @@ export async function handle(req, res) {
     if (!job) return json(res, 404, { error: "任务不存在" });
     return serveResult(res, job, decodeURIComponent(result[2]), url.searchParams.get("inline") === "1");
   }
+  const mdExport = url.pathname.match(/^\/api\/jobs\/([0-9a-f-]+)\/export\/markdown$/i);
+  if (req.method === "GET" && mdExport) {
+    const job = jobs.get(mdExport[1]);
+    if (!job || job.status !== "completed") return json(res, 404, { error: "任务不存在或未完成" });
+    let pairsPages = [];
+    let edits = {};
+    try {
+      pairsPages = (JSON.parse(await readFile(path.join(job.outputDir, "paragraphs.json"), "utf8"))).pages || [];
+    } catch {
+      return json(res, 409, { error: "该任务没有逐段对照数据（较早版本生成的任务，重试一次即可生成）" });
+    }
+    try {
+      edits = JSON.parse(await readFile(path.join(job.outputDir, "edits.json"), "utf8"));
+    } catch {}
+    applyEditsToPairs(pairsPages, edits);
+    const mode = ["zh", "en", "both"].includes(url.searchParams.get("mode")) ? url.searchParams.get("mode") : "zh";
+    const title = (job.fileName || "译文").replace(/\.pdf$/i, "");
+    const markdown = buildMarkdownExport(pairsPages, mode, title);
+    const body = Buffer.from(`\uFEFF${markdown}`, "utf8");
+    res.writeHead(200, {
+      "content-type": "text/markdown; charset=utf-8",
+      "content-length": body.length,
+      "content-disposition": `attachment; filename*=UTF-8''${encodeURIComponent(title + (mode === "both" ? "-双语.md" : "-译文.md"))}`,
+      "cache-control": "no-store",
+    });
+    return res.end(body);
+  }
+  const editsCsv = url.pathname.match(/^\/api\/jobs\/([0-9a-f-]+)\/export\/edits-csv$/i);
+  if (req.method === "GET" && editsCsv) {
+    const job = jobs.get(editsCsv[1]);
+    if (!job || job.status !== "completed") return json(res, 404, { error: "任务不存在或未完成" });
+    let pairsPages = [];
+    let edits = {};
+    try {
+      pairsPages = (JSON.parse(await readFile(path.join(job.outputDir, "paragraphs.json"), "utf8"))).pages || [];
+    } catch {}
+    try {
+      edits = JSON.parse(await readFile(path.join(job.outputDir, "edits.json"), "utf8"));
+    } catch {}
+    const csv = buildEditsCsv(pairsPages, edits);
+    if (!csv.split("\n")[1]) return json(res, 409, { error: "该任务还没有人工校对记录" });
+    const title = (job.fileName || "译文").replace(/\.pdf$/i, "");
+    const body = Buffer.from(`\uFEFF${csv}`, "utf8");
+    res.writeHead(200, {
+      "content-type": "text/csv; charset=utf-8",
+      "content-length": body.length,
+      "content-disposition": `attachment; filename*=UTF-8''${encodeURIComponent(title + "-校对记录.csv")}`,
+      "cache-control": "no-store",
+    });
+    return res.end(body);
+  }
   const pageImg = url.pathname.match(/^\/api\/jobs\/([0-9a-f-]+)\/page-image\/(input-page\.png|output-page\.png)$/i);
   if (req.method === "GET" && pageImg) {
     const job = jobs.get(pageImg[1]);
     if (!job) return json(res, 404, { error: "任务不存在" });
     return servePageImage(res, job, pageImg[2]);
   }
-  const figImg = url.pathname.match(/^\/api\/jobs\/([0-9a-f-]+)\/figure\/(fig-\d+\.png)$/i);
+  const figImg = url.pathname.match(/^\/api\/jobs\/([0-9a-f-]+)\/figure\/(fig-(?:t)?\d+\.png)$/i);
   if (req.method === "GET" && figImg) {
     const job = jobs.get(figImg[1]);
     if (!job) return json(res, 404, { error: "任务不存在" });
@@ -2016,6 +2668,14 @@ export async function handle(req, res) {
     const body = await readJsonBody(req).catch(() => ({}));
     return buildRevisedPdf(res, job, body);
   }
+  const glossaryEntriesMatch = url.pathname.match(/^\/api\/glossaries\/([^/]+)\/entries$/i);
+  if (req.method === "GET" && glossaryEntriesMatch) {
+    return glossaryEntryRequest(req, res, decodeURIComponent(glossaryEntriesMatch[1]));
+  }
+  const glossaryEntryMatch = url.pathname.match(/^\/api\/glossaries\/([^/]+)\/entry$/i);
+  if (req.method === "DELETE" && glossaryEntryMatch) {
+    return glossaryEntryRequest(req, res, decodeURIComponent(glossaryEntryMatch[1]));
+  }
   const glossaryMatch = url.pathname.match(/^\/api\/glossaries(?:\/([^/]+))?$/i);
   if (glossaryMatch && ["GET", "POST", "DELETE"].includes(req.method)) {
     return glossaryLibraryRequest(req, res, glossaryMatch[1]);
@@ -2023,7 +2683,7 @@ export async function handle(req, res) {
   return json(res, 404, { error: "页面不存在" });
 }
 
-export async function startServer() {
+export async function startServer(retries = 30) {
   await loadJobs();
   const server = createServer((req, res) => {
     handle(req, res).catch((error) => {
@@ -2032,21 +2692,130 @@ export async function startServer() {
       else res.destroy();
     });
   });
-  return new Promise((resolve, reject) => {
-    server.once("error", (error) => {
-      if (error.code === "EADDRINUSE") {
-        console.error(`端口 ${PORT} 已被其他程序占用。请关闭占用程序，或用其他端口启动：YIYE_PORT=4174 npm start`);
-        reject(error);
-      } else reject(error);
+  // 自动重载的自愈:旧进程退出(退出码 75)与新进程绑端口之间存在时间窗,
+  // EADDRINUSE 时等待重试而不是直接崩掉 —— 监督脚本只认 75 退出码,
+  // 一旦以其他码退出服务就会永久停摆,这正是"又打不开"的根因
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      await new Promise((resolve, reject) => {
+        const onError = (error) => { cleanup(); reject(error); };
+        const cleanup = () => server.removeListener("error", onError);
+        server.once("error", onError);
+        server.listen(PORT, HOST, () => { cleanup(); resolve(); });
+      });
+      break;
+    } catch (error) {
+      if (error.code !== "EADDRINUSE" || attempt > retries) {
+        console.error(`端口 ${PORT} 被其他程序占用。请关闭占用程序，或用其他端口启动：YIYE_PORT=4174 npm start`);
+        throw error;
+      }
+      console.log(`端口 ${PORT} 暂被占用（上一进程尚未完全退出），1 秒后重试（${attempt}/${retries}）…`);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  }
+  server.on("error", (error) => console.error("服务器运行错误：", error));
+  console.log(`译页已启动：http://${HOST}:${PORT}`);
+  if (!jobs.size) console.log("首次使用请先运行：uv sync");
+  return server;
+}
+
+// 进程启动标识:前端据此发现服务已重载并自动刷新页面
+const BOOT_ID = randomUUID();
+
+// 自动重载:监视服务端源文件,变更且无进行中任务时以退出码 75 优雅退出,
+// 由启动脚本(启动.bat 的监督循环)自动重启;有进行中任务则推迟到任务完成。
+const RESTART_EXIT_CODE = 75;
+let restartPending = false;
+let restartTimer = null;
+let runningServerRef = null;
+
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+  const runningServer = await startServer();
+  setupAutoReload(runningServer);
+}
+
+
+export function setupAutoReload(server) {
+  if (process.env.YIYE_AUTO_RELOAD === "off") return;
+  runningServerRef = server;
+  const serverFile = path.basename(SERVER_FILE);
+  const dir = path.dirname(SERVER_FILE);
+  let fsWatcher = null;
+  try {
+    fsWatcher = watch(dir, (event, filename) => {
+      // Windows 下目录事件的大小写/短文件名不保证一致,按不区分大小写比较
+      if (filename && filename.toLowerCase() !== serverFile.toLowerCase()) return;
+      if (restartTimer) return;
+      restartTimer = setTimeout(() => {
+        restartTimer = null;
+        if (!isRuntimeStale()) return;
+        scheduleRestart();
+      }, 600);
     });
-    server.listen(PORT, HOST, () => {
-      console.log(`译页已启动：http://${HOST}:${PORT}`);
-      if (!jobs.size) console.log("首次使用请先运行：uv sync");
-      resolve(server);
-    });
+  } catch (error) {
+    console.warn(`自动重载监视启动失败：${error.message}`);
+    return;
+  }
+  // 兜底:Windows 下 fs.watch 句柄可能静默失聪(实测出现过),
+  // 定时核对 mtime,确保文件变更最终总能触发重载(与 watcher 双保险)
+  const poller = setInterval(() => {
+    if (isRuntimeStale()) scheduleRestart();
+  }, 10_000);
+  poller.unref();
+  server.on("close", () => {
+    clearInterval(poller);
+    fsWatcher?.close();
   });
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
-  await startServer();
+// 重启前对新代码做语法预检:编辑器半保存/临时错误会让新进程起不来,
+// 而监督脚本只认 75 退出码,非 75 崩溃后服务会永久停摆。
+// 预检不过就保持旧进程继续服务,后续保存会再次触发重试。
+function runSyntaxCheck(onOk) {
+  const check = spawn(process.execPath, ["--check", SERVER_FILE], { windowsHide: true });
+  let settled = false;
+  const fail = () => {
+    if (settled) return;
+    settled = true;
+    restartPending = false;
+    console.warn("检测到服务端更新，但新代码语法预检未通过，暂不自动重启；修复保存后将自动重试");
+  };
+  check.once("error", fail);
+  check.once("close", (code) => {
+    if (settled) return;
+    settled = true;
+    if (code !== 0) return fail();
+    onOk();
+  });
+}
+
+function scheduleRestart() {
+  if (restartPending) return;
+  restartPending = true;
+  runSyntaxCheck(() => {
+    if (active) {
+      console.log("检测到服务端更新，将在当前任务完成后自动重载…");
+      // 轮询等待当前任务(及队列)完成;队列排空后由下方检查触发重载
+      const waiter = setInterval(() => {
+        if (!restartPending || active) return;
+        clearInterval(waiter);
+        // 等待期间文件可能又被改坏,重启前再预检一次
+        runSyntaxCheck(() => {
+          console.log("检测到服务端更新，正在自动重载服务…");
+          gracefulRestart();
+        });
+      }, 1500);
+      return;
+    }
+    console.log("检测到服务端更新，正在自动重载服务…");
+    gracefulRestart();
+  });
+}
+
+function gracefulRestart() {
+  if (!runningServerRef) { process.exit(RESTART_EXIT_CODE); }
+  console.log("服务端自动重载：等待连接排空…");
+  const force = setTimeout(() => process.exit(RESTART_EXIT_CODE), 3000);
+  force.unref();
+  runningServerRef.close(() => process.exit(RESTART_EXIT_CODE));
 }

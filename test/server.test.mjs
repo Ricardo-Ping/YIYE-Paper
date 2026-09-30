@@ -1,11 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applyThinkingToUpstream, auditCitations, countGlossaryEntries, isPdf, parseBabeldocProgress, parseGlossaryCsv, parseHttpUrl, sanitizeFileName, sanitizeGlossaryName, validateConfig, validatePages } from "../server.mjs";
+import { applyThinkingToUpstream, auditCitations, countGlossaryEntries, isPdf, isRuntimeStale, parseBabeldocProgress, parseGlossaryCsv, parseHttpUrl, sanitizeFileName, sanitizeGlossaryName, validateConfig, validatePages } from "../server.mjs";
 
 test("PDF trust-boundary validation", () => {
   assert.equal(isPdf(Buffer.from("%PDF-1.7\n")), true);
   assert.equal(isPdf(Buffer.from("not a pdf")), false);
   assert.equal(sanitizeFileName("../bad:name.pdf"), "bad_name.pdf");
+});
+
+test("runtime staleness detects server source changes", () => {
+  assert.equal(isRuntimeStale(), false);
+  assert.equal(isRuntimeStale(-1), true);
 });
 
 test("provider defaults and limits", () => {
@@ -27,9 +32,97 @@ test("provider defaults and limits", () => {
   assert.equal(validateConfig({ maxPagesPerPart: "abc" }).maxPagesPerPart, 0);
   assert.equal(validateConfig({ target: "zh-TW" }).target, "zh-TW");
   assert.equal(validateConfig({ output: "alternate" }).output, "dual");
-  assert.throws(() => validateConfig({ dualLayout: "alternating" }), /页码映射/);
+  // 交替页布局已完成质检与页码映射适配,允许提交
+  assert.equal(validateConfig({ dualLayout: "alternating" }).dualLayout, "alternating");
   // 本地服务一律走 OpenAI 兼容协议
   assert.equal(validateConfig({ provider: "ollama", protocol: "anthropic" }).protocol, "openai");
+  // 水印移除:只保留"用户勾选确认"的文本,非字符串/过短/超长一律丢弃
+  const wm = validateConfig({
+    watermarkSuspects: [
+      { text: "  CONFIDENTIAL INTERNAL  " },
+      { text: "ab" },
+      { text: 42 },
+      null,
+      { text: "x".repeat(300) },
+    ],
+  });
+  assert.deepEqual(wm.watermarkSuspects, [{ text: "CONFIDENTIAL INTERNAL" }]);
+  assert.equal(validateConfig({ watermarkSuspects: "hack" }).watermarkSuspects.length, 0);
+  assert.equal(validateConfig({}).watermarkSuspects.length, 0);
+});
+
+test("markdown export builder covers zh/en/both and keeps untranslated pages", async () => {
+  const { buildMarkdownExport } = await import("../server.mjs");
+  const pages = [
+    { page: 1, translated: true, pairs: [{ en: "SQL query rewriting aims high.", zh: "SQL 查询重写目标远大。" }, { en: "Only English here.", zh: "" }] },
+    { page: 2, translated: false, pairs: [{ en: "Kept as original.", zh: "Kept as original." }] },
+  ];
+  const zh = buildMarkdownExport(pages, "zh", "论文A");
+  assert.match(zh, /# 论文A/);
+  assert.match(zh, /## 第 1 页/);
+  assert.match(zh, /SQL 查询重写目标远大。/);
+  assert.match(zh, /> Only English here\./); // 无译文段落回退原文
+  assert.match(zh, /## 第 2 页（未翻译 · 保留原文）/)
+  const both = buildMarkdownExport(pages, "both", "论文A");
+  assert.match(both, /（双语对照）/);
+  assert.match(both, /> SQL query rewriting aims high\./);
+  const en = buildMarkdownExport(pages, "en", "论文A");
+  assert.doesNotMatch(en, /查询重写目标远大/);
+});
+
+test("edits merge into export pairs and edits CSV lists only proofread rows", async () => {
+  const { applyEditsToPairs, buildEditsCsv } = await import("../server.mjs");
+  const pages = [
+    { page: 1, translated: true, pairs: [{ en: "First paragraph.", zh: "原译文一。" }, { en: "Second paragraph.", zh: "原译文二。" }] },
+  ];
+  const edits = { "1:0": { text: "校对后的一。" }, "1:1": { text: "   " } };
+  applyEditsToPairs(pages, edits);
+  assert.equal(pages[0].pairs[0].zh, "校对后的一。");
+  assert.equal(pages[0].pairs[1].zh, "原译文二。"); // 空白校对不生效
+  const csv = buildEditsCsv(pages, edits);
+  const rows = csv.split("\n");
+  assert.equal(rows.length, 2); // 表头 + 仅一条有效校对
+  assert.match(csv, /"First paragraph\."/, "原文列");
+  assert.match(csv, /"校对后的一。"/, "校对后译文列");
+  // 空校对 → 只有表头
+  assert.equal(buildEditsCsv(pages, {}).split("\n").length, 1);
+});
+
+test("term pair extraction tolerates table/list formats and dedupes", async () => {
+  const { extractTermPairsFromText, mergeGlossaryEntries, glossaryEntriesFromText, removeGlossaryEntry } = await import("../server.mjs");
+  // 术语库条目解析与单条删除
+  const library = "source,target\nGRPO,组相对策略优化\nTPC-H,TPC-H\n\"A,B\"行,\"含,逗号\"";
+  const entries = glossaryEntriesFromText(library);
+  assert.equal(entries.length, 3);
+  const removed = removeGlossaryEntry(library, "GRPO");
+  assert.equal(removed.removed, true);
+  assert.ok(!removed.text.includes("组相对策略优化"));
+  assert.match(removed.text, /TPC-H,TPC-H/);
+  assert.equal(removeGlossaryEntry(library, "不存在").removed, false);
+  const text = [
+    "英文术语,中文译名",
+    "| E3-Rewrite | E3重写框架 |",
+    "- QueryBooster, 查询加速器",
+    "1. GRPO\t组相对策略优化",
+    "| --- | --- |",
+    "| E3-Rewrite | E3重写框架 |", // 重复跳过
+    "| only |", // 缺译文跳过
+    "| TPC-H | TPC-H |", // 恒等对保留(钉住术语保持英文)
+  ].join("\n");
+  const pairs = extractTermPairsFromText(text);
+  assert.deepEqual(pairs, [
+    { source: "E3-Rewrite", target: "E3重写框架" },
+    { source: "QueryBooster", target: "查询加速器" },
+    { source: "GRPO", target: "组相对策略优化" },
+    { source: "TPC-H", target: "TPC-H" },
+  ]);
+  // 合并:库内已有同名词跳过,新增计数正确;含逗号的值加引号;恒等对正常入库
+  const { text: merged, added } = mergeGlossaryEntries("source,target\nGRPO,已有译法", pairs);
+  assert.match(merged, /^source,target\n/);
+  assert.match(merged, /GRPO,已有译法/);           // 已有 → 不覆盖
+  assert.match(merged, /E3-Rewrite,E3重写框架/);
+  assert.match(merged, /TPC-H,TPC-H/);
+  assert.equal(added, 3);
 });
 
 test("glossary term filtering for retranslation", async () => {
@@ -88,7 +181,7 @@ test("glossary entry counting", () => {
 });
 
 test("babeldoc progress bar parsing", () => {
-  // 真实日志样例:分数式进度条
+  // 真实日志样例:分数式进度条(rich ASCII 回退,如今是 tqdm 补丁未生效时的兜底)
   const translate = parseBabeldocProgress("Translate Paragraphs (1/1)                                     ----- 12/45   0:03… 0:00:12");
   assert.equal(translate.stage, "Translate Paragraphs");
   assert.equal(translate.current, 12);
@@ -99,6 +192,34 @@ test("babeldoc progress bar parsing", () => {
   assert.equal(save.total, 2);
   assert.equal(parseBabeldocProgress("INFO     INFO:babeldoc.main:Total tokens: 60"), null);
   assert.equal(parseBabeldocProgress("YIYE_QUALITY: {\"ok\":true}"), null);
+});
+
+test("babeldoc tqdm progress frames carry engine overall percentage", () => {
+  // 真实日志样例:tqdm 分支帧(引擎按阶段权重算好的整体百分比在 bar 段)
+  const running = parseBabeldocProgress("Translate Paragraphs (12/45):  45%|████▌     | 45.271481/100 [00:52<00:31,  1.01s/it]");
+  assert.equal(running.stage, "Translate Paragraphs");
+  assert.equal(running.current, 12);
+  assert.equal(running.total, 45);
+  assert.ok(Math.abs(running.overall - 45.271481) < 1e-6);
+  const complete = parseBabeldocProgress("Translate Paragraphs (Complete):  69%|██████▊   | 68.67115148114051/100 [00:52<00:31,  1.01s/it]");
+  assert.equal(complete.stage, "Translate Paragraphs");
+  assert.equal(complete.current, null);
+  assert.equal(complete.total, null);
+  assert.ok(Math.abs(complete.overall - 68.67115148114051) < 1e-9);
+  const fonts = parseBabeldocProgress("Add Fonts (1/218):  92%|█████████▏| 92.44177677675557/100 [00:57<00:02,  3.48it/s]");
+  assert.equal(fonts.stage, "Add Fonts");
+  assert.equal(fonts.current, 1);
+  assert.equal(fonts.total, 218);
+  const initial = parseBabeldocProgress("translate:   0%|          | 0/100 [00:00<?, ?it/s]");
+  assert.equal(initial.stage, "translate");
+  assert.equal(initial.overall, 0);
+});
+
+test("model download tqdm bars are not mistaken for translation progress", () => {
+  // 下载条的 desc 含文件名(带点号)、分母不是 100,都不能入账为翻译进度
+  assert.equal(parseBabeldocProgress("model.safetensors:  33%|███▌     | 0.87G/2.6G [00:10<00:20, 100MB/s]"), null);
+  assert.equal(parseBabeldocProgress("config.json: 100%|██████| 631/631 [00:00<00:00, 1.20MB/s]"), null);
+  assert.equal(parseBabeldocProgress(" 45%|████▌     | 45/100 [00:52<00:31,  1.01s/it]"), null);
 });
 
 test("thinking config maps to upstream protocols", () => {

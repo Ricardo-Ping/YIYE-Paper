@@ -16,7 +16,7 @@ node_modules/
 *.tmp
 test/.inline-check.mjs
 .playwright-cli/
-output/playwright/
+output/
 _script0.js
 dbg.tmp.json
 

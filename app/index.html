@@ -150,11 +150,9 @@
     .settings-drawer .glossary-body { font-size: 14px; }
     .settings-drawer .glossary-head { font-size: 12px; }
     .settings-drawer .link-btn { font-size: 13px; }
-    .settings-drawer .keep-toggle { font-size: 13px; }
-    .settings-drawer .provider-tools .test-result { font-size: 14px; }
-    .settings-drawer .settings-section-title { font-size: 13px; }
     .settings-drawer .keep-toggle { font-size: 11px; }
     .settings-drawer .provider-tools .test-result { font-size: 12px; }
+    .settings-drawer .settings-section-title { font-size: 13px; }
     .drawer-backdrop { display: none; position: fixed; inset: 0; z-index: 30; background: rgba(2, 6, 14, .88); overscroll-behavior: contain; }
     body.modal-open { overflow: hidden; }
     .drawer-backdrop.open { display: block; }
@@ -216,6 +214,9 @@
     .run-row .primary { width: 100%; padding: 14px; }
     .preview { min-width: 0; position: sticky; top: 28px; }
     .preview-badge { padding: 7px 10px; border-radius: 999px; color: #07131e; background: var(--mint); font-size: 10px; font-weight: 900; }
+    .preview-actions { display: inline-flex; gap: 6px; margin-right: 8px; }
+    .preview-actions .ghost.small { font-size: 11px; padding: 5px 10px; }
+    .preview-actions .ghost.small:disabled { opacity: .45; cursor: not-allowed; }
     .preview-canvas { display: grid; place-items: center; min-height: 530px; padding: 14px; background: radial-gradient(circle at 50% 35%,rgba(83,127,242,.13),transparent 50%),rgba(2,8,18,.25); }
     .pages { width: 100%; }
     .paper { position: relative; min-height: 390px; padding: 18px; color: #20302b; border-radius: 2px; background: #f8f7f1; box-shadow: 0 18px 46px rgba(0,0,0,.28); }
@@ -315,6 +316,12 @@
     .watermark-row { margin-top: 6px; color: #b8c4d4; font-size: 12px; line-height: 1.55; }
     .watermark-row a { margin-left: 5px; color: var(--blue); text-decoration: none; }
     .watermark-help { margin-top: 7px; color: #718098; font-size: 11px; }
+    .watermark-suspect { display: flex; align-items: flex-start; gap: 8px; margin-top: 8px; padding: 8px 10px; border: 1px solid rgba(232,202,147,.2); border-radius: 9px; background: rgba(2,8,18,.25); cursor: pointer; }
+    .watermark-suspect input { margin-top: 2px; accent-color: var(--mint); flex: 0 0 auto; }
+    .watermark-suspect .wm-text { flex: 1; min-width: 0; color: #dce7f7; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+    .watermark-suspect .wm-pages { display: block; margin-top: 3px; color: #718098; font-size: 11px; }
+    .watermark-suspect.unchecked .wm-text { color: #718098; text-decoration: line-through; }
+    .watermark-file-head { margin-top: 10px; color: #9fb2c9; font-size: 12px; font-weight: 700; }
     .rp-sent { cursor: pointer; border-bottom: 1px dotted rgba(114,223,202,.45); }
     .rp-sent:hover { background: rgba(114,223,202,.14); color: #eaf6f2; }
     .rp-sent-mode { display: inline-flex; align-items: center; gap: 5px; color: #9fb2c9; font-size: 11px; cursor: pointer; }
@@ -336,6 +343,18 @@
     .reader-toolbar-left strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
     .reader-toolbar-group { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
     .reader-page-input { width: 52px; padding: 5px 6px; border: 1px solid var(--line); border-radius: 8px; background: rgba(2,8,18,.35); color: var(--text); text-align: center; font-size: 12px; }
+    .reader-search { display: flex; align-items: center; gap: 5px; }
+    .reader-search input { width: 150px; padding: 5px 9px; border: 1px solid var(--line); border-radius: 8px; background: rgba(2,8,18,.35); color: var(--text); font-size: 12px; }
+    .reader-search .reader-search-count { color: #718098; font-size: 11px; min-width: 44px; text-align: center; }
+    .rs-search-hit { outline: 2px solid rgba(114,223,202,.7); border-radius: 6px; }
+    .rs-toc-item { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 5px 8px; border-radius: 7px; color: #b8c4d4; font-size: 12px; line-height: 1.5; }
+    .rs-toc-item.level-1 { color: #eaf6f2; font-weight: 800; margin-top: 6px; }
+    .rs-toc-item.level-2 { padding-left: 18px; }
+    .rs-toc-item.level-3, .rs-toc-item.level-4 { padding-left: 32px; color: #94a5ba; }
+    .rs-toc-click { cursor: pointer; }
+    .rs-toc-click:hover { background: rgba(114,223,202,.1); color: #eaf6f2; }
+    .rs-toc-page { flex: 0 0 auto; color: #718098; font-size: 11px; }
+    .rs-zh mark, .rs-en mark { background: rgba(114,223,202,.35); color: inherit; padding: 0 1px; border-radius: 2px; }
     .reader-total { color: #718098; font-size: 12px; }
     .reader-zoom-val { min-width: 44px; text-align: center; color: #9fb2c9; font-size: 11px; }
     .reader-split { flex: 1; display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr); gap: 12px; padding: 12px 16px; min-height: 0; }
@@ -368,6 +387,75 @@
     .rp-compare { display: inline-flex; align-items: center; gap: 5px; }
     .rp-compare-input { width: 130px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; background: rgba(2,8,18,.35); color: var(--text); font-size: 11px; }
     .aichat-body { padding: 16px 20px 18px; display: grid; gap: 12px; }
+    .assistant-tabs { display: flex; gap: 6px; padding: 10px 20px 0; border-bottom: 1px solid var(--line); flex: 0 0 auto; }
+    .assistant-tab { padding: 7px 14px; border: 1px solid transparent; border-bottom: none; border-radius: 10px 10px 0 0; color: #8492a8; background: transparent; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; flex: 0 0 auto; }
+    .assistant-tab.selected { color: #06131e; background: var(--mint); }
+    .assistant-tool { display: flex; flex-direction: column; min-height: 220px; }
+    .assistant-job-row { display: flex; align-items: center; gap: 10px; color: #9fb2c9; font-size: 12px; flex: 0 0 auto; }
+    .assistant-job-select { flex: 1; min-width: 0; padding: 7px 10px; border: 1px solid var(--line); border-radius: 10px; background: rgba(2,8,18,.35); color: var(--text); font-size: 12px; }
+    .assistant-tool-body { flex: 1; min-height: 0; overflow: auto; margin-top: 10px; display: grid; gap: 10px; align-content: start; }
+    .assistant-dialog .assistant-tool .chat-panel { margin: 0; }
+    .assistant-dialog.expanded .assistant-tool-body { max-height: none; }
+    /* ── 论文助手字号整体放大:标题/标签页/问答/思维导图/图表速读/逐段对照统一到舒适阅读尺寸 ── */
+    .assistant-dialog .panel-head strong { font-size: 20px; }
+    .assistant-dialog .panel-head small { font-size: 14px; }
+    .assistant-dialog .preview-badge { font-size: 13px; padding: 8px 13px; }
+    .assistant-dialog .ghost.small { font-size: 13px; padding: 9px 13px; }
+    .assistant-dialog .assistant-tab { font-size: 15px; padding: 9px 18px; }
+    .assistant-dialog .aichat-docs-row { font-size: 14px; }
+    .assistant-dialog .aichat-docs-label { font-size: 14px; }
+    .assistant-dialog .multichat-doc { font-size: 14px; max-width: 280px; }
+    .assistant-dialog .chat-hint { font-size: 14px; }
+    .assistant-dialog .chat-msg { font-size: 15px; line-height: 1.7; }
+    .assistant-dialog .chat-msg.user span { padding: 8px 12px; border-radius: 10px; }
+    .assistant-dialog .chat-cite { font-size: 14px; }
+    .assistant-dialog .chat-quick { gap: 8px; }
+    .assistant-dialog .chat-quick-btn { font-size: 13px; padding: 6px 13px; }
+    .assistant-dialog .chat-input { font-size: 15px; padding: 11px 13px; }
+    .assistant-dialog .chat-input-row button { font-size: 14px; padding: 10px 16px; }
+    .assistant-dialog .assistant-job-row { font-size: 14px; }
+    .assistant-dialog .assistant-job-select { font-size: 14px; padding: 8px 11px; }
+    .assistant-dialog .link-btn { font-size: 12px; }
+    .assistant-dialog .mm-meta { font-size: 13px; }
+    .assistant-dialog .fig-head { font-size: 15px; }
+    .assistant-dialog .fig-head span { font-size: 13px; }
+    .assistant-dialog .fig-translated { font-size: 14px; }
+    .assistant-dialog .fig-original { font-size: 13px; }
+    .assistant-dialog .rp-toolbar { font-size: 13px; }
+    .assistant-dialog .rp-toolbar .link-btn { font-size: 12px; }
+    .assistant-dialog .rp-sent-mode { font-size: 13px; }
+    .assistant-dialog .keep-view { font-size: 13px; }
+    .assistant-dialog .rp-granularity { font-size: 13px; padding: 4px 8px; }
+    .assistant-dialog .rp-compare-input { font-size: 13px; padding: 5px 9px; width: 150px; }
+    .assistant-dialog .rp-page { font-size: 14px; }
+    .assistant-dialog .rp-untranslated { font-size: 12px; }
+    .assistant-dialog .rp-en { font-size: 14px; line-height: 1.6; }
+    .assistant-dialog .rp-zh { font-size: 16px; }
+    .assistant-dialog .rp-pair-tag { font-size: 11px; }
+    .assistant-dialog .rp-pair-head .link-btn { font-size: 12px; }
+    .assistant-dialog .rp-edit-area { font-size: 14px; }
+    /* 多文档对比报告 */
+    .compare-report { border: 1px solid rgba(114,223,202,.3); border-radius: 12px; background: rgba(114,223,202,.05); padding: 14px 16px; }
+    .compare-report-head { display: flex; align-items: center; gap: 10px; color: var(--mint); font-size: 14px; font-weight: 800; }
+    .compare-report-head .keep-view { margin-left: auto; }
+    .compare-report-body { margin: 10px 0 0; max-height: 460px; overflow: auto; font-size: 14px; line-height: 1.75; color: #dce7f7; }
+    .compare-report-body .report-h { margin: 14px 0 6px; color: var(--mint); font-weight: 800; font-size: 15px; }
+    .compare-report-body p { margin: 6px 0; }
+    .compare-report-body ul { margin: 6px 0; padding-left: 20px; }
+    .compare-report-body li { margin: 3px 0; }
+    .compare-report-body .report-table { border-collapse: collapse; margin: 8px 0; width: 100%; }
+    .compare-report-body .report-table td { border: 1px solid rgba(114,223,202,.25); padding: 5px 9px; vertical-align: top; }
+    .compare-report-body code { color: #9fd8cc; background: rgba(114,223,202,.08); padding: 1px 4px; border-radius: 4px; }
+    .compare-report-body strong { color: #eaf6f2; }
+    /* 窄屏适配:助手全屏、阅读器上下堆叠 */
+    @media (max-width: 768px) {
+      dialog.assistant-dialog { width: 100vw; height: 100dvh; max-height: 100dvh; border-radius: 0; inset: 0; }
+      .assistant-tabs { padding: 8px 12px 0; overflow-x: auto; }
+      .assistant-dialog .aichat-body { padding: 12px; }
+      .reader-split { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1.2fr) minmax(0, 1fr); overflow: auto; }
+      .chat-input-row { flex-direction: column; }
+      .chat-input-row button { width: 100%; }
+    }
     .aichat-docs-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; color: #9fb2c9; font-size: 12px; }
     .aichat-docs-label { flex: 0 0 auto; }
     .aichat-docs { display: flex; flex-wrap: wrap; gap: 6px 10px; }
@@ -380,10 +468,6 @@
     .rp-figref:hover { color: #fff; border-bottom-color: #fff; }
     .fig-row.fig-flash, .rs-fig.fig-flash { animation: fig-flash 1.6s ease; }
     @keyframes fig-flash { 0%, 60% { background: rgba(114,223,202,.16); outline: 1px solid rgba(114,223,202,.5); } 100% { background: transparent; } }
-    .mm-body { display: grid; gap: 2px; }
-    .mm-node { font-size: 12px; line-height: 1.7; color: #b8c4d4; border-left: 2px solid rgba(114,223,202,.25); }
-    .mm-node:first-child { color: #dce7f7; font-weight: 800; border-left-color: transparent; }
-    .mm-meta { margin-top: 8px; color: #718098; font-size: 11px; }
     .fig-panel { display: grid; gap: 10px; max-height: 320px; overflow: auto; }
     .fig-row { border-bottom: 1px solid rgba(255,255,255,.06); padding-bottom: 8px; }
     .fig-img { display: block; max-width: 100%; max-height: 220px; margin: 0 auto 8px; border-radius: 6px; background: #f8f7f1; }
@@ -394,6 +478,13 @@
     .fig-head strong { color: var(--mint); }
     .fig-head span { color: #718098; font-size: 11px; }
     .fig-head .keep-view { margin-left: auto; }
+    .fig-inner { margin-top: 10px; border: 1px solid rgba(114,223,202,.22); border-radius: 10px; background: rgba(2,8,18,.3); }
+    .fig-inner-head { display: flex; align-items: center; justify-content: space-between; padding: 7px 12px; border-bottom: 1px solid rgba(114,223,202,.15); color: #9fd8cc; font-size: 12px; font-weight: 700; }
+    .fig-inner-done { color: #7dd8b0; font-size: 12px; }
+    .fig-inner-zh { padding: 10px 12px; font-size: 14px; line-height: 1.8; color: #eaf6f2; white-space: pre-wrap; }
+    .fig-inner-lines { max-height: 150px; overflow: auto; padding: 8px 12px; border-top: 1px dashed rgba(255,255,255,.08); }
+    .fig-inner-line { font-size: 12px; line-height: 1.7; color: #8b9bb1; }
+    .fig-inner-line:nth-child(even) { color: #7a8ba1; }
     .fig-translated { margin-top: 4px; font-size: 12px; line-height: 1.55; color: #b8c4d4; }
     .fig-translated.muted { color: #5b6a80; }
     .fig-original { margin-top: 2px; font-size: 11px; line-height: 1.5; color: #5b6a80; }
@@ -415,29 +506,46 @@
     .rp-pair-head .link-btn { font-size: 10px; font-weight: 700; letter-spacing: 0; }
     .rp-alt { margin-top: 5px; padding: 7px 10px; border-left: 2px solid rgba(114,223,202,.45); background: rgba(114,223,202,.05); font-size: 12px; line-height: 1.7; color: #cfe3dd; white-space: pre-wrap; }
     .rp-alt-label { display: block; margin-bottom: 3px; color: #718098; font-size: 10px; }
-    .rp-applied { color: var(--mint); font-size: 11px; font-weight: 800; }
-    .rp-applying { color: #718098; font-size: 11px; }
     .rp-alt .link-btn { font-size: 10px; font-weight: 700; letter-spacing: 0; }
-    .multichat-panel { margin: 12px 16px 0; padding: 12px 14px; border: 1px solid #2b3a4d; border-radius: 12px; background: #101b28; }
-    .multichat-panel[hidden] { display: none; }
-    .multichat-docs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-bottom: 10px; color: #9fb2c9; font-size: 12px; }
     .multichat-doc { display: inline-flex; align-items: center; gap: 5px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
     .multichat-doc input { accent-color: var(--mint); }
     .task-issues { margin-top: 10px; display: grid; gap: 4px; }
     .task-issue { color: #e8ca93; font-size: 12px; line-height: 1.5; }
-    .keep-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
     .keep-toggle { display: inline-flex; align-items: center; gap: 6px; color: #a9b6c9; font-size: 12px; }
     .keep-toggle input { accent-color: var(--mint); }
     .task-issue-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-    .keep-view { flex: 0 0 auto; color: var(--blue); font-size: 12px; font-weight: 800; text-decoration: none; }
+    /* 思维导图:水平树 + 连接线 + 折叠 + 拖拽/缩放 */
+    .mm2-panel { display: flex; flex-direction: column; }
+    .mm2-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; color: #718098; font-size: 12px; }
+    .mm2-tools { display: inline-flex; align-items: center; gap: 10px; }
+    .mm2-viewport { position: relative; overflow: hidden; min-height: 420px; height: 58vh; border: 1px solid rgba(114,223,202,.18); border-radius: 12px; background:
+      radial-gradient(rgba(114,223,202,.06) 1px, transparent 1.5px) 0 0 / 26px 26px, rgba(2,8,18,.3); cursor: grab; }
+    .mm2-viewport.dragging { cursor: grabbing; }
+    .mm2-tree { position: absolute; top: 0; left: 0; transform-origin: 0 0; display: flex; align-items: center; min-width: max-content; min-height: 100%; padding: 40px 60px; }
+    .mm2-branch { display: flex; align-items: center; }
+    .mm2-row { display: flex; align-items: center; gap: 6px; }
+    .mm2-pill { padding: 6px 12px; border-radius: 999px; font-size: 13px; line-height: 1.4; white-space: nowrap; max-width: 340px; overflow: hidden; text-overflow: ellipsis; }
+    .mm2-pill.has-kids { cursor: pointer; color: #eaf6f2; background: rgba(114,223,202,.14); border: 1px solid rgba(114,223,202,.45); font-weight: 700; }
+    .mm2-pill.leaf { color: #b8c4d4; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.12); }
+    .mm2-tree > .mm2-branch > .mm2-row > .mm2-pill.has-kids { font-size: 16px; background: rgba(114,223,202,.22); border-width: 2px; }
+    .mm2-badge { padding: 1px 7px; border-radius: 999px; color: #07131e; background: rgba(114,223,202,.6); font-size: 11px; font-weight: 800; cursor: pointer; }
+    .mm2-children { display: flex; flex-direction: column; justify-content: center; gap: 10px; margin-left: 14px; padding-left: 22px; position: relative; }
+    .mm2-children::before { content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 2px; background: rgba(114,223,202,.3); border-radius: 2px; }
+    .mm2-children > .mm2-branch { position: relative; }
+    .mm2-children > .mm2-branch::before { content: ""; position: absolute; left: -22px; top: 50%; width: 22px; height: 2px; background: rgba(114,223,202,.3); }
+    .mm2-children.collapsed { display: none; }
+    .mm-meta { margin-top: 8px; color: #718098; font-size: 11px; }
+    .tasks-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 20px 0; }
+    .task-filter-btn { padding: 5px 12px; border: 1px solid var(--line); border-radius: 999px; color: #8492a8; background: transparent; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .task-filter-btn.selected { color: #06131e; background: var(--mint); border-color: var(--mint); }
+    #tasks-search { flex: 1 1 140px; min-width: 120px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; background: rgba(2,8,18,.35); color: var(--text); font-size: 12px; }
+    .keep-view { flex: 0 0 auto; padding: 0; border: 0; background: none; cursor: pointer; color: var(--blue); font-size: 12px; font-weight: 800; text-decoration: none; }
     .keep-view:hover { text-decoration: underline; }
     .estimate-line { margin-top: 9px; color: #8fa0b8; font-size: 13px; line-height: 1.6; }
     .glossary-body .dd { flex: 1; min-width: 0; }
     .task-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
     .task-actions a, .task-actions button { padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; color: #bed0e9; background: transparent; text-decoration: none; font-size: 12px; font-weight: 800; }
     .task-actions a:hover, .task-actions button:hover { background: rgba(255,255,255,.06); }
-    .task-log { display: none; max-height: 150px; margin-top: 10px; padding: 10px 12px; overflow: auto; border-radius: 9px; color: #9fb2c9; background: rgba(0,0,0,.28); font: 12px/1.6 Consolas, monospace; white-space: pre-wrap; word-break: break-all; }
-    .task-log.open { display: block; }
     .setup-note { display: none; max-width: 1510px; margin: 18px auto -24px; padding: 12px 15px; border: 1px solid rgba(230,176,82,.2); border-radius: 12px; color: #e8ca93; background: rgba(230,176,82,.06); font-size: 12px; }
     .setup-note.visible { display: block; }
     code { color: #dce8ff; }
@@ -474,9 +582,6 @@
     .layout { grid-template-columns: minmax(210px,.34fr) minmax(850px,1.66fr); gap: 28px; }
     .workspace { grid-template-columns: minmax(380px,.8fr) minmax(440px,1.2fr); }
     .setting strong, .task-actions a, .task-actions button, .rp-zh { font-size: 14px; }
-    .setting small, .task-meta, .mm-node, .chat-hint { font-size: 13px; }
-    .mm-body { gap: 7px; padding: 8px; max-height: 65vh; overflow: auto; }
-    .mm-node { border-radius: 4px; background: rgba(114,223,202,.04); padding-top: 5px; padding-bottom: 5px; }
     #assistant-launcher { position: fixed; right: 26px; bottom: 24px; z-index: 20; display: flex; align-items: center; gap: 8px; padding: 10px 20px 10px 10px; border: 1px solid rgba(114,223,202,.5); border-radius: 24px; background: #102638; color: var(--mint); box-shadow: 0 12px 36px #0008; }
     #assistant-launcher svg { width: 58px; height: 58px; animation: robot-float 4s ease-in-out infinite; }
     #assistant-launcher span { text-align: left; font-size: 15px; font-weight: 800; }
@@ -517,6 +622,7 @@
       </div>
     </header>
     <div class="setup-note" id="setup-note">翻译引擎尚未安装。在项目目录运行 <code>uv sync</code>，完成后刷新页面。</div>
+    <div class="setup-note" id="stale-note">检测到服务端代码更新，服务正在自动重载…页面将在重载完成后自动刷新（如长时间未刷新，请重开 启动.bat）。</div>
 
     <main class="layout">
       <section class="intro">
@@ -563,7 +669,13 @@
                 <button class="mode" data-output="mono">中文译文</button>
                 <button class="mode selected" data-output="dual">左右对照</button>
               </div>
-              <input id="dual-layout" type="hidden" value="side">
+              <div class="field" id="dual-layout-field" hidden>
+                <label><span>对照版式</span><span>仅左右对照输出生效</span></label>
+                <select id="dual-layout" data-enhance>
+                  <option value="side">左右同页（同一页左原文右译文）</option>
+                  <option value="alternating">交替页（整页原文 + 整页译文交替）</option>
+                </select>
+              </div>
 
               <div class="content">
                 <div class="section-title"><span>内容处理</span><span>按需开启</span></div>
@@ -571,10 +683,12 @@
                 <div class="setting"><div><strong>翻译表格文字</strong><small>实验功能，默认关闭。简单表格效果尚可；合并单元格、嵌套表头、密集排版的复杂表格可能错位或丢内容，开启后请重点核对表格页。数字、单位和单元格结构会尽量保留</small></div><label class="toggle"><input id="table" type="checkbox"><span></span></label></div>
                 <div class="setting"><div><strong>翻译图中文字（实验）</strong><small>默认保留原图文字。仅尝试翻译引擎可识别的 PDF 图中文字层，不支持通用图片 OCR 与背景修复；可能影响图例与标签位置，开启后请人工核对。</small></div><label class="toggle"><input id="figure" type="checkbox"><span></span></label></div>
                 <div class="setting"><div><strong>数学公式与参考文献</strong><small>默认不翻译：公式由引擎按原样排版，参考文献条目保留英文原文，此行为由引擎保证，无需设置</small></div><span class="coming">默认不译</span></div>
-                <div class="setting disabled"><div><strong>处理源文件水印</strong><small>必须先完成检测、预览与权限确认</small></div><span class="coming">尚未开放</span></div>
+                <div class="setting"><div><strong>处理源文件水印</strong><small id="watermark-hint">选好 PDF 后点"检测水印"：找出每页重复出现的固定文字（logo、版权条等），勾选确认后仅在译文里移除，原文件保持不动</small></div><button class="ghost small" id="watermark-scan" type="button" style="flex:0 0 auto;white-space:nowrap;align-self:center">检测水印</button></div>
+                <div class="watermark-panel" id="watermark-panel" hidden></div>
                 <div class="setting" id="glossary-setting"><div><strong id="glossary-auto-title">自动术语表</strong><small id="glossary-auto-hint">抽取并统一全文专业术语，完成后可导出复用</small></div><label class="toggle"><input id="glossary" type="checkbox" checked><span></span></label></div>
               </div>
 
+              <div class="watermark-panel" id="duplicate-notice" hidden></div>
               <div class="error" id="error"></div>
               <div class="run-row"><button class="primary" id="run-button">开始翻译 →</button></div>
             </div>
@@ -582,7 +696,7 @@
 
         <div class="workspace-right">
         <section class="panel preview">
-          <div class="panel-head"><div><strong>实时版式预览</strong><small id="preview-subtitle">选择输出形式，立即查看差异</small></div><span class="preview-badge" id="preview-badge">左右对照</span></div>
+          <div class="panel-head"><div><strong>实时版式预览</strong><small id="preview-subtitle">选择输出形式，立即查看差异</small></div><span class="preview-actions"><a class="ghost small" id="preview-download-btn" title="下载最新完成任务的译文 PDF">下载 PDF</a><button class="ghost small" id="preview-reader-btn" title="在阅读器中打开最新完成的译文">阅读器打开</button></span><span class="preview-badge" id="preview-badge">左右对照</span></div>
           <div class="preview-timing" id="preview-timing" hidden></div>
           <div class="preview-canvas"><div class="pages" id="pages"></div></div>
           <div class="preview-note" id="preview-note"></div>
@@ -590,8 +704,15 @@
 
         <dialog class="panel assistant-dialog" id="aichat-panel" aria-labelledby="assistant-title">
           <div class="panel-head"><div><strong id="assistant-title">译页 · 论文助手</strong><small id="aichat-subtitle">跨文档提问 · 引用可跳转译文页</small></div><div class="assistant-actions"><span class="preview-badge" id="aichat-model">当前模型</span><button class="ghost small" id="assistant-expand" type="button">展开全屏</button><button class="ghost small" id="assistant-close" type="button" aria-label="关闭论文助手">关闭</button></div></div>
-          <div class="aichat-body">
-            <div class="aichat-docs-row"><span class="aichat-docs-label">参与问答（最多 4 篇已完成任务）：</span><div class="aichat-docs" id="aichat-docs"><span class="chat-hint">读取中…</span></div></div>
+          <div class="assistant-tabs" role="tablist" aria-label="助手功能">
+            <button class="assistant-tab selected" data-assistant-tab="chat" role="tab" aria-selected="true">问答</button>
+            <button class="assistant-tab" data-assistant-tab="mindmap" role="tab" aria-selected="false">思维导图</button>
+            <button class="assistant-tab" data-assistant-tab="figures" role="tab" aria-selected="false">图表速读</button>
+            <button class="assistant-tab" data-assistant-tab="pairs" role="tab" aria-selected="false">逐段对照</button>
+          </div>
+          <div class="aichat-body" data-assistant-section="chat">
+            <div class="aichat-docs-row"><span class="aichat-docs-label">参与问答（最多 4 篇已完成任务）：</span><div class="aichat-docs" id="aichat-docs"><span class="chat-hint">读取中…</span></div><button class="ghost small" id="compare-report-btn" type="button" hidden>📋 生成对比报告</button></div>
+            <div id="compare-report-panel" hidden></div>
             <div class="chat-thread" id="aichat-thread" role="log" aria-live="polite"><div class="chat-hint">勾选任务后提问，例如：对比这几篇论文的方法与结果。</div></div>
             <div class="chat-quick" id="assistant-prompts"><button class="chat-quick-btn" type="button">总结核心贡献</button><button class="chat-quick-btn" type="button">对比研究方法与实验结果</button><button class="chat-quick-btn" type="button">有哪些局限与后续研究方向？</button></div>
             <div id="assistant-error" role="alert" hidden></div>
@@ -599,6 +720,18 @@
               <textarea class="chat-input" id="aichat-input" rows="2" aria-label="向论文助手提问" placeholder="基于已完成的译文提问… Enter 发送，Shift+Enter 换行" spellcheck="false"></textarea>
               <button id="aichat-send" type="button">发送 ↗</button>
             </div>
+          </div>
+          <div class="aichat-body assistant-tool" data-assistant-section="mindmap" hidden>
+            <div class="assistant-job-row"><label for="assistant-mindmap-job">选择任务：</label><select class="assistant-job-select" id="assistant-mindmap-job" data-assistant-job="mindmap"></select></div>
+            <div class="assistant-tool-body" id="assistant-mindmap-body"><span class="chat-hint">选择一篇已完成的论文，基于译文全文生成结构思维导图。</span></div>
+          </div>
+          <div class="aichat-body assistant-tool" data-assistant-section="figures" hidden>
+            <div class="assistant-job-row"><label for="assistant-figures-job">选择任务：</label><select class="assistant-job-select" id="assistant-figures-job" data-assistant-job="figures"></select></div>
+            <div class="assistant-tool-body" id="assistant-figures-body"><span class="chat-hint">选择一篇已完成的论文，查看全部图表的原文/译文图注对照。</span></div>
+          </div>
+          <div class="aichat-body assistant-tool" data-assistant-section="pairs" hidden>
+            <div class="assistant-job-row"><label for="assistant-pairs-job">选择任务：</label><select class="assistant-job-select" id="assistant-pairs-job" data-assistant-job="pairs"></select></div>
+            <div class="assistant-tool-body" id="assistant-pairs-body"><span class="chat-hint">选择一篇已完成的论文，按段落或句子对照阅读原文与译文，支持校对与重译。</span></div>
           </div>
         </dialog>
         </div>
@@ -644,6 +777,7 @@
         <div class="provider-tools" style="margin-top:0">
           <button class="ghost small" id="test-button" type="button">测试连接</button>
           <button class="ghost small" id="models-button" type="button">获取模型列表</button>
+          <button class="ghost small" id="recommend-button" type="button" title="检测显存，从已安装模型中推荐装得下的最大模型">推荐模型</button>
           <span class="test-result" id="test-result"></span>
         </div>
         <p class="settings-note">设置保存在本机浏览器。API key 粘贴后按服务地址保存在本机浏览器的 localStorage 中，翻译时会发送给你选择的模型服务商；不写入应用数据文件或日志。下次打开自动填回；点击 👁 可显示 / 隐藏，清空输入框即删除。本地服务通常无需 key，仅在服务设置了鉴权（如 vLLM --api-key、本地中转网关）时填写。</p>
@@ -659,7 +793,7 @@
           <p class="settings-note" style="margin-top:6px">超长论文建议设 30–50：引擎按页数拆分逐段翻译后自动合并回单个 PDF，降低一次性排版失败与超时的风险</p>
         </div>
         <div class="setting">
-          <div><strong>疑难 PDF 兼容模式</strong><small>排版异常或导出异常时启用；关闭清理与富文本，用画质换成功率。注意：开启后左右对照的译文页将排在左侧、原文页在右侧（与默认布局相反）</small></div>
+          <div><strong>疑难 PDF 兼容模式</strong><small>排版异常或导出异常时启用；跳过 PDF 清理但保留标题、编号、上下标等富文本格式。注意：开启后左右对照的译文页将排在左侧、原文页在右侧（与默认布局相反）</small></div>
           <label class="toggle"><input id="enhance" type="checkbox"><span></span></label>
         </div>
         <div class="setting">
@@ -692,7 +826,9 @@
             <select id="glossary-library" data-enhance><option value="">术语库：不使用</option></select>
             <button class="ghost small" id="glossary-library-download" type="button">下载</button>
             <button class="ghost small" id="glossary-library-delete" type="button">删除所选</button>
+            <button class="ghost small" id="glossary-library-entries" type="button">查看条目</button>
           </div>
+          <div class="watermark-panel" id="glossary-entries-panel" hidden></div>
           <input id="glossary-input" type="file" accept=".csv,text/csv">
         </div>
         <p class="settings-note">以上设置对本机后续所有翻译任务生效；术语库中的词条会按段落自动注入翻译提示词并保持全文一致。</p>
@@ -705,6 +841,13 @@
       <div class="drawer-head">
         <div><div class="eyebrow">LOCAL HISTORY</div><h2 id="tasks-title">任务列表</h2></div>
         <span class="drawer-actions"><button class="ghost" id="tasks-clear">清除已完成</button><button class="ghost" id="tasks-close">关闭</button></span>
+      </div>
+      <div class="tasks-filter">
+        <button class="task-filter-btn selected" data-task-filter="all">全部</button>
+        <button class="task-filter-btn" data-task-filter="active">进行中</button>
+        <button class="task-filter-btn" data-task-filter="completed">已完成</button>
+        <button class="task-filter-btn" data-task-filter="failed">失败/中断</button>
+        <input id="tasks-search" type="search" placeholder="按文件名搜索…" aria-label="按文件名搜索任务">
       </div>
       <div class="task-list drawer-list" id="task-list"><div class="history-empty">正在读取…</div></div>
       <p class="settings-note" style="margin-top:12px"><span id="tasks-count"></span> · 删除任务会同时删除其全部输出文件；进行中的任务需先取消才能删除。</p>
@@ -724,7 +867,7 @@
   </div>
 
   <div class="reader-modal-backdrop" id="reader-modal-backdrop">
-    <div class="reader-modal" role="dialog" aria-modal="true" aria-labelledby="reader-modal-title">
+    <div class="reader-modal" role="dialog" aria-modal="true" aria-labelledby="reader-file-name">
       <div class="reader-toolbar">
         <div class="reader-toolbar-left">
           <strong id="reader-file-name"></strong>
@@ -738,6 +881,12 @@
           <input class="reader-page-input" id="reader-page-num" type="number" min="1" value="1">
           <span class="reader-total" id="reader-total"></span>
           <button class="ghost small" id="reader-next">▶</button>
+          <div class="reader-search">
+            <input id="reader-search-input" type="search" placeholder="全文搜索…" aria-label="在译文中搜索">
+            <span class="reader-search-count" id="reader-search-count"></span>
+            <button class="ghost small" id="reader-search-prev" title="上一个">▲</button>
+            <button class="ghost small" id="reader-search-next" title="下一个">▼</button>
+          </div>
           <button class="ghost small" id="reader-zoom-out">－</button>
           <span class="reader-zoom-val" id="reader-zoom-val">适配</span>
           <button class="ghost small" id="reader-zoom-in">＋</button>
@@ -750,6 +899,7 @@
           <div class="reader-side-tabs">
             <button class="reader-tab selected" data-reader-tab="pairs">译文段落</button>
             <button class="reader-tab" data-reader-tab="figures">图表</button>
+            <button class="reader-tab" data-reader-tab="toc">目录</button>
           </div>
           <div class="reader-side-body" id="reader-side-body"></div>
         </div>
@@ -762,22 +912,31 @@
     const $ = (selector) => document.querySelector(selector);
     const state = {
       files: [], glossary: null, glossaryEntries: 0, output: "dual",
-      engineReady: false, jobs: [], expanded: new Set(), submitting: false,
+      engineReady: false, jobs: [], submitting: false,
       signature: "", pollTimer: null, estimates: new Map(), estimateSeq: 0,
-      qualityDetails: new Map(), previewKey: "", previewOverride: false,
+      qualityDetails: new Map(), previewKey: "", previewOverride: false, previewHadLive: false,
       keepOriginalPages: new Map(), hadActiveJobs: false,
       modelSpeed: null, speedKey: "", speedLoading: false,
-      chatOpen: new Set(), chatThreads: new Map(), chatBusy: new Set(),
       mindmapOpen: new Set(), mindmaps: new Map(), mindmapBusy: new Set(),
       figuresOpen: new Set(),
       readerOpen: new Set(),
+      readerExplainBusy: new Set(),
+      assistantTab: "chat", assistantJobId: null, assistantSignature: "",
+      watermarkScans: new Map(), watermarkScanning: false,
+      readerWheelLockUntil: 0,
+      mindmapCollapsed: new Set(), mindmapView: new Map(), mm2Drag: null,
+      taskFilter: "all", taskSearch: "",
+      figInnerText: new Map(),
+      pageRetransBusy: new Map(),
+      duplicateNotice: null,
+      compareReport: null, compareReportBusy: false,
       readerGranularity: "para",
       compareModel: "", compareModels: [], compareModelsKey: "",
       retranslations: new Map(), retransBusy: new Set(),
       readerSentExplain: true,
       readerEditing: new Set(),
       pdfReader: null, pdfReaderAnswers: new Map(), pdfReaderQuestions: new Map(),
-      multiChat: { open: false, docs: new Map(), thread: [], busy: false, order: [] },
+      multiChat: { docs: new Map(), thread: [], busy: false, order: [] },
       serviceKind: "local", vendorId: "openai",
     };
     const outputNames = { mono: "中文译文", dual: "左右对照" };
@@ -931,9 +1090,24 @@
       return `<div class="paper ${translated ? "translated" : ""}"><span class="paper-badge">${translated ? "中文" : "EN"}</span><div class="kicker"></div><div class="title"></div><div class="title short"></div><div class="meta"></div><div class="columns"><div class="lines">${"<i></i>".repeat(7)}<div class="figure"></div>${"<i></i>".repeat(6)}</div><div class="lines">${"<i></i>".repeat(4)}<div class="figure"></div>${"<i></i>".repeat(9)}</div></div></div>`;
     }
 
+    // 预览区动作按钮:只在有已完成任务时可用,否则点击给出提示
+    function updatePreviewActions(job = null) {
+      state.previewCompletedJob = job ? { id: job.id, fileName: job.fileName } : null;
+      const pdf = job ? (job.outputs || []).find((name) => name.toLowerCase().endsWith(".pdf")) : null;
+      const download = $("#preview-download-btn");
+      if (job && pdf) {
+        download.href = `/api/jobs/${job.id}/result/${encodeURIComponent(pdf)}`;
+        download.title = `下载「${job.fileName}」译文 PDF`;
+      } else {
+        download.removeAttribute("href");
+        download.title = "翻译完成后可下载译文 PDF";
+      }
+    }
+
     function renderPreview() {
       const pages = $("#pages");
       updatePreviewTiming(null);
+      updatePreviewActions(null); // 演示视图:无可下载/打开的译文
       $("#preview-badge").textContent = outputNames[state.output];
       $("#preview-subtitle").textContent = "选择输出形式，立即查看差异";
       state.previewKey = "idle";
@@ -970,6 +1144,7 @@
 
     function renderScanPreview(job) {
       state.previewKey = `scan:${job.id}`;
+      updatePreviewActions(null); // 翻译进行中:预览是过程示意,无已完成 PDF 可下载
       const mono = job.config.output === "mono";
       const img = `/api/jobs/${job.id}/page-image/input-page.png`;
       const dualPanes = `
@@ -1004,10 +1179,13 @@
       $("#pages").innerHTML = `<div class="scan-wrap mono-mode"><div class="scan-pane"><span class="pane-tag">译文</span><img src="${img}" alt="译文页" onerror="window.__previewImgError()"></div></div>`;
       $("#preview-badge").textContent = "真实预览";
       $("#preview-subtitle").textContent = "最新完成任务的译文页面";
+      updatePreviewActions(job);
       updatePreviewTiming(job);
-      $("#preview-note").innerHTML = `<strong>真实译文预览：</strong>这是最新完成任务「${escapeHtml(job.fileName)}」的译文页。完整 PDF 下载、阅读器与质检详情位于任务列表；辅助报告保留在后台。`;
+      $("#preview-note").innerHTML = `<strong>真实译文预览：</strong>这是最新完成任务「${escapeHtml(job.fileName)}」的译文页。可在此直接下载 PDF 或用阅读器打开；质检报告与逐段校对位于任务列表与论文助手。`;
     }
 
+    // 页面图加载失败时的降级链:扫描线预览 → 小页示意图;真实预览 → iframe。
+    // 主路径始终是扫描线预览/渲染图,这里只做兜底,勿当主路径维护
     window.__previewImgError = () => {
       if (state.previewKey.startsWith("scan:")) {
         const job = state.jobs.find((item) => item.id === state.previewKey.slice(5));
@@ -1046,6 +1224,7 @@
 
     function updateMiniProgress(job) {
       const percent = job.progress || 0;
+      updatePreviewActions(null); // 翻译进行中:预览是过程示意,无已完成 PDF 可下载
       $("#live-percent").textContent = `${percent}%`;
       $("#live-stage").textContent = [job.stage || "等待执行", runningTimeText(job)].filter(Boolean).join(" · ");
       updatePreviewTiming(job);
@@ -1066,18 +1245,26 @@
       $("#pages").innerHTML = `<iframe class="real-frame" src="${url}" title="译文预览"></iframe>`;
       $("#preview-badge").textContent = "真实预览";
       $("#preview-subtitle").textContent = "最新完成任务的译文页面";
+      updatePreviewActions(job);
       updatePreviewTiming(job);
-      $("#preview-note").innerHTML = `<strong>真实译文预览：</strong>由浏览器直接渲染最新完成的任务「${escapeHtml(job.fileName)}」。缩放、翻页用页面内控件；下载和质检报告在任务列表。`;
+      $("#preview-note").innerHTML = `<strong>真实译文预览：</strong>由浏览器直接渲染最新完成的任务「${escapeHtml(job.fileName)}」。缩放、翻页用页面内控件；可在此直接下载 PDF 或用阅读器打开。`;
     }
 
     function updatePreview() {
       const activeJobs = state.jobs.filter((job) => ["queued", "running"].includes(job.status));
       const live = activeJobs[activeJobs.length - 1];
       if (live) {
+        state.previewHadLive = true;
         state.previewOverride = false;
         if (state.previewKey === `scan:${live.id}`) return updateScanProgress(live);
         if (state.previewKey === `mini:${live.id}`) return updateMiniProgress(live);
         return renderScanPreview(live);
+      }
+      // 任务从进行中转为结束:撤销输出切换带来的演示视图锁定,
+      // 否则"任务完成后这里会显示真实译文页"的承诺被永久挡住
+      if (state.previewHadLive) {
+        state.previewHadLive = false;
+        state.previewOverride = false;
       }
       if (state.previewOverride) {
         if (state.previewKey !== "idle") renderPreview();
@@ -1415,7 +1602,9 @@
         select.dispatchEvent(new Event("change", { bubbles: true }));
       });
       rebuild();
-      // 同步业务代码对 select 的动态修改（禁用切换、选项重建）
+      // 同步业务代码对 select 的动态修改（禁用切换、选项重建）。
+      // 程序化 select.value = x 不产生属性变更,Observer 感知不到,业务侧赋值后需手动调 __ddRebuild()
+      select.__ddRebuild = rebuild;
       new MutationObserver(() => rebuild()).observe(select, { childList: true, subtree: true, attributes: true });
     }
 
@@ -1493,6 +1682,75 @@
       chips.innerHTML = state.files.map((file, index) =>
         `<span class="chip"><span class="chip-name" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</span><small>${formatBytes(file.size)}</small><button type="button" data-remove="${index}" aria-label="移除 ${escapeHtml(file.name)}">×</button></span>`
       ).join("");
+      // 水印检测依赖已选文件:文件变化后同步按钮可用性与已失效的扫描结果
+      const scanButton = $("#watermark-scan");
+      if (scanButton) scanButton.disabled = state.watermarkScanning;
+      for (const name of [...state.watermarkScans.keys()]) {
+        if (!state.files.some((file) => file.name === name)) state.watermarkScans.delete(name);
+      }
+      for (const key of [...state.estimates.keys()]) {
+        if (!state.files.some((file) => estimateKey(file) === key)) state.estimates.delete(key);
+      }
+      renderWatermarkPanel();
+    }
+
+    // 水印处理:检测 → 预览勾选 → 提交时随任务下发给引擎,在派生副本上擦除
+    async function scanWatermarks() {
+      if (state.watermarkScanning) return;
+      if (!state.files.length) { showError("请先在上方选择要翻译的 PDF 文件，再检测水印"); return; }
+      state.watermarkScanning = true;
+      const scanButton = $("#watermark-scan");
+      if (scanButton) { scanButton.disabled = true; scanButton.textContent = "检测中…"; }
+      renderWatermarkPanel();
+      for (const file of state.files) {
+        const form = new FormData();
+        form.append("file", file, file.name);
+        try {
+          const response = await fetch("/api/watermark/scan", { method: "POST", body: form });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "水印检测失败");
+          const suspects = Array.isArray(data.suspects) ? data.suspects : [];
+          state.watermarkScans.set(file.name, {
+            suspects,
+            selected: new Set(suspects.map((s) => s.text)),
+          });
+        } catch (error) {
+          state.watermarkScans.set(file.name, { suspects: [], error: error.message, selected: new Set() });
+        }
+        renderWatermarkPanel();
+      }
+      state.watermarkScanning = false;
+      if (scanButton) { scanButton.disabled = false; scanButton.textContent = "重新检测"; }
+    }
+
+    function renderWatermarkPanel() {
+      const panel = $("#watermark-panel");
+      if (!panel) return;
+      if (!state.watermarkScans.size) {
+        panel.hidden = state.watermarkScanning ? false : true;
+        panel.innerHTML = state.watermarkScanning ? '<div class="watermark-title" role="status">正在检测每页重复出现的固定文字…</div>' : "";
+        return;
+      }
+      const sections = state.files.map((file) => {
+        const scan = state.watermarkScans.get(file.name);
+        if (!scan) return `<div class="watermark-file-head">${escapeHtml(file.name)} · 检测中…</div>`;
+        if (scan.error) return `<div class="watermark-file-head">${escapeHtml(file.name)}</div><div class="watermark-row">⚠ ${escapeHtml(scan.error)}</div>`;
+        if (!scan.suspects.length) {
+          return `<div class="watermark-file-head">${escapeHtml(file.name)}</div><div class="watermark-row">未发现疑似水印（依据：跨半数以上页面、同位置重复出现的固定文字）。</div>`;
+        }
+        const rows = scan.suspects.map((suspect, index) => {
+          const checked = scan.selected.has(suspect.text);
+          const pages = suspect.pages || [];
+          const pageText = pages.length <= 6 ? `第 ${pages.join("、")} 页` : `等 ${pages.length} 页`;
+          return `<label class="watermark-suspect ${checked ? "" : "unchecked"}">
+            <input type="checkbox" data-watermark-text="${escapeHtml(file.name)}" data-wm-index="${index}" ${checked ? "checked" : ""}>
+            <span class="wm-text">“${escapeHtml(suspect.text)}”<span class="wm-pages">出现于 ${pageText} · 位置固定</span></span>
+          </label>`;
+        }).join("");
+        return `<div class="watermark-file-head">${escapeHtml(file.name)} · ${scan.suspects.length} 组疑似水印</div>${rows}`;
+      }).join("");
+      panel.hidden = false;
+      panel.innerHTML = `<div class="watermark-title">检测完成 · 勾选需要移除的水印文字</div>${sections}<div class="watermark-help">移除只发生在翻译用的副本上，原文件保持不动；请确认勾选项确为水印——移除版权保护措施可能违反授权条款。</div>`;
     }
 
     async function setGlossary(file) {
@@ -1592,6 +1850,18 @@
         $("#health").className = `health ${health.engineReady ? "ready" : "error"}`;
         $("#health span").textContent = health.engineReady ? "翻译引擎就绪" : "需要安装引擎";
         $("#setup-note").classList.toggle("visible", !health.engineReady);
+        // 后端源码已更新但服务未重启:新前端调不到新接口,问答/思维导图/阅读器会"点了没反应"
+        $("#stale-note").classList.toggle("visible", health.stale === true);
+        // 自动重载:服务进程重启后 BOOT_ID 变化,自动刷新页面加载新前端/新接口
+        if (health.bootId) {
+          const last = localStorage.getItem("yiye-boot-id");
+          if (last && last !== health.bootId) {
+            localStorage.setItem("yiye-boot-id", health.bootId);
+            location.reload();
+            return;
+          }
+          localStorage.setItem("yiye-boot-id", health.bootId);
+        }
       } catch {
         state.engineReady = false;
         $("#health").className = "health error";
@@ -1606,7 +1876,17 @@
       button.textContent = state.submitting ? "正在提交…" : "开始翻译 →";
     }
 
-    function config() {
+    function config(file = null) {
+      // 水印移除按文件生效:勾选确认的文本随该文件的任务下发给引擎
+      let watermarkSuspects = [];
+      if (file) {
+        const scan = state.watermarkScans.get(file.name);
+        if (scan?.selected?.size) {
+          watermarkSuspects = scan.suspects
+            .filter((suspect) => scan.selected.has(suspect.text))
+            .map((suspect) => ({ text: suspect.text }));
+        }
+      }
       return {
         provider: state.serviceKind === "local" ? "ollama" : "openai",
         protocol: $("#protocol").value,
@@ -1628,6 +1908,7 @@
         table: $("#table").checked,
         figure: $("#figure").checked,
         glossary: $("#glossary").checked,
+        watermarkSuspects,
       };
     }
 
@@ -1700,7 +1981,7 @@
       if (typeof saved.figure === "boolean") $("#figure").checked = saved.figure;
       if (typeof saved.enhance === "boolean") $("#enhance").checked = saved.enhance;
       if (typeof saved.ignoreCache === "boolean") $("#ignore-cache").checked = saved.ignoreCache;
-      $("#dual-layout").value = "side";
+      if (saved.dualLayout === "alternating") $("#dual-layout").value = "alternating";
       if (typeof saved.customPrompt === "string") $("#custom-prompt").value = saved.customPrompt;
       if (typeof saved.aiSummary === "boolean") $("#ai-summary").checked = saved.aiSummary;
       if (saved.fontFamily) $("#font-family").value = saved.fontFamily;
@@ -1709,6 +1990,9 @@
         document.querySelectorAll("[data-output]").forEach((item) => item.classList.toggle("selected", item.dataset.output === saved.output));
         renderPreview();
       }
+      updateDualLayoutVisibility();
+      // 程序化赋值不触发增强下拉的重建监听,恢复后统一刷新按钮标签与选中态
+      document.querySelectorAll("select[data-enhance]").forEach((sel) => sel.__ddRebuild?.());
       renderServiceSummary();
       // setServiceKind 过程中会以预设默认值提前写回存储,这里用恢复后的最终状态覆写,
       // 否则自定义中转的地址/模型在浏览器重启后会丢失
@@ -1730,13 +2014,20 @@
       const shown = lines.slice(0, 8).map((line) => {
         if (!line.page || !hasTranslatedPdf) return `<div class="task-issue">⚠ ${escapeHtml(line.text)}</div>`;
         const checked = keepPages.has(line.page) ? "checked" : "";
-        const viewHref = `/api/jobs/${job.id}/result/${encodeURIComponent(firstPdfName)}?inline=1#page=${line.page}`;
-        return `<div class="task-issue-row"><label class="keep-toggle"><input type="checkbox" data-keep-page="${job.id}" data-page="${line.page}" ${checked}>⚠ ${escapeHtml(line.text)} · 保留原文</label><a class="keep-view" href="${viewHref}" target="_blank" rel="noopener">查看</a></div>`;
+        // line.page 已统一为原文页号;跳转交付 PDF 用 outputPage(交替页下两者不同)
+        const viewHref = `/api/jobs/${job.id}/result/${encodeURIComponent(firstPdfName)}?inline=1#page=${line.outputPage || line.page}`;
+        const retransState = state.pageRetransBusy?.get?.(`${job.id}:${line.page}`);
+        const retransBtn = retransState === "busy"
+          ? '<span class="link-btn">重译中…</span>'
+          : `<button class="link-btn" data-retrans-page="${job.id}" data-page="${line.page}" title="强制不走缓存重新翻译此页，并替换回译文 PDF">重译此页</button>`;
+        return `<div class="task-issue-row"><label class="keep-toggle"><input type="checkbox" data-keep-page="${job.id}" data-page="${line.page}" ${checked}>⚠ ${escapeHtml(line.text)} · 保留原文</label><a class="keep-view" href="${viewHref}" target="_blank" rel="noopener">查看</a>${retransBtn}</div>`;
       }).join("");
       const more = lines.length > 8 ? `<div class="task-issue">…共 ${lines.length} 项，详见质检报告</div>` : "";
       const reviseButton = keepPages.size
         ? `<button class="ghost small" data-revise="${job.id}">生成修订版（${keepPages.size} 页保留原文）</button>` : "";
-      return `<div class="task-issues">${shown}${more}</div>${reviseButton ? `<div class="task-issue" style="margin-top:6px">${reviseButton}</div>` : ""}`;
+      const retransNote = state.pageRetransBusy?.size
+        ? '<div class="task-issue" style="margin-top:6px">页级重译进行中，完成后写入 adjusted-output.pdf。</div>' : "";
+      return `<div class="task-issues">${shown}${more}</div>${retransNote}${reviseButton ? `<div class="task-issue" style="margin-top:6px">${reviseButton}</div>` : ""}`;
     }
 
     function watermarkSuspectsHtml(job) {
@@ -1778,73 +2069,106 @@
       return `<div class="ai-summary"><div class="ai-title">✦ AI 速览<span>${escapeHtml(summary.model || "")}</span></div>${html}</div>`;
     }
 
-    // 助手回答中的【第 N 页】渲染为跳转译文 PDF 对应页的链接(页码标记容忍有无空格)
-    function renderChatContent(job, text) {
-      const pdfName = (job.outputs || []).find((name) => name.toLowerCase().endsWith(".pdf"));
-      let html = escapeHtml(text);
-      if (pdfName) {
-        const href = `/api/jobs/${job.id}/result/${encodeURIComponent(pdfName)}?inline=1#page=`;
-        html = html.replace(/【第\s*(\d+)(?:\s*[-–]\s*\d+)?\s*页】/g, (all, num) => ` <a class="chat-cite" href="${href}${num}" target="_blank" rel="noopener">第 ${num} 页</a> `);
-      }
-      return html.replace(/\n/g, "<br>");
-    }
-
-    function chatPanelHtml(job) {
-      if (!state.chatOpen.has(job.id)) return "";
-      const thread = (state.chatThreads.get(job.id) || []).slice(-20);
-      const busy = state.chatBusy.has(job.id);
-      const msgs = thread.map((m) => m.role === "assistant"
-        ? `<div class="chat-msg assistant"><span>${renderChatContent(job, m.content)}${citationNoticeHtml(m.citationCheck)}</span></div>`
-        : `<div class="chat-msg user"><span>${escapeHtml(m.content)}</span></div>`).join("");
-      const quick = ["这篇论文的核心贡献是什么", "方法与实验是怎么做的", "论文有哪些局限性", "挑出译文中最难理解的三句话并逐句解析", "做一份结构化文献解读：研究背景与设计逻辑、数据与实验价值、创新点、局限性，分四部分输出"]
-        .map((q) => `<button type="button" class="chat-quick-btn" data-chat-quick="${escapeHtml(q)}">${escapeHtml(q)}</button>`).join("");
-      return `<div class="chat-panel">
-        <div class="chat-thread">${msgs || '<div class="chat-hint">基于本任务译文全文提问，回答中的页码引用可点击跳转原文位置。</div>'}</div>
-        <div class="chat-quick">${quick}</div>
-        <div class="chat-input-row">
-          <input class="chat-input" data-chat-input="${job.id}" placeholder="基于译文提问…" ${busy ? "disabled" : ""}>
-          <button data-chat-send="${job.id}" ${busy ? "disabled" : ""}>${busy ? "回答中…" : "发送"}</button>
-        </div>
-      </div>`;
-    }
-
-    async function sendChat(jobId, questionOverride) {
-      const input = document.querySelector(`[data-chat-input="${jobId}"]`);
-      const question = (questionOverride ?? input?.value ?? "").trim();
-      if (!question || state.chatBusy.has(jobId)) return;
-      if (!questionOverride && input) input.value = "";
-      const thread = state.chatThreads.get(jobId) || [];
-      thread.push({ role: "user", content: question });
-      state.chatThreads.set(jobId, thread);
-      state.chatBusy.add(jobId);
-      renderTasks();
+    // 单任务提问统一走论文助手的问答标签:选中该任务、清空旧上下文后用多文档接口提问
+    async function askAssistant(jobId, question) {
+      const job = state.jobs.find((item) => item.id === jobId && item.status === "completed");
+      if (!job || !question?.trim()) return;
+      const m = state.multiChat;
+      if (m.busy) { showError("助手正在回答上一个问题，请稍候"); return; }
+      openAssistant("chat");
+      m.docs = new Map([[jobId, true]]);
+      m.thread = [];
+      m.order = [job];
+      m.thread.push({ role: "user", content: question.trim() });
+      m.busy = true;
+      renderAiChat();
       try {
-        const response = await fetch(`/api/jobs/${jobId}/chat`, {
+        const response = await fetch("/api/chat-multi", {
           method: "POST",
           headers: { "content-type": "application/json", "x-api-key": $("#api-key").value.trim() },
-          body: JSON.stringify({ question, history: thread.slice(0, -1), model: config() }),
+          body: JSON.stringify({ job_ids: [jobId], question: question.trim(), history: [], model: config() }),
+          signal: AbortSignal.timeout(180000),
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "问答失败");
-        thread.push({ role: "assistant", content: data.answer, citationCheck: data.citationCheck });
+        if (Array.isArray(data.docs)) m.order = data.docs.map((d) => state.jobs.find((job) => job.id === d.id)).filter(Boolean);
+        m.thread.push({ role: "assistant", content: data.answer, citationCheck: data.citationCheck });
       } catch (error) {
-        thread.push({ role: "assistant", content: `⚠ ${error.message}` });
+        m.thread.push({ role: "assistant", content: `⚠ ${error.message}` });
       } finally {
-        state.chatBusy.delete(jobId);
-        if (thread.length > 20) state.chatThreads.set(jobId, thread.slice(-20));
-        renderTasks();
+        m.busy = false;
+        if (m.thread.length > 20) m.thread = m.thread.slice(-20);
+        renderAiChat();
       }
     }
 
-    // markdown 无序列表 → 缩进树(思维导图面板用)
+    // 逐段对照下载 HTML:点击时才构建全文(数 MB),随面板渲染构建会造成卡顿
+    function buildPairsDocHtml(job) {
+      const detail = state.qualityDetails.get(job.id);
+      const pages = detail?.paragraphs || [];
+      const pageHtml = (page) => `<div class="rp-page">第 ${page.page} 页${page.translated === false ? "（未翻译 · 保留原文）" : ""}</div>${page.pairs.map((pair) => {
+        const same = page.translated === false;
+        if (state.readerGranularity === "sent" && !same && pair.en && pair.zh) {
+          // 句对齐分组与助手面板共用(导出为纯文本,无点句交互)
+          return pairSentGroupsHtml(pair.en, pair.zh);
+        }
+        return `<div class="rp-pair">${pair.en ? `<div class="rp-en">${escapeHtml(pair.en)}</div>` : ""}${pair.zh ? `<div class="rp-zh">${escapeHtml(pair.zh)}</div>` : ""}</div>`;
+      }).join("")}`;
+      return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><title>${escapeHtml(job.fileName)} 逐段对照</title><style>body{max-width:860px;margin:24px auto;padding:0 16px;font-family:"Microsoft YaHei",sans-serif;color:#222}.rp-page{font-weight:800;border-bottom:2px solid #2c3e50;margin:26px 0 12px;padding-bottom:4px}.rp-pair{margin:10px 0}.rp-en{color:#777;font-size:13px;line-height:1.5}.rp-zh{font-size:15px;line-height:1.8;margin-top:3px}.rp-sent-group{margin:8px 0}.rp-sent-group .rp-zh{margin-top:2px}</style></head><body><h1>${escapeHtml(job.fileName)} 逐段对照</h1>${pages.map(pageHtml).join("")}</body></html>`;
+    }
+
+    function downloadPairsHtml(jobId) {
+      const job = state.jobs.find((item) => item.id === jobId);
+      if (!job) return;
+      const blob = new Blob([buildPairsDocHtml(job)], { type: "text/html;charset=utf-8" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `${job.fileName.replace(/\.pdf$/i, "")}-逐段对照.html`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 5000);
+    }
+
+    // 思维导图:markdown → 树结构 → 可折叠水平树(连接线 + 拖拽/缩放),零依赖
+    function mindmapTree(markdown) {
+      const root = { title: "", children: [] };
+      const stack = [{ node: root, depth: -1 }];
+      for (const raw of String(markdown || "").split("\n")) {
+        if (!raw.trim() || raw.trim().startsWith("```")) continue;
+        const depth = Math.min(8, Math.floor((raw.match(/^\s*/)[0].length) / 2));
+        const title = raw.replace(/^\s*[-*]\s*/, "").replace(/^#+\s*/, "").replace(/\*\*/g, "").trim();
+        if (!title) continue;
+        const node = { title, children: [] };
+        while (stack.length && stack[stack.length - 1].depth >= depth) stack.pop();
+        stack[stack.length - 1].node.children.push(node);
+        stack.push({ node, depth });
+      }
+      return root.children.length === 1 ? root.children[0] : root;
+    }
+
+    function countMindmapDescendants(node) {
+      return node.children.reduce((sum, child) => sum + 1 + countMindmapDescendants(child), 0);
+    }
+
+    function mindmapNodeHtml(node, path, collapsed) {
+      const key = path.join("-");
+      const hasKids = node.children.length > 0;
+      const isCollapsed = collapsed.has(key);
+      const kids = hasKids && !isCollapsed
+        ? `<div class="mm2-children" data-mm2-children="${key}">${node.children.map((child, i) => mindmapNodeHtml(child, [...path, i], collapsed)).join("")}</div>`
+        : "";
+      const badge = hasKids
+        ? `<span class="mm2-badge" data-mm-toggle="${key}" data-count="${countMindmapDescendants(node)}">${isCollapsed ? `+${countMindmapDescendants(node)}` : "−"}</span>`
+        : "";
+      return `<div class="mm2-branch">
+        <div class="mm2-row"><span class="mm2-pill ${node.children.length ? "has-kids" : "leaf"}" ${hasKids ? `data-mm-toggle="${key}" title="${isCollapsed ? "展开" : "收起"}"` : ""}>${escapeHtml(node.title)}</span>${badge}</div>
+        ${kids}
+      </div>`;
+    }
+
     function mindmapNodesHtml(markdown) {
-      return markdown.split("\n").map((line) => {
-        if (!line.trim() || line.trim().startsWith("```")) return "";
-        const depth = Math.min(8, Math.floor((line.match(/^\s*/)[0].length) / 2));
-        const text = line.replace(/^\s*[-*]\s*/, "").replace(/^#+\s*/, "").trim();
-        if (!text) return "";
-        return `<div class="mm-node" style="padding-left:${8 + depth * 18}px">${escapeHtml(text)}</div>`;
-      }).join("");
+      const tree = mindmapTree(markdown);
+      const collapsed = state.mindmapCollapsed;
+      return mindmapNodeHtml(tree, [], collapsed);
     }
 
     function mindmapPanelHtml(job) {
@@ -1855,10 +2179,21 @@
       if (busy) body = '<div class="chat-hint">正在基于译文全文生成思维导图…（约需十几秒）</div>';
       else if (mm?.markdown) {
         const mdHref = `data:text/plain;charset=utf-8,${encodeURIComponent(mm.markdown)}`;
-        body = `${mindmapNodesHtml(mm.markdown)}
-        <div class="mm-meta">由 ${escapeHtml(mm.model || "")} 生成 · <a download="${escapeHtml(job.fileName.replace(/\.pdf$/i, ""))}-思维导图.md" href="${mdHref}">下载 .md</a>（可导入 markmap / XMind）· <button class="link-btn" data-mindmap-refresh="${job.id}">重新生成</button></div>`;
+        const nodeCount = countMindmapDescendants(mindmapTree(mm.markdown)) + 1;
+        body = `<div class="mm2-toolbar">
+            <span class="mm2-hint">滚轮缩放 · 拖拽平移 · 点节点折叠</span>
+            <span class="mm2-tools">
+              <button class="link-btn" data-mm2-fit>适配视图</button>
+              <button class="link-btn" data-mm2-zoom-out>−</button>
+              <button class="link-btn" data-mm2-zoom-in>＋</button>
+              <a class="link-btn" download="${escapeHtml(job.fileName.replace(/\.pdf$/i, ""))}-思维导图.md" href="${mdHref}">下载 .md</a>
+              <button class="link-btn" data-mindmap-refresh="${job.id}">重新生成</button>
+            </span>
+          </div>
+          <div class="mm2-viewport" data-mm2-viewport><div class="mm2-tree">${mindmapNodesHtml(mm.markdown)}</div></div>
+          <div class="mm-meta">由 ${escapeHtml(mm.model || "")} 生成 · ${nodeCount} 个节点（可导入 markmap / XMind）</div>`;
       } else body = `<div class="chat-hint" role="status">${escapeHtml(mm?.error || "尚未生成思维导图")}</div><button class="link-btn" data-mindmap-refresh="${job.id}">重新生成</button>`;
-      return `<div class="chat-panel"><div class="mm-body">${body}</div></div>`;
+      return `<div class="chat-panel mm2-panel"><div class="mm2-body">${body}</div></div>`;
     }
 
     async function fetchMindmap(jobId, refresh = false) {
@@ -1891,14 +2226,28 @@
       if (!figures.length) return '<div class="chat-panel"><div class="chat-hint">未在译文中识别出图注（Figure/Table 编号）</div></div>';
       const firstPdf = (job.outputs || []).find((name) => name.toLowerCase().endsWith(".pdf"));
       const rows = figures.map((f) => {
-        const viewHref = firstPdf && f.page ? `/api/jobs/${job.id}/result/${encodeURIComponent(firstPdf)}?inline=1#page=${f.page}` : "";
+        const outputPage = f.page && job.config?.output === "dual" && job.config?.dualLayout === "alternating" ? f.page * 2 : f.page;
+        const viewHref = firstPdf && outputPage ? `/api/jobs/${job.id}/result/${encodeURIComponent(firstPdf)}?inline=1#page=${outputPage}` : "";
         const explain = `请详细解释${f.kind} ${f.num}：它展示了什么内容、关键数据或趋势是什么、与论文的结论有什么关系？`
           + (f.translated ? `\n（${f.kind} ${f.num} 图注：${f.translated}）` : "");
-        return `<div class="fig-row" data-fig-key="${f.kind}:${f.num}">
+        const figKey = `${f.kind}:${f.num}`;
+        const innerLines = (f.innerText || "").split("\n").filter((line) => line.trim());
+        const innerState = state.figInnerText.get(`${job.id}:${figKey}`);
+        const innerBlock = innerLines.length ? `
+          <div class="fig-inner">
+            <div class="fig-inner-head">
+              <span>图中文字 · ${innerLines.length} 行（按版面序）</span>
+              ${innerState?.translated ? '<span class="fig-inner-done">已翻译</span>' : `<button class="link-btn" data-fig-text="${job.id}" data-kind="${f.kind}" data-num="${f.num}">${innerState?.loading ? "翻译中…" : "翻译图中文字"}</button>`}
+            </div>
+            ${innerState?.translated ? `<div class="fig-inner-zh">${escapeHtml(innerState.translated)}</div>` : ""}
+            <div class="fig-inner-lines">${innerLines.map((line) => `<div class="fig-inner-line">${escapeHtml(line)}</div>`).join("")}</div>
+          </div>` : "";
+        return `<div class="fig-row" data-fig-key="${figKey}">
           ${f.crop ? `<a class="fig-img-link" href="/api/jobs/${job.id}/figure/${f.crop.split("/").pop()}" target="_blank" rel="noopener" title="点击查看大图"><img class="fig-img" loading="lazy" src="/api/jobs/${job.id}/figure/${f.crop.split("/").pop()}" alt="${escapeHtml(f.kind)} ${f.num}"></a>` : ""}
           <div class="fig-head"><strong>${escapeHtml(f.kind)} ${f.num}</strong>${f.page ? `<span>第 ${f.page} 页</span>` : ""}${viewHref ? `<a class="keep-view" href="${viewHref}" target="_blank" rel="noopener">查看</a>` : ""}<button class="link-btn" data-fig-explain="${job.id}" data-fig-question="${escapeHtml(explain)}">AI 解释</button></div>
           ${f.translated ? `<div class="fig-translated">${escapeHtml(f.translated)}</div>` : '<div class="fig-translated muted">译文图注未识别</div>'}
           ${f.original ? `<div class="fig-original">${escapeHtml(f.original)}</div>` : ""}
+          ${innerBlock}
         </div>`;
       }).join("");
       return `<div class="chat-panel fig-panel">${rows}</div>`;
@@ -1912,21 +2261,25 @@
       const job = state.jobs.find((j) => j.id === jobId);
       if (!job) return;
       let detail = state.qualityDetails.get(jobId);
-      if (!detail) {
+      if (!detail || detail.__failed) {
         try {
           const data = await fetch(`/api/jobs/${jobId}`).then((r) => r.json());
           state.qualityDetails.set(jobId, data.qualityDetail || {});
           detail = state.qualityDetails.get(jobId);
-        } catch { detail = {}; }
+        } catch { if (!detail) detail = {}; }
       }
       if (!detail?.paragraphs?.length) { showError("该任务没有逐段对照数据（较早版本生成的任务，重试一次即可生成）"); return; }
       const pdfName = (job.outputs || []).find((name) => name.toLowerCase().endsWith(".pdf"));
       if (!pdfName) { showError("任务没有译文 PDF"); return; }
+      // 页码记忆:同一任务重新打开阅读器时回到上次读到的输出页
+      const savedPage = Number(localStorage.getItem(`yiye-reader-page-${jobId}`) || "1");
       state.pdfReader = {
-        jobId, doc: null, page: 1, total: detail.paragraphs.length, zoom: 0,
+        jobId, doc: null, page: Number.isFinite(savedPage) && savedPage > 0 ? savedPage : 1, total: detail.paragraphs.length, zoom: 0,
         rendering: false, pending: false,
         src: "trans", srcUrl: `/api/jobs/${jobId}/result/${encodeURIComponent(pdfName)}?inline=1`,
         sideTab: "pairs",
+        // 交替页对照:输出的奇数页是原文页、偶数页是译文页,侧栏按原文页码取数据
+        alternating: job.config?.output === "dual" && job.config?.dualLayout === "alternating",
       };
       $("#reader-file-name").textContent = job.fileName;
       $("#reader-modal-backdrop").classList.add("open");
@@ -1947,10 +2300,35 @@
         r.total = r.doc.numPages;
         $("#reader-total").textContent = `/ ${r.total}`;
         r.page = Math.min(r.page, r.total);
+        // PDF 书签(章节目录):解析为"标题+输出页码"的平铺列表,供目录页签跳转
+        r.outline = await flattenReaderOutline(r.doc);
         await renderReaderPage();
       } catch (error) {
         $("#reader-loading").textContent = `PDF 加载失败：${error.message}`;
       }
+    }
+
+    // PDF.js 的书签目标需要逐条解析才能得到页码;平铺并保序,层级用于缩进
+    async function flattenReaderOutline(doc, items = null, level = 1, out = []) {
+      if (items === null) {
+        try { items = await doc.getOutline(); } catch { items = null; }
+        if (!items) return out;
+      }
+      for (const item of items) {
+        let page = null;
+        try {
+          if (item.dest) {
+            // dest 可能是命名目标(字符串)或显式目标数组,统一解析出页面对象再取页码(均为异步 API)
+            const explicit = typeof item.dest === "string" ? await doc.getDestination(item.dest) : item.dest;
+            if (explicit) page = (await doc.getPageIndex(explicit[0])) + 1;
+          }
+        } catch { /* 目标解析失败的书签跳过页码 */ }
+        out.push({ title: String(item.title || ""), page, level: Math.min(level, 4) });
+        if (Array.isArray(item.items) && item.items.length) {
+          await flattenReaderOutline(doc, item.items, level + 1, out);
+        }
+      }
+      return out;
     }
 
     async function renderReaderPage() {
@@ -1964,15 +2342,28 @@
         const base = page.getViewport({ scale: 1 });
         const box = $("#reader-pdf-box");
         const scale = r.zoom > 0 ? r.zoom : Math.max(0.4, (box.clientWidth - 24) / base.width);
+        // 按设备像素比(至少 2 倍)超采样渲染,再以 CSS 尺寸显示,高分屏/缩放下不模糊
+        const dpr = Math.max(window.devicePixelRatio || 1, 2);
         const viewport = page.getViewport({ scale });
         const canvas = $("#reader-canvas");
         const ctx = canvas.getContext("2d");
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        canvas.style.width = `${viewport.width}px`;
-        await page.render({ canvasContext: ctx, viewport }).promise;
+        canvas.width = Math.floor(viewport.width * dpr);
+        canvas.height = Math.floor(viewport.height * dpr);
+        canvas.style.width = `${Math.floor(viewport.width)}px`;
+        canvas.style.height = `${Math.floor(viewport.height)}px`;
+        await page.render({
+          canvasContext: ctx,
+          viewport,
+          transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined,
+        }).promise;
         $("#reader-zoom-val").textContent = r.zoom > 0 ? `${Math.round(scale * 100)}%` : "适配";
         $("#reader-page-num").value = r.page;
+        // 页码记忆:按任务存入 localStorage,重开阅读器回到上次位置
+        try { localStorage.setItem(`yiye-reader-page-${r.jobId}`, String(r.page)); } catch {}
+        if (r.alternating) {
+          // 交替页布局:同时显示输出页与对应的原文页,避免两套页码对不上
+          $("#reader-total").textContent = `/ ${r.total} · 原文 ${readerOriginalPage(r)}/${r.total / 2}`;
+        }
       } finally {
         r.rendering = false;
         $("#reader-loading").hidden = true;
@@ -1981,26 +2372,106 @@
       }
     }
 
+    // 交替页页码映射:输出第 2N-1 页是原文页、第 2N 页是译文页,都对应原文第 N 页
+    function readerOriginalPage(r) {
+      if (!r) return 1;
+      return r.alternating ? Math.ceil(r.page / 2) : r.page;
+    }
+
+    function readerOutputPage(r, originalPage) {
+      if (!r) return originalPage;
+      return r.alternating ? Math.max(1, originalPage * 2) : originalPage;
+    }
+
     function readerPagePairs() {
       const r = state.pdfReader;
       const detail = state.qualityDetails.get(r.jobId) || {};
       const edits = detail.edits || {};
-      const page = (detail.paragraphs || []).find((p) => p.page === r.page);
-      return { page, edits };
+      const originalPage = readerOriginalPage(r);
+      const page = (detail.paragraphs || []).find((p) => p.page === originalPage);
+      return { page, edits, originalPage };
+    }
+
+    // 阅读器全文搜索:跨段落匹配中英文,跳转到对应输出页并高亮命中段落
+    function highlightTerm(html, term) {
+      if (!term) return html;
+      const safe = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const re = new RegExp(safe, "gi");
+      // 入参是拼好的 HTML:只在标签之间的文本段里做替换,
+      // 否则搜索词命中 class/span 等标记名时会把 <mark> 注进标签结构
+      return html
+        .split(/(<[^>]+>)/g)
+        .map((part) => (part.startsWith("<") ? part : part.replace(re, (m) => `<mark>${m}</mark>`)))
+        .join("");
+    }
+
+    function readerRunSearch() {
+      const r = state.pdfReader;
+      const input = $("#reader-search-input");
+      const term = (input?.value || "").trim();
+      if (!r || !term) {
+        if (r) r.search = null;
+        $("#reader-search-count").textContent = "";
+        renderReaderSidebar();
+        return;
+      }
+      const detail = state.qualityDetails.get(r.jobId) || {};
+      const lower = term.toLowerCase();
+      const matches = [];
+      (detail.paragraphs || []).forEach((p) => {
+        p.pairs.forEach((pair, idx) => {
+          const inZh = (pair.zh || "").toLowerCase().includes(lower);
+          const inEn = (pair.en || "").toLowerCase().includes(lower);
+          if (inZh || inEn) matches.push({ page: p.page, pairIdx: idx });
+        });
+      });
+      r.search = { term, matches, idx: matches.length ? 0 : -1 };
+      $("#reader-search-count").textContent = matches.length ? `${matches.length} 处` : "无结果";
+      if (matches.length) readerGotoSearchMatch(0);
+      else renderReaderSidebar();
+    }
+
+    function readerGotoSearchMatch(idx) {
+      const r = state.pdfReader;
+      const matches = r?.search?.matches || [];
+      if (!matches.length) return;
+      r.search.idx = ((idx % matches.length) + matches.length) % matches.length;
+      r.page = readerOutputPage(r, matches[r.search.idx].page);
+      void renderReaderPage();
     }
 
     function renderReaderSidebar() {
       const r = state.pdfReader;
       const body = $("#reader-side-body");
       if (!body || !r.doc) return;
-      const { page, edits } = readerPagePairs();
+      if (r.sideTab === "toc") {
+        const outline = r.outline || [];
+        body.innerHTML = outline.length
+          ? outline.map((item) => {
+              const clickable = item.page != null;
+              return `<div class="rs-toc-item level-${item.level} ${clickable ? "rs-toc-click" : ""}" ${clickable ? `data-toc-page="${item.page}"` : ""}>
+                <span class="rs-toc-title">${escapeHtml(item.title)}</span>${clickable ? `<span class="rs-toc-page">P${item.page}</span>` : ""}
+              </div>`;
+            }).join("")
+          : '<div class="chat-hint">该 PDF 没有书签目录</div>';
+        body.querySelectorAll(".rs-toc-click").forEach((el) => {
+          el.addEventListener("click", () => {
+            r.page = Number(el.dataset.tocPage);
+            void renderReaderPage();
+          });
+        });
+        body.scrollTop = 0;
+        return;
+      }
+      const { page, edits, originalPage } = readerPagePairs();
       if (!page) { body.innerHTML = '<div class="chat-hint">本页没有可显示的段落</div>'; return; }
       const job = state.jobs.find((j) => j.id === r.jobId) || {};
       if (r.sideTab === "figures") {
-        const figs = (state.qualityDetails.get(r.jobId)?.figures || []).filter((f) => f.page === r.page);
+        const figs = (state.qualityDetails.get(r.jobId)?.figures || []).filter((f) => f.page === originalPage);
         body.innerHTML = figs.length ? figs.map((f) => {
           const explain = `请详细解释${f.kind} ${f.num}：它展示了什么内容、关键数据或趋势是什么、与论文的结论有什么关系？` + (f.translated ? `\n（${f.kind} ${f.num} 图注：${f.translated}）` : "");
-          const ansKey = `f${f.num}`;
+          // key 带 kind:同页的"图 1"与"表 1"互不覆盖
+          const ansKey = `f${f.kind}:${f.num}`;
           const ans = state.pdfReaderAnswers.get(ansKey);
           return `<div class="rs-pair rs-fig" data-rs-fig="${escapeHtml(f.kind)}:${f.num}">
             <div class="rs-fig-head"><strong>${escapeHtml(f.kind)} ${f.num}</strong>${f.crop ? `<a class="keep-view" href="/api/jobs/${job.id}/figure/${f.crop.split("/").pop()}" target="_blank" rel="noopener">大图</a>` : ""}</div>
@@ -2014,15 +2485,16 @@
         return;
       }
       // 段落页签
-      const pageIndex = (state.qualityDetails.get(r.jobId)?.paragraphs || []).findIndex((p) => p.page === r.page);
+      const pageIndex = (state.qualityDetails.get(r.jobId)?.paragraphs || []).findIndex((p) => p.page === originalPage);
       const same = page.translated === false;
+      const searchHit = r.search?.matches?.[r.search.idx];
       body.innerHTML = page.pairs.map((pair, idx) => {
-        const ekey = `${r.page}:${idx}`;
+        const isSearchHit = searchHit && searchHit.page === originalPage && searchHit.pairIdx === idx;
+        const ekey = `${originalPage}:${idx}`;
         const editing = state.readerEditing.has(ekey);
-        const editedEntry = Object.prototype.hasOwnProperty.call(edits, ekey) ? edits[ekey] : null;
-        const editedText = editedEntry ? editedEntry.text : null;
-        const isEdited = editedText != null && editedText !== pair.zh;
+        const { editedText, isEdited } = pairEditState(edits, ekey, pair);
         const shownZh = editing ? "" : (editedText != null ? editedText : pair.zh);
+        const highlight = isSearchHit ? (html) => highlightTerm(html, r.search.term) : (html) => html;
         // 点句解释:每个英文句子可点击,送入任务问答通道(带全文上下文)
         const enSent = state.readerSentExplain && pair.en
           ? splitSentences(pair.en).map((s, si) => {
@@ -2032,14 +2504,14 @@
               return `<span class="rs-sent" data-reader-explain="1" data-anskey="${escapeHtml(ak)}" data-job="${r.jobId}">${wrapFigRefs(r.jobId, escapeHtml(s))}</span> `;
             }).join("")
           : (pair.en ? wrapFigRefs(r.jobId, escapeHtml(pair.en)) : "");
-        return `<div class="rs-pair">
+        return `<div class="rs-pair ${isSearchHit ? "rs-search-hit" : ""}">
           <div class="rs-pair-head"><span class="rs-pair-tag">${escapeHtml(ekey)}</span>${pair.en && !same ? `<button class="link-btn" data-retranslate="${job.id}" data-rkey="${escapeHtml(`${job.id}:${pageIndex}:${idx}`)}" data-en="${escapeHtml(pair.en)}">重译</button>` : ""}<button class="link-btn" data-edit-edit="${escapeHtml(ekey)}" data-job="${r.jobId}" data-orig="${escapeHtml(pair.zh)}">${editing ? "收起" : "编辑"}</button></div>
-          ${pair.en ? `<div class="rs-en">${enSent}</div>` : ""}
+          ${pair.en ? `<div class="rs-en">${highlight(enSent)}</div>` : ""}
           ${editing
-            ? `<textarea class="rp-edit-area" data-edit-input="${escapeHtml(ekey)}" data-job="${job.id}">${escapeHtml(editedText != null ? editedText : pair.zh)}</textarea>
-               <div class="rs-actions"><button class="link-btn" data-edit-save="${job.id}" data-ekey="${escapeHtml(ekey)}" data-orig="${escapeHtml(pair.zh)}">保存</button><button class="link-btn" data-edit-apply="${job.id}" data-ekey="${escapeHtml(ekey)}" data-page="${page.page}" data-orig="${escapeHtml(pair.zh)}">保存并写入 PDF</button><button class="link-btn" data-edit-cancel="${escapeHtml(ekey)}">取消</button></div>`
+            ? `${pairEditAreaHtml(job.id, ekey, editedText != null ? editedText : pair.zh)}
+               <div class="rs-actions">${pairEditButtonsHtml(job.id, ekey, page.page, pair.zh, { cancel: false })}</div>`
             : shownZh
-              ? `<div class="rs-zh ${isEdited ? "rs-zh-edited" : ""}">${wrapFigRefs(job.id, escapeHtml(shownZh))}${isEdited ? '<span class="rs-edited-chip">已校对</span>' : ""}</div>`
+              ? `<div class="rs-zh ${isEdited ? "rs-zh-edited" : ""}">${highlight(wrapFigRefs(job.id, escapeHtml(shownZh)))}${isEdited ? '<span class="rs-edited-chip">已校对</span>' : ""}</div>`
               : '<div class="rs-zh muted">（该段落无译文，可点「编辑」补写）</div>'}
         </div>`;
       }).join("");
@@ -2088,6 +2560,268 @@
     function renderAiChat() {
       renderAiChatDocs();
       renderAiChatThread();
+      renderCompareReport();
+    }
+
+    // 多文档对比报告:勾选 ≥2 篇后生成结构化对比(markdown),可下载
+    async function generateCompareReport() {
+      if (state.compareReportBusy) return;
+      const selected = [...state.multiChat.docs.entries()]
+        .filter(([id, v]) => v && state.jobs.some((job) => job.id === id && job.status === "completed"))
+        .map(([id]) => id)
+        .slice(0, 4);
+      if (selected.length < 2) { showError("对比报告至少需要勾选两篇已完成的论文"); return; }
+      state.compareReportBusy = true;
+      state.compareReport = null;
+      renderCompareReport();
+      try {
+        const response = await fetch("/api/compare-report", {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-api-key": $("#api-key").value.trim() },
+          body: JSON.stringify({ job_ids: selected, model: config() }),
+          signal: AbortSignal.timeout(180000),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "对比报告生成失败");
+        state.compareReport = { content: data.report, model: data.model, docs: data.docs };
+      } catch (error) {
+        showError(error.message);
+      } finally {
+        state.compareReportBusy = false;
+        renderCompareReport();
+      }
+    }
+
+    // 对比报告的轻量 markdown 渲染:标题/表格/列表/加粗/行内代码(报告结构由提示词固定,无需完整解析器)
+    function inlineMarkdown(text) {
+      return escapeHtml(text)
+        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+        .replace(/`([^`]+)`/g, "<code>$1</code>");
+    }
+
+    function renderReportMarkdown(markdown) {
+      const html = [];
+      let inList = false;
+      let inTable = false;
+      const closeList = () => { if (inList) { html.push("</ul>"); inList = false; } };
+      const closeTable = () => { if (inTable) { html.push("</tbody></table>"); inTable = false; } };
+      for (const raw of markdown.split("\n")) {
+        const line = raw.trim();
+        if (line.startsWith("|")) {
+          closeList();
+          if (/^\|[\s:\-|]+\|$/.test(line)) continue; // 表头分隔行
+          const cells = line.replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => inlineMarkdown(cell.trim()));
+          if (!inTable) { html.push('<table class="report-table"><tbody>'); inTable = true; }
+          html.push(`<tr>${cells.map((cell) => `<td>${cell}</td>`).join("")}</tr>`);
+          continue;
+        }
+        closeTable();
+        const heading = line.match(/^(#{1,4})\s+(.*)$/);
+        if (heading) { closeList(); html.push(`<div class="report-h">${inlineMarkdown(heading[2])}</div>`); continue; }
+        const bullet = line.match(/^\s*[-*]\s+(.*)$/);
+        if (bullet) {
+          if (!inList) { html.push("<ul>"); inList = true; }
+          html.push(`<li>${inlineMarkdown(bullet[1])}</li>`);
+          continue;
+        }
+        closeList();
+        if (!line.trim()) continue;
+        html.push(`<p>${inlineMarkdown(line)}</p>`);
+      }
+      closeList();
+      closeTable();
+      return html.join("");
+    }
+
+    // 思维导图视图变换:按任务记忆缩放/平移,面板重绘后自动恢复
+    function applyMindmapTransform() {
+      const jobKey = $("#assistant-mindmap-job")?.value || "default";
+      const view = state.mindmapView.get(jobKey) || { scale: 1, tx: 0, ty: 0 };
+      const tree = document.querySelector('[data-assistant-section="mindmap"] .mm2-tree');
+      if (tree) tree.style.transform = `translate(${view.tx}px, ${view.ty}px) scale(${view.scale})`;
+    }
+
+    function mindmapView() {
+      const jobKey = $("#assistant-mindmap-job")?.value || "default";
+      if (!state.mindmapView.has(jobKey)) state.mindmapView.set(jobKey, { scale: 1, tx: 0, ty: 0 });
+      return state.mindmapView.get(jobKey);
+    }
+
+    $("#aichat-panel").addEventListener("wheel", (event) => {
+      const viewport = event.target.closest(".mm2-viewport");
+      if (!viewport) return;
+      event.preventDefault();
+      const view = mindmapView();
+      const factor = event.deltaY < 0 ? 1.15 : 1 / 1.15;
+      const next = Math.min(2.5, Math.max(0.35, view.scale * factor));
+      if (next === view.scale) return;
+      const rect = viewport.getBoundingClientRect();
+      const mx = event.clientX - rect.left;
+      const my = event.clientY - rect.top;
+      view.tx = mx - (mx - view.tx) * (next / view.scale);
+      view.ty = my - (my - view.ty) * (next / view.scale);
+      view.scale = next;
+      applyMindmapTransform();
+    }, { passive: false });
+    $("#aichat-panel").addEventListener("mousedown", (event) => {
+      const viewport = event.target.closest(".mm2-viewport");
+      if (!viewport || event.target.closest("[data-mm-toggle], .mm2-toolbar")) return;
+      const view = mindmapView();
+      state.mm2Drag = { x: event.clientX - view.tx, y: event.clientY - view.ty };
+      viewport.classList.add("dragging");
+      event.preventDefault();
+    });
+    document.addEventListener("mousemove", (event) => {
+      if (!state.mm2Drag) return;
+      const view = mindmapView();
+      view.tx = event.clientX - state.mm2Drag.x;
+      view.ty = event.clientY - state.mm2Drag.y;
+      applyMindmapTransform();
+    });
+    document.addEventListener("mouseup", (event) => {
+      if (!state.mm2Drag) return;
+      state.mm2Drag = null;
+      document.querySelectorAll(".mm2-viewport.dragging").forEach((el) => el.classList.remove("dragging"));
+    });
+    document.getElementById("aichat-panel")?.addEventListener("click", (event) => {
+      const btn = event.target.closest("[data-mm2-fit]");
+      if (!btn) return;
+      state.mindmapView.set($("#assistant-mindmap-job")?.value || "default", { scale: 1, tx: 0, ty: 0 });
+      applyMindmapTransform();
+    });
+    document.getElementById("aichat-panel")?.addEventListener("click", (event) => {
+      const zoomBtn = event.target.closest("[data-mm2-zoom-in], [data-mm2-zoom-out]");
+      if (!zoomBtn) return;
+      const view = mindmapView();
+      const factor = zoomBtn.dataset.mm2ZoomIn ? 1.2 : 1 / 1.2;
+      view.scale = Math.min(2.5, Math.max(0.35, view.scale * factor));
+      applyMindmapTransform();
+    });
+
+    function renderCompareReport() {
+      const button = $("#compare-report-btn");
+      const panel = $("#compare-report-panel");
+      if (!button || !panel) return;
+      const selectedCount = [...state.multiChat.docs.values()].filter(Boolean).length;
+      button.hidden = selectedCount < 2;
+      button.disabled = state.compareReportBusy;
+      button.textContent = state.compareReportBusy ? "正在生成对比报告…" : "📋 生成对比报告";
+      if (state.compareReportBusy && !state.compareReport) {
+        panel.hidden = false;
+        panel.innerHTML = '<div class="compare-report"><div class="compare-report-head" role="status">正在阅读所选论文并生成对比报告…（可能需要一分钟）</div></div>';
+        return;
+      }
+      if (!state.compareReport) { panel.hidden = true; panel.innerHTML = ""; return; }
+      const mdHref = `data:text/markdown;charset=utf-8,${encodeURIComponent(state.compareReport.content)}`;
+      const docNames = (state.compareReport.docs || []).map((d) => d.fileName.replace(/\.pdf$/i, "")).join(" vs ");
+      panel.hidden = false;
+      panel.innerHTML = `<div class="compare-report">
+        <div class="compare-report-head">📋 多论文对比报告 · ${escapeHtml(docNames)}
+          <a class="keep-view" download="论文对比报告.md" href="${mdHref}">下载 .md</a>
+          <a class="keep-view" id="compare-report-html" download="论文对比报告.html">下载 .html</a>
+          <button class="link-btn" id="compare-report-close">收起</button>
+        </div>
+        <div class="compare-report-body">${renderReportMarkdown(state.compareReport.content)}</div>
+      </div>`;
+      const htmlLink = document.getElementById("compare-report-html");
+      if (htmlLink) {
+        const blob = new Blob([`<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><title>多论文对比报告</title><style>body{max-width:900px;margin:32px auto;padding:0 20px;font-family:"Microsoft YaHei",sans-serif;color:#1a2433;line-height:1.75}h1{font-size:22px}.report-h{margin:18px 0 8px;color:#0d5a4c;font-weight:800;font-size:16px}table{border-collapse:collapse;margin:10px 0;width:100%}td{border:1px solid #c9d4e2;padding:6px 10px;vertical-align:top}li{margin:4px 0}code{background:#eef3f8;padding:1px 5px;border-radius:4px}</style></head><body>${renderReportMarkdown(state.compareReport.content)}</body></html>`], { type: "text/html;charset=utf-8" });
+        htmlLink.href = URL.createObjectURL(blob);
+        setTimeout(() => URL.revokeObjectURL(htmlLink.href), 10000);
+      }
+      const closeButton = document.getElementById("compare-report-close");
+      if (closeButton) closeButton.addEventListener("click", () => { state.compareReport = null; renderCompareReport(); });
+    }
+
+    // ── 论文助手标签页:问答 / 思维导图 / 图表速读 / 逐段对照 ──
+    function openAssistant(tab = "chat") {
+      state.assistantTab = tab;
+      renderAssistantTabs();
+      if (!$("#aichat-panel").open) $("#aichat-panel").showModal();
+      if (tab === "chat") renderAiChat();
+      renderAssistantPanels(true);
+      if (tab === "chat") $("#aichat-input")?.focus();
+    }
+
+    function renderAssistantTabs() {
+      document.querySelectorAll("[data-assistant-tab]").forEach((btn) => {
+        const selected = btn.dataset.assistantTab === state.assistantTab;
+        btn.classList.toggle("selected", selected);
+        btn.setAttribute("aria-selected", selected ? "true" : "false");
+      });
+      document.querySelectorAll("[data-assistant-section]").forEach((sec) => {
+        sec.hidden = sec.dataset.assistantSection !== state.assistantTab;
+      });
+    }
+
+    function assistantCompletedJobs() {
+      return state.jobs.filter((job) => job.status === "completed");
+    }
+
+    async function ensureAssistantDetail(jobId) {
+      const cached = state.qualityDetails.get(jobId);
+      // 拉取失败以 {__failed:true} 记为负缓存,避免轮询周期里反复重试同一失败请求
+      if (cached !== undefined && !cached?.__failed) return;
+      if (state.qualityDetailBusy?.has?.(jobId)) return;
+      (state.qualityDetailBusy ??= new Set()).add(jobId);
+      try {
+        const data = await fetch(`/api/jobs/${jobId}`).then((r) => {
+          if (!r.ok) throw new Error(String(r.status));
+          return r.json();
+        });
+        state.qualityDetails.set(jobId, data.qualityDetail || {});
+      } catch {
+        state.qualityDetails.set(jobId, { __failed: true });
+      } finally {
+        state.qualityDetailBusy.delete(jobId);
+      }
+    }
+
+    function renderAssistantPanels(force = false) {
+      if (!$("#aichat-panel")?.open) return;
+      renderAssistantTabs();
+      const tab = state.assistantTab;
+      if (tab === "chat") { state.assistantSignature = ""; return; }
+      const completed = assistantCompletedJobs();
+      const select = $(`#assistant-${tab}-job`);
+      if (!select) return;
+      if (!completed.length) {
+        select.innerHTML = '<option value="">暂无已完成任务</option>';
+        $(`#assistant-${tab}-body`).innerHTML = '<div class="chat-hint">翻译完成后即可在这里使用该功能。</div>';
+        return;
+      }
+      if (!completed.some((job) => job.id === state.assistantJobId)) {
+        state.assistantJobId = completed[0].id; // 默认选最新完成的任务
+      }
+      const options = completed.map((job) => `<option value="${job.id}" ${job.id === state.assistantJobId ? "selected" : ""}>${escapeHtml(job.fileName)}（${new Date(job.createdAt).toLocaleString()}）</option>`).join("");
+      if (select.dataset.sig !== options) {
+        select.dataset.sig = options;
+        select.innerHTML = options;
+      }
+      const job = completed.find((item) => item.id === state.assistantJobId);
+      // 面板构建函数沿用任务卡时代的"展开集合"判定,助手激活即视为展开
+      const openKey = { mindmap: "mindmapOpen", figures: "figuresOpen", pairs: "readerOpen" }[tab];
+      state[openKey].add(job.id);
+      if (tab !== "mindmap") void ensureAssistantDetail(job.id).then(() => {
+        if (!$("#aichat-panel")?.open) return;
+        paintAssistantPanel(tab, job, force);
+      });
+      paintAssistantPanel(tab, job, force);
+      if (tab === "mindmap") applyMindmapTransform();
+      if (tab === "mindmap" && !state.mindmaps.get(job.id) && !state.mindmapBusy.has(job.id)) void fetchMindmap(job.id);
+    }
+
+    function paintAssistantPanel(tab, job, force = false) {
+      const body = $(`#assistant-${tab}-body`);
+      if (!body) return;
+      const builders = { mindmap: mindmapPanelHtml, figures: figuresPanelHtml, pairs: readerPanelHtml };
+      const html = builders[tab](job);
+      const signature = `${job.id}:${html}`;
+      if (!force && state.assistantSignature === signature) return;
+      const scroll = body.scrollTop;
+      state.assistantSignature = signature;
+      body.innerHTML = html || '<div class="chat-hint">该任务暂无可展示的数据。</div>';
+      body.scrollTop = scroll;
     }
 
     // 回答中的【文档 N 第 M 页】渲染为对应任务译文 PDF 的页码跳转链接(容忍有无空格)
@@ -2173,10 +2907,93 @@
     }
 
     // 句对齐:按字符长度比例把中文句子分组对齐到英文句子(最后一句兜底接收剩余)
+    // 句级对齐 v2:学术翻译会保留专有名词/数字/模型名,这些是天然的句级锚点。
+    // 用锚点重叠做单调 DP 对齐,比按长度比例准确得多;完全无锚点时退回比例法。
+    function sentenceAnchors(sentence) {
+      const set = new Set();
+      for (const token of sentence.match(/\d+(?:\.\d+)?%?|[A-Za-z][A-Za-z'’\-]+/g) || []) {
+        const lower = token.toLowerCase();
+        if (lower.length < 2 && !/\d/.test(lower)) continue;
+        set.add(lower);
+      }
+      return set;
+    }
+
+    function alignByAnchors(enList, zhList) {
+      const enAnchors = enList.map(sentenceAnchors);
+      const zhAnchors = zhList.map(sentenceAnchors);
+      const m = enList.length;
+      const n = zhList.length;
+      const score = (i, j) => {
+        let value = 0;
+        for (const token of enAnchors[i]) if (zhAnchors[j].has(token)) value += /\d/.test(token) ? 2 : 1;
+        return value;
+      };
+      // 合并收益:被"跳过"的句子与前一组另一语言的句子共享锚点时,
+      // 视为并组(两英并一中等)而不是丢弃,共享锚点越多越倾向合并
+      const mergeGain = (enIdx, zhIdx) => {
+        if (enIdx < 0 || zhIdx < 0) return 0;
+        let shared = 0;
+        for (const token of enAnchors[enIdx]) if (zhAnchors[zhIdx].has(token)) shared += 1;
+        return shared > 0 ? Math.min(shared, 2) : 0;
+      };
+      // f[i][j] = 覆盖前 i 句英文与前 j 句中文的最佳得分;回溯得到对齐块
+      const f = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+      const from = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+      for (let i = 1; i <= m; i += 1) {
+        for (let j = 1; j <= n; j += 1) {
+          const diag = f[i - 1][j - 1] + score(i - 1, j - 1);
+          const skipZh = f[i][j - 1] + (i >= 1 ? mergeGain(i - 1, j - 1) : 0);
+          const skipEn = f[i - 1][j] + (j >= 1 ? mergeGain(i - 1, j - 1) : 0);
+          if (diag >= skipZh && diag >= skipEn) { f[i][j] = diag; from[i][j] = 1; }
+          else if (skipZh >= skipEn) { f[i][j] = skipZh; from[i][j] = 2; }
+          else { f[i][j] = skipEn; from[i][j] = 3; }
+        }
+      }
+      const cells = [];
+      let i = m;
+      let j = n;
+      while (i > 0 || j > 0) {
+        if (i > 0 && j > 0 && from[i][j] === 1) { cells.push([i - 1, j - 1]); i -= 1; j -= 1; }
+        else if (i > 0 && (j === 0 || from[i][j] === 3)) { cells.push([i - 1, -1]); i -= 1; }
+        else if (j > 0) { cells.push([-1, j - 1]); j -= 1; }
+        else break;
+      }
+      cells.reverse();
+      if (!cells.length) return null;
+      const groups = [];
+      let totalScore = 0;
+      for (const [enIdx, zhIdx] of cells) {
+        if (enIdx >= 0 && zhIdx >= 0) totalScore += score(enIdx, zhIdx);
+        if (enIdx < 0) {
+          // 译句被跳过:并入前一组;开头没有前组时保留为无英文组
+          if (groups.length) groups[groups.length - 1].zhParts.push(zhList[zhIdx]);
+          else groups.push({ enIndex: -1, en: "", zhParts: [zhList[zhIdx]] });
+          continue;
+        }
+        const last = groups[groups.length - 1];
+        if (last && last.enIndex === enIdx) last.zhParts.push(zhList[zhIdx]);
+        else groups.push({ enIndex: enIdx, en: enList[enIdx], zhParts: zhIdx >= 0 ? [zhList[zhIdx]] : [] });
+      }
+      if (totalScore < 2) return null;
+      // 孤儿英文句(其锚点译文并入了相邻组)向前合并进相邻组,保持阅读连贯
+      const out = [];
+      let carryEn = "";
+      for (const group of groups) {
+        if (!group.zhParts.length) { carryEn = `${carryEn} ${group.en}`.trim(); continue; }
+        out.push({ en: `${carryEn} ${group.en}`.trim(), zh: group.zhParts.join("") });
+        carryEn = "";
+      }
+      if (carryEn) out.push({ en: carryEn, zh: "" });
+      return out.length ? out : null;
+    }
+
     function alignSentences(enList, zhList) {
       if (!enList.length) return zhList.map((z) => ({ en: "", zh: z }));
       if (!zhList.length) return enList.map((e) => ({ en: e, zh: "" }));
       if (enList.length === zhList.length) return enList.map((en, i) => ({ en, zh: zhList[i] }));
+      const aligned = alignByAnchors(enList, zhList);
+      if (aligned) return aligned;
       const totalEn = enList.reduce((sum, en) => sum + en.length, 0) || 1;
       const totalZh = zhList.reduce((sum, z) => sum + z.length, 0) || 1;
       const groups = [];
@@ -2216,6 +3033,35 @@
 
     // 逐段对照阅读:原文段落(浅灰小字)在上、译文段落(主文)在下,按版面顺序排列。
     // 页码范围外的页面保留原文(en 与 zh 相同),只展示一遍并标注,避免重复刷屏
+    // ── 逐段对照条目的共享部件:助手面板与阅读器侧栏两个交互视图共用 ──
+    // 编辑状态计算:edits.json 键为"页:段序",原文被替换过即视为已校对
+    function pairEditState(edits, ekey, pair) {
+      const editedEntry = Object.prototype.hasOwnProperty.call(edits, ekey) ? edits[ekey] : null;
+      const editedText = editedEntry ? editedEntry.text : null;
+      return { editedText, isEdited: editedText != null && editedText !== pair.zh };
+    }
+
+    function pairEditAreaHtml(jobId, ekey, value) {
+      return `<textarea class="rp-edit-area" data-edit-input="${escapeHtml(ekey)}" data-job="${jobId}">${escapeHtml(value)}</textarea>`;
+    }
+
+    // 编辑态按钮组:cancel=false 用于"编辑/收起"单键切换的阅读器侧栏
+    function pairEditButtonsHtml(jobId, ekey, page, orig, { cancel = true } = {}) {
+      return `<button class="link-btn" data-edit-save="${jobId}" data-job="${jobId}" data-ekey="${escapeHtml(ekey)}" data-orig="${escapeHtml(orig)}">保存</button>` +
+        `<button class="link-btn" data-edit-apply="${jobId}" data-job="${jobId}" data-ekey="${escapeHtml(ekey)}" data-page="${page}" data-orig="${escapeHtml(orig)}">保存并写入 PDF</button>` +
+        (cancel ? `<button class="link-btn" data-edit-cancel="${escapeHtml(ekey)}">取消</button>` : "");
+    }
+
+    // 句对齐分组:助手面板每句可点击解释(data-sent),导出文档为纯文本
+    function pairSentGroupsHtml(en, zh, { jobId = "", paragraph = "" } = {}) {
+      const groups = alignSentences(splitSentences(en), splitZhSentences(zh));
+      return groups.map((group) => `
+        <div class="rp-sent-group">
+          ${group.en ? `<div class="rp-en">${jobId ? `<span class="rp-sent" data-sent="${escapeHtml(group.en)}" data-job="${jobId}" data-paragraph="${escapeHtml(paragraph)}">${escapeHtml(group.en)}</span>` : escapeHtml(group.en)}</div>` : ""}
+          ${group.zh ? `<div class="rp-zh">${escapeHtml(group.zh)}</div>` : ""}
+        </div>`).join("");
+    }
+
     function readerPanelHtml(job) {
       if (!state.readerOpen.has(job.id)) return "";
       const detail = state.qualityDetails.get(job.id);
@@ -2234,37 +3080,30 @@
             <div class="rp-alt">
               <span class="rp-alt-label">备选 ${ai + 1} · ${escapeHtml(alt.model || "")}${alt.applied ? " · ✓ 已写入 adjusted-output.pdf" : ""}${alt.applying ? " · 写入中…" : ""}</span>
               ${escapeHtml(alt.text)}
-              ${!alt.applying && !alt.applied && job.status === "completed" ? `<button class="link-btn" data-apply-alt="${job.id}" data-rkey="${escapeHtml(key)}" data-alt-idx="${ai}" data-page="${page.page}" data-old="${escapeHtml(pair.zh)}">应用到 PDF</button>` : ""}
+              ${!alt.applying && !alt.applied && !alt.error && job.status === "completed" ? `<button class="link-btn" data-apply-alt="${job.id}" data-rkey="${escapeHtml(key)}" data-alt-idx="${ai}" data-page="${page.page}" data-old="${escapeHtml(pair.zh)}">应用到 PDF</button>` : ""}
             </div>`).join("");
+          // 译文编辑校对:editKey = "页:段序",edits.json 持久化,写回 PDF 复用 redaction 管线
+          const editKey = `${page.page}:${pairIndex}`;
+          const { editedText, isEdited } = pairEditState(edits, editKey, pair);
+          const editingPair = state.readerEditing.has(editKey);
+          const editBtns = same ? "" : editingPair
+            ? pairEditButtonsHtml(job.id, editKey, page.page, pair.zh)
+            : `<button class="link-btn" data-edit-edit="${escapeHtml(editKey)}" data-job="${job.id}">编辑</button>${isEdited ? `<button class="link-btn" data-edit-apply="${job.id}" data-job="${job.id}" data-ekey="${escapeHtml(editKey)}" data-page="${page.page}" data-orig="${escapeHtml(pair.zh)}">写入 PDF</button>` : ""}`;
           const sentMode = state.readerGranularity === "sent" && !same && pair.en && pair.zh;
           let enHtml = "";
           let zhHtml = "";
           if (pair.en) {
             if (sentMode) {
-              // 句对齐:英文句与中文句按长度比例交错排列,每句可点击解释
-              const aligned = alignSentences(splitSentences(pair.en), splitZhSentences(pair.zh));
-              enHtml = aligned.map((group) => `
-                <div class="rp-sent-group">
-                  ${group.en ? `<div class="rp-en"><span class="rp-sent" data-sent="${escapeHtml(group.en)}" data-job="${job.id}" data-paragraph="${escapeHtml(pair.en)}">${escapeHtml(group.en)}</span></div>` : ""}
-                  ${group.zh ? `<div class="rp-zh">${escapeHtml(group.zh)}</div>` : ""}
-                </div>`).join("");
+              // 句对齐:英文句与中文句交错排列,每句可点击解释
+              enHtml = pairSentGroupsHtml(pair.en, pair.zh, { jobId: job.id, paragraph: pair.en });
               zhHtml = "";
             } else {
               enHtml = wrapFigRefs(job.id, escapeHtml(pair.en));
               zhHtml = wrapFigRefs(job.id, escapeHtml(pair.zh));
             }
           }
-          // 译文编辑校对:editKey = "页:段序",edits.json 持久化,写回 PDF 复用红action 管线
-          const editKey = `${page.page}:${pairIndex}`;
-          const editedEntry = Object.prototype.hasOwnProperty.call(edits, editKey) ? edits[editKey] : null;
-          const editedText = editedEntry ? editedEntry.text : null;
-          const isEdited = editedText != null && editedText !== pair.zh;
-          const editingPair = state.readerEditing.has(editKey);
-          const editBtns = same ? "" : editingPair
-            ? `<button class="link-btn" data-edit-save="${job.id}" data-ekey="${escapeHtml(editKey)}" data-orig="${escapeHtml(pair.zh)}">保存</button><button class="link-btn" data-edit-apply="${job.id}" data-ekey="${escapeHtml(editKey)}" data-page="${page.page}" data-orig="${escapeHtml(pair.zh)}">保存并写入 PDF</button><button class="link-btn" data-edit-cancel="${escapeHtml(editKey)}">取消</button>`
-            : `<button class="link-btn" data-edit-edit="${escapeHtml(editKey)}">编辑</button>${isEdited ? `<button class="link-btn" data-edit-apply="${job.id}" data-ekey="${escapeHtml(editKey)}" data-page="${page.page}" data-orig="${escapeHtml(pair.zh)}">写入 PDF</button>` : ""}`;
           const zhBlock = editingPair
-            ? `<textarea class="rp-edit-area" data-edit-input="${escapeHtml(editKey)}" data-job="${job.id}">${escapeHtml(editedText != null ? editedText : pair.zh)}</textarea>`
+            ? pairEditAreaHtml(job.id, editKey, editedText != null ? editedText : pair.zh)
             : (editedText != null || pair.zh)
               ? `<div class="rp-zh ${isEdited ? "rp-edited" : ""}">${wrapFigRefs(job.id, escapeHtml(editedText != null ? editedText : pair.zh))}${isEdited ? '<span class="rp-edited-chip">已校对</span>' : ""}</div>`
               : !same ? '<div class="rp-zh muted">（该段落无译文，可点「编辑」补写）</div>' : "";
@@ -2277,19 +3116,12 @@
           </div>`;
         }).join("")}
       `).join("");
-      const docHtml = `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><title>${escapeHtml(job.fileName)} 逐段对照</title><style>body{max-width:860px;margin:24px auto;padding:0 16px;font-family:"Microsoft YaHei",sans-serif;color:#222}.rp-page{font-weight:800;border-bottom:2px solid #2c3e50;margin:26px 0 12px;padding-bottom:4px}.rp-pair{margin:10px 0}.rp-en{color:#777;font-size:13px;line-height:1.5}.rp-zh{font-size:15px;line-height:1.8;margin-top:3px}.rp-sent-group{margin:8px 0}.rp-sent-group .rp-zh{margin-top:2px}</style></head><body><h1>${escapeHtml(job.fileName)} 逐段对照</h1>${pages.map((page) => `<div class="rp-page">第 ${page.page} 页${page.translated === false ? "（未翻译 · 保留原文）" : ""}</div>${page.pairs.map((pair) => {
-        const same = page.translated === false;
-        if (state.readerGranularity === "sent" && !same && pair.en && pair.zh) {
-          const aligned = alignSentences(splitSentences(pair.en), splitZhSentences(pair.zh));
-          return aligned.map((g) => `<div class="rp-pair">${g.en ? `<div class="rp-en">${escapeHtml(g.en)}</div>` : ""}${g.zh ? `<div class="rp-zh">${escapeHtml(g.zh)}</div>` : ""}</div>`).join("");
-        }
-        return `<div class="rp-pair">${pair.en ? `<div class="rp-en">${escapeHtml(pair.en)}</div>` : ""}${pair.zh ? `<div class="rp-zh">${escapeHtml(pair.zh)}</div>` : ""}</div>`;
-      }).join("")}`).join("")}</body></html>`;
-      const htmlHref = `data:text/html;charset=utf-8,${encodeURIComponent(docHtml)}`;
+      // 下载 HTML 延迟到点击时构建(见 buildPairsDocHtml):全部对照内容可能有数 MB,
+      // 若随面板每次渲染都生成并内联进 DOM,轮询周期会造成可感知的卡顿
       void refreshCompareModels();
       const compareOptions = (state.compareModels || []).map((m) => `<option value="${escapeHtml(m)}">`).join("");
       return `<div class="chat-panel reader-panel">
-        <div class="rp-toolbar"><span>共 ${pages.length} 页</span><span class="rp-toolbar-right"><label class="rp-sent-mode"><input type="checkbox" data-reader-sent ${state.readerSentExplain ? "checked" : ""}>点句解释</label><select class="rp-granularity" data-reader-granularity><option value="para" ${state.readerGranularity === "para" ? "selected" : ""}>段落对照</option><option value="sent" ${state.readerGranularity === "sent" ? "selected" : ""}>句对齐</option></select><span class="rp-compare"><label class="rp-sent-mode">对比模型</label><input class="rp-compare-input" data-compare-model list="rp-compare-list" placeholder="当前模型" value="${escapeHtml(state.compareModel || "")}" spellcheck="false"></span><a class="keep-view" download="${escapeHtml(job.fileName.replace(/\.pdf$/i, ""))}-逐段对照.html" href="${htmlHref}">下载 HTML</a></span></div>
+        <div class="rp-toolbar"><span>共 ${pages.length} 页</span><span class="rp-toolbar-right"><label class="rp-sent-mode"><input type="checkbox" data-reader-sent ${state.readerSentExplain ? "checked" : ""}>点句解释</label><select class="rp-granularity" data-reader-granularity><option value="para" ${state.readerGranularity === "para" ? "selected" : ""}>段落对照</option><option value="sent" ${state.readerGranularity === "sent" ? "selected" : ""}>句对齐</option></select><span class="rp-compare"><label class="rp-sent-mode">对比模型</label><input class="rp-compare-input" data-compare-model list="rp-compare-list" placeholder="当前模型" value="${escapeHtml(state.compareModel || "")}" spellcheck="false"></span><button class="keep-view" data-download-pairs="${job.id}">下载 HTML</button></span></div>
         <datalist id="rp-compare-list">${compareOptions}</datalist>
         ${pairsHtml}
       </div>`;
@@ -2304,8 +3136,9 @@
     }
 
     function jumpToFigureRow(jobId, kind, num) {
-      state.figuresOpen.add(jobId);
-      renderTasks();
+      // 图表速读面板在论文助手中:切到该标签页并选中对应任务,再定位条目
+      state.assistantJobId = jobId;
+      openAssistant("figures");
       requestAnimationFrame(() => {
         const row = document.querySelector(`.fig-row[data-fig-key="${kind}:${num}"]`);
         if (row) {
@@ -2325,11 +3158,12 @@
       if (!fig) { showError(`图表速读数据中没有 ${kind} ${num} 的记录`); return; }
       r.sideTab = "figures";
       document.querySelectorAll(".reader-tab").forEach((t) => t.classList.toggle("selected", t.dataset.readerTab === "figures"));
-      if (r.page === fig.page) {
+      const figOutputPage = readerOutputPage(r, fig.page);
+      if (r.page === figOutputPage) {
         renderReaderSidebar();
         flashReaderFig(kind, num);
       } else {
-        r.page = fig.page;
+        r.page = figOutputPage;
         void renderReaderPage().then(() => flashReaderFig(kind, num));
       }
     }
@@ -2349,23 +3183,32 @@
     function taskHtml(job) {
       const active = ["queued", "running"].includes(job.status);
       const pillClass = ` ${job.status}`;
+      // 下载标签:主译文 vs 写回修正版 vs 修订版,名称直白区分避免混淆
+      const downloadLabel = (name) => {
+        const base = name.split("/").pop();
+        if (base === "adjusted-output.pdf") return "下载修正版（含写回/重译修改）";
+        if (base === "revised-output.pdf") return "下载修订版（含保留原文页）";
+        return `下载译文 PDF（${escapeHtml(base)}）`;
+      };
       const downloads = (job.outputs || []).filter((name) => name.toLowerCase().endsWith(".pdf")).map((name) => {
         const href = `/api/jobs/${job.id}/result/${encodeURIComponent(name)}`;
-        const preview = name.toLowerCase().endsWith(".pdf") ? `<a href="${href}?inline=1" target="_blank" rel="noopener">预览</a>` : "";
-        return `${preview}<a href="${href}">下载 ${escapeHtml(name.split("/").pop())}</a>`;
+        const preview = `<a href="${href}?inline=1" target="_blank" rel="noopener">预览</a>`;
+        return `${preview}<a href="${href}" title="原始文件名：${escapeHtml(name)}">${downloadLabel(name)}</a>`;
       }).join("");
       const cancel = active ? `<button data-cancel="${job.id}">取消</button>` : "";
       const retry = !active && job.status !== "completed" ? `<button data-retry="${job.id}">重试</button>` : "";
       const del = !active ? `<button data-delete="${job.id}">删除</button>` : "";
-      const chat = job.status === "completed" ? `<button data-chat="${job.id}">${state.chatOpen.has(job.id) ? "收起问答" : "问答"}</button>` : "";
-      const mindmap = job.status === "completed" ? `<button data-mindmap="${job.id}">${state.mindmapOpen.has(job.id) ? "收起导图" : "思维导图"}</button>` : "";
-      const hasFigures = job.status === "completed" && (state.qualityDetails.get(job.id)?.figures?.length || 0) > 0;
-      const figures = hasFigures ? `<button data-figures="${job.id}">${state.figuresOpen.has(job.id) ? "收起图表" : "图表速读"}</button>` : "";
-      const hasReader = job.status === "completed" && (state.qualityDetails.get(job.id)?.paragraphs?.length || 0) > 0;
-      const reader = hasReader ? `<button data-reader="${job.id}">${state.readerOpen.has(job.id) ? "收起阅读" : "逐段对照"}</button>` : "";
+      // 问答/思维导图/图表速读/逐段对照已收敛到「论文助手」,任务卡片只保留交付物操作
       const viewer = job.status === "completed" && (job.outputs || []).some((name) => name.toLowerCase().endsWith(".pdf"))
         ? `<button data-open-reader="${job.id}">阅读器</button>` : "";
+      // 译文导出 Markdown(双语对照),由服务端从逐段对照数据构建
+      const mdExport = job.status === "completed" ? `<a href="/api/jobs/${job.id}/export/markdown?mode=both" title="导出双语对照 Markdown">导出 MD</a>` : "";
+      // 校对记录 CSV:有人工校对(edits)时才展示,供术语/翻译记忆复用
+      const hasEdits = job.status === "completed" && Object.keys(state.qualityDetails.get(job.id)?.edits || {}).length > 0;
+      const editsCsv = hasEdits ? `<a href="/api/jobs/${job.id}/export/edits-csv" title="导出人工校对对照 CSV（原文/原译文/校对后译文）">校对 CSV</a>` : "";
+      const editsGlossary = hasEdits ? `<button data-edits-glossary="${job.id}" title="用当前模型从校对记录提炼术语对，存入术语库供后续任务使用">存术语库</button>` : "";
       const logButton = job.log?.length ? `<button data-log-open="${job.id}">${escapeHtml(job.fileName.replace(/\.pdf$/i, ""))} 日志</button>` : "";
+      const qualityReportLink = job.status === "completed" ? `<a href="/api/jobs/${job.id}/quality-report" target="_blank" rel="noopener" title="在浏览器中查看逐页质检报告">质检报告</a>` : "";
       const metaBits = [];
       if (job.startedAt && job.finishedAt) metaBits.push(`耗时 ${Math.max(1, Math.round((new Date(job.finishedAt) - new Date(job.startedAt)) / 1000))} 秒`);
       if (job.stats?.paragraphs) metaBits.push(`段落 ${job.stats.paragraphs.done}/${job.stats.paragraphs.total}`);
@@ -2394,14 +3237,10 @@
         <div class="task-progress"><i style="width:${job.progress || 0}%"></i></div>
         ${metaBits.length || qualityHtml ? `<div class="task-meta">${metaBits.map((bit) => `<span>${escapeHtml(bit)}</span>`).join("")}${qualityHtml}</div>` : ""}
         ${aiSummaryHtml(job)}
-        ${readerPanelHtml(job)}
-        ${mindmapPanelHtml(job)}
-        ${figuresPanelHtml(job)}
         ${qualityIssuesHtml(job)}
         ${watermarkSuspectsHtml(job)}
-        ${chatPanelHtml(job)}
         ${job.error ? `<div class="task-error">${escapeHtml(job.error)}</div>` : ""}
-        ${job.outputs?.length || cancel || retry || del || chat || mindmap || figures || reader || viewer || logButton ? `<div class="task-actions">${downloads}${cancel}${retry}${del}${chat}${mindmap}${figures}${reader}${viewer}${logButton}</div>` : ""}
+        ${job.outputs?.length || cancel || retry || del || viewer || mdExport || editsCsv || editsGlossary || qualityReportLink || logButton ? `<div class="task-actions">${downloads}${mdExport}${editsCsv}${editsGlossary}${qualityReportLink}${cancel}${retry}${del}${viewer}${logButton}</div>` : ""}
       </article>`;
     }
 
@@ -2411,32 +3250,33 @@
       const badge = $("#tasks-badge");
       if (activeCount) { badge.hidden = false; badge.textContent = activeCount; }
       else badge.hidden = true;
+      // 助手面板打开时同步刷新(思维导图完成/重译/校对写回等动作都经由 renderTasks 收口)
+      renderAssistantPanels();
+      // 任务筛选:按状态与文件名过滤(不改变渲染与轮询,仅影响列表展示)
+      const filteredJobs = (() => {
+        const search = state.taskSearch.trim().toLowerCase();
+        return state.jobs.filter((job) => {
+          if (state.taskFilter === "active" && !["queued", "running"].includes(job.status)) return false;
+          if (state.taskFilter === "completed" && job.status !== "completed") return false;
+          if (state.taskFilter === "failed" && !["failed", "canceled", "interrupted"].includes(job.status)) return false;
+          if (search && !String(job.fileName || "").toLowerCase().includes(search)) return false;
+          return true;
+        });
+      })();
+      const shownJobs = filteredJobs;
       if (!state.jobs.length) {
         list.innerHTML = '<div class="history-empty">还没有翻译任务，提交后在这里查看进度</div>';
         $("#tasks-count").textContent = "暂无任务";
         return;
       }
       $("#tasks-count").textContent = activeCount ? `${activeCount} 个进行中 · 共 ${state.jobs.length} 个` : `共 ${state.jobs.length} 个`;
-      const html = state.jobs.map(taskHtml).join("");
+      const html = shownJobs.map(taskHtml).join("");
       if (html === state.signature) return;
-      // innerHTML 重建会重置滚动位置:恢复任务列表与展开日志的滚动,
-      // 日志贴近底部视为"跟随最新"继续钉底,向上翻阅时保持原位置不被拉走
-      const logScrolls = new Map();
-      list.querySelectorAll("pre.task-log").forEach((el) => {
-        if (el.dataset.jobId) {
-          const follow = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
-          logScrolls.set(el.dataset.jobId, follow ? -1 : el.scrollTop);
-        }
-      });
+      // innerHTML 重建会重置滚动位置:保存并恢复任务列表的滚动
       const listScroll = list.scrollTop;
       state.signature = html;
       list.innerHTML = html;
       list.scrollTop = listScroll;
-      list.querySelectorAll("pre.task-log").forEach((el) => {
-        const saved = logScrolls.get(el.dataset.jobId);
-        if (saved === undefined) return;
-        el.scrollTop = saved === -1 ? el.scrollHeight : saved;
-      });
     }
 
     function notifyEnabled() {
@@ -2496,13 +3336,16 @@
               try {
                 const detail = await fetch(`/api/jobs/${job.id}`).then((response) => response.json());
                 state.qualityDetails.set(job.id, detail.qualityDetail || null);
-              } catch { state.qualityDetails.set(job.id, null); }
+                // 失败记负缓存而非 null:占住 has() 防轮询重发,同时让 ensureAssistantDetail 在
+                // 用户打开助手时真正重试(null 会被其守卫当成"已有数据"拦下)
+              } catch { state.qualityDetails.set(job.id, { __failed: true }); }
             }));
           }
           renderTasks();
           updatePreview();
           updateTimeline();
           renderAiChatDocs();
+          renderCompareReport();
           updateLogModal();
         }
       } catch {}
@@ -2517,7 +3360,7 @@
       }, anyActive ? 1200 : 6000);
     }
 
-    async function startJob() {
+    async function startJob(force = false) {
       if (state.submitting) return;
       if (!state.files.length) { $("#file-input").click(); return; }
       showError();
@@ -2529,14 +3372,24 @@
       for (const file of state.files) {
         const form = new FormData();
         form.append("file", file, file.name);
-        form.append("config", JSON.stringify(config()));
+        form.append("config", JSON.stringify(config(file)));
         form.append("apiKey", $("#api-key").value);
+        if (force) form.append("force", "true");
         if (state.glossary) form.append("glossary", state.glossary, state.glossary.name);
         else if (state.glossaryName) form.append("glossaryName", state.glossaryName);
         try {
           const response = await fetch("/api/jobs", { method: "POST", body: form });
           const job = await response.json();
-          if (!response.ok) throw new Error(job.error || "任务提交失败");
+          if (!response.ok) {
+            if (response.status === 409 && job.duplicateOf) {
+              // 相同文件已翻译过:给出复用入口与强制重译,由用户决定
+              state.duplicateNotice = { fileName: file.name, duplicateOf: job.duplicateOf, duplicateFileName: job.duplicateFileName, message: job.error };
+              failedFiles.push(file);
+              renderDuplicateNotice();
+              continue;
+            }
+            throw new Error(job.error || "任务提交失败");
+          }
           submitted += 1;
         } catch (error) {
           failures.push(`${file.name}：${error.message}`);
@@ -2548,11 +3401,36 @@
       if (failures.length) showError(failures.join("\n"));
       if (submitted) {
         // 提交成功的文件移出列表，失败的保留，方便修正后重试
+        if (!failedFiles.length) { state.duplicateNotice = null; renderDuplicateNotice(); }
         state.files = failedFiles;
         renderFiles();
         await refreshJobs();
         schedulePoll();
       }
+    }
+
+    function renderDuplicateNotice() {
+      const panel = $("#duplicate-notice");
+      if (!panel) return;
+      const info = state.duplicateNotice;
+      if (!info) { panel.hidden = true; panel.innerHTML = ""; return; }
+      panel.hidden = false;
+      panel.innerHTML = `<div class="watermark-title">检测到重复文件</div>
+        <div class="watermark-row">${escapeHtml(info.message || `「${info.fileName}」与已完成任务「${info.duplicateFileName}」内容相同。建议直接复用之前的译文，避免重复花费时间。`)}</div>
+        <div class="watermark-row" style="display:flex;gap:8px;margin-top:8px">
+          <button class="ghost small" id="dup-view">查看已有任务</button>
+          <button class="ghost small" id="dup-force">仍然重新翻译</button>
+        </div>`;
+      document.getElementById("dup-view").addEventListener("click", () => {
+        state.duplicateNotice = null;
+        renderDuplicateNotice();
+        $("#tasks-open").click();
+      });
+      document.getElementById("dup-force").addEventListener("click", () => {
+        state.duplicateNotice = null;
+        renderDuplicateNotice();
+        void startJob(true);
+      });
     }
 
     async function cancelJob(id) {
@@ -2676,8 +3554,8 @@
     }
 
     function updateDualLayoutVisibility() {
-      // 兼容旧设置；当前只开放左右同页，不需要额外版式控件。
-      $("#dual-layout").value = "side";
+      const field = $("#dual-layout-field");
+      if (field) field.hidden = state.output !== "dual";
     }
 
     document.querySelectorAll("[data-output]").forEach((button) => button.addEventListener("click", () => {
@@ -2691,6 +3569,16 @@
       saveSettings();
     }));
     $("#file-input").addEventListener("change", (event) => { setFiles([...event.target.files]); event.target.value = ""; });
+    $("#watermark-scan").addEventListener("click", () => void scanWatermarks());
+    $("#watermark-panel").addEventListener("change", (event) => {
+      const box = event.target.closest("[data-watermark-text]");
+      if (!box) return;
+      const scan = state.watermarkScans.get(box.dataset.watermarkText);
+      const suspect = scan?.suspects[Number(box.dataset.wmIndex)];
+      if (!scan || !suspect) return;
+      box.checked ? scan.selected.add(suspect.text) : scan.selected.delete(suspect.text);
+      box.closest(".watermark-suspect")?.classList.toggle("unchecked", !box.checked);
+    });
     $("#glossary-input").addEventListener("change", (event) => setGlossary(event.target.files[0]));
     $("#glossary-clear").addEventListener("click", clearGlossary);
     $("#glossary-save").addEventListener("click", saveGlossaryToLibrary);
@@ -2702,6 +3590,42 @@
       const name = $("#glossary-library").value;
       if (name) window.open(`/api/glossaries/${encodeURIComponent(name)}`, "_blank");
     });
+    // 术语库条目管理:查看/单条删除(术语回填闭环的收尾)
+    $("#glossary-library-entries").addEventListener("click", async () => {
+      const name = $("#glossary-library").value;
+      if (!name) return showError("请先在上方选择一个术语库");
+      try {
+        const data = await fetch(`/api/glossaries/${encodeURIComponent(name)}/entries`).then((response) => response.json());
+        if (!response.ok) throw new Error(data.error || "条目读取失败");
+        renderGlossaryEntries(name, data.entries || []);
+      } catch (error) {
+        showError(error.message);
+      }
+    });
+    $("#glossary-entries-panel").addEventListener("click", async (event) => {
+      const del = event.target.closest("[data-entry-delete]");
+      if (!del) return;
+      const name = del.dataset.entryLibrary;
+      const source = del.dataset.entrySource;
+      if (!confirm(`删除术语「${source}」？`)) return;
+      try {
+        const response = await fetch(`/api/glossaries/${encodeURIComponent(name)}/entry?source=${encodeURIComponent(source)}`, { method: "DELETE" });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "删除失败");
+        renderGlossaryEntries(name, await fetch(`/api/glossaries/${encodeURIComponent(name)}/entries`).then((r) => r.json()).then((d) => d.entries || []));
+      } catch (error) {
+        showError(error.message);
+      }
+    });
+
+    function renderGlossaryEntries(name, entries) {
+      const panel = $("#glossary-entries-panel");
+      if (!panel) return;
+      panel.hidden = false;
+      panel.innerHTML = `<div class="watermark-title">「${escapeHtml(name)}」· ${entries.length} 条术语</div>` + (entries.length
+        ? entries.map((entry) => `<div class="watermark-suspect"><span class="wm-text">${escapeHtml(entry.source)} → ${escapeHtml(entry.target)}</span><button class="link-btn" data-entry-delete data-entry-library="${escapeHtml(name)}" data-entry-source="${escapeHtml(entry.source)}">删除</button></div>`).join("")
+        : '<div class="watermark-row">该术语库为空</div>');
+    }
     $("#glossary-library-delete").addEventListener("click", deleteGlossaryFromLibrary);
     $("#notify-button").addEventListener("click", async () => {
       if (!("Notification" in window)) return;
@@ -2718,18 +3642,49 @@
     $("#glossary-template").addEventListener("click", downloadTemplate);
     $("#test-button").addEventListener("click", testProvider);
     $("#models-button").addEventListener("click", refreshModels);
+    // 本地模型自动推荐:检测显存,推荐装得下的最大模型并填入模型框
+    $("#recommend-button").addEventListener("click", async () => {
+      const button = $("#recommend-button");
+      const result = $("#test-result");
+      button.disabled = true;
+      result.textContent = "正在检测显存与模型规模…";
+      try {
+        const response = await fetch(`/api/providers/recommend?baseUrl=${encodeURIComponent($("#base-url").value.trim())}`, {
+          headers: { "x-api-key": $("#api-key").value },
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "推荐失败");
+        const vramText = data.vramGB == null ? "未检测到独立显存" : `显存 ${data.vramGB}GB`;
+        if (data.recommended) {
+          $("#model").value = data.recommended;
+          saveSettings();
+          result.textContent = `✓ ${vramText}，推荐 ${data.recommended}（已填入）`;
+        } else if (data.ranked?.length) {
+          result.textContent = `${vramText}，未能判断模型规模，可从列表手动选择`;
+        } else {
+          result.textContent = "服务上没有发现可推荐的模型";
+        }
+      } catch (error) {
+        result.textContent = `推荐失败：${error.message}`;
+      } finally {
+        button.disabled = false;
+      }
+    });
+    $("#preview-download-btn").addEventListener("click", (event) => {
+      if (!state.previewCompletedJob) {
+        event.preventDefault();
+        showError("还没有已完成翻译的任务，完成后即可在此下载译文 PDF");
+      }
+    });
+    $("#preview-reader-btn").addEventListener("click", () => {
+      const job = state.previewCompletedJob;
+      if (!job) { showError("还没有已完成翻译的任务，完成后即可在此打开阅读器"); return; }
+      void openReaderModal(job.id);
+    });
     $("#run-button").addEventListener("click", startJob);
     for (const id of ["base-url", "model", "qps", "pages-range", "max-pages-part", "target", "ocr", "table", "figure", "glossary", "enhance", "thinking", "ignore-cache", "ai-summary", "dual-layout", "custom-prompt", "font-family"]) {
       $(`#${id}`).addEventListener("change", saveSettings);
     }
-    $("#dual-layout").addEventListener("change", () => {
-      // 任务进行中保持实时预览不被打断;空闲时才切换演示视图
-      const hasActive = state.jobs.some((item) => ["queued", "running"].includes(item.status));
-      if (!hasActive) {
-        state.previewOverride = true;
-        renderPreview();
-      }
-    });
     $("#chips").addEventListener("click", (event) => {
       const button = event.target.closest("[data-remove]");
       if (button) { state.files.splice(Number(button.dataset.remove), 1); renderFiles(); renderEstimate(); }
@@ -2744,243 +3699,302 @@
         renderTasks();
       }
     });
-    $("#task-list").addEventListener("click", (event) => {
-      const revise = event.target.closest("[data-revise]");
-      if (revise) return generateRevisedPdf(revise.dataset.revise);
-      const cancel = event.target.closest("[data-cancel]");
-      if (cancel) return cancelJob(cancel.dataset.cancel);
-      const retry = event.target.closest("[data-retry]");
-      if (retry) return retryJob(retry.dataset.retry);
-      const del = event.target.closest("[data-delete]");
-      if (del) return deleteJob(del.dataset.delete);
-      const chatToggle = event.target.closest("[data-chat]");
-      if (chatToggle) {
-        const id = chatToggle.dataset.chat;
-        state.chatOpen.has(id) ? state.chatOpen.delete(id) : state.chatOpen.add(id);
-        renderTasks();
-        return;
+    // 任务卡片与助手面板共用的交互委托(面板内只含阅读/编辑/解释类动作,任务管理按钮已不在面板中出现)
+    // ── 任务卡 / 助手面板 / 阅读器侧栏共用的点击动作 ──
+    // 复杂动作拆成具名函数,handleTaskPanelClick 只按 data-* 路由;新增动作登记一行即可。
+    function toggleMindmapNode(el) {
+      // 思维导图节点折叠/展开:直接切换子树显隐,不整面板重绘
+      const key = el.dataset.mmToggle;
+      const kids = document.querySelector(`[data-mm2-children="${CSS.escape(key)}"]`);
+      if (!kids) return;
+      const collapsed = state.mindmapCollapsed;
+      collapsed.has(key) ? collapsed.delete(key) : collapsed.add(key);
+      kids.classList.toggle("collapsed", collapsed.has(key));
+      const badge = el.parentElement?.querySelector(".mm2-badge");
+      if (badge) {
+        const count = badge.dataset.count || "";
+        badge.textContent = collapsed.has(key) ? `+${count || "…"}` : "−";
       }
-      const mmToggle = event.target.closest("[data-mindmap]");
-      if (mmToggle) {
-        const id = mmToggle.dataset.mindmap;
-        if (state.mindmapOpen.has(id)) state.mindmapOpen.delete(id);
-        else {
-          state.mindmapOpen.add(id);
-          void fetchMindmap(id);
-        }
-        renderTasks();
-        return;
-      }
-      const mmRefresh = event.target.closest("[data-mindmap-refresh]");
-      if (mmRefresh) return void fetchMindmap(mmRefresh.dataset.mindmapRefresh, true);
-      const figToggle = event.target.closest("[data-figures]");
-      if (figToggle) {
-        const id = figToggle.dataset.figures;
-        state.figuresOpen.has(id) ? state.figuresOpen.delete(id) : state.figuresOpen.add(id);
-        renderTasks();
-        return;
-      }
-      const readerToggle = event.target.closest("[data-reader]");
-      if (readerToggle) {
-        const id = readerToggle.dataset.reader;
-        state.readerOpen.has(id) ? state.readerOpen.delete(id) : state.readerOpen.add(id);
-        renderTasks();
-        return;
-      }
-      const openViewer = event.target.closest("[data-open-reader]");
-      if (openViewer) return void openReaderModal(openViewer.dataset.openReader);
-      const editEdit = event.target.closest("[data-edit-edit]");
-      if (editEdit) {
-        state.readerEditing.add(editEdit.dataset.editEdit);
-        renderTasks();
-        return;
-      }
-      const editCancel = event.target.closest("[data-edit-cancel]");
-      if (editCancel) {
-        state.readerEditing.delete(editCancel.dataset.editCancel);
-        renderTasks();
-        return;
-      }
-      const editSave = event.target.closest("[data-edit-save]");
-      if (editSave) {
-        const jobId = editSave.dataset.job;
-        const ekey = editSave.dataset.ekey;
-        const input = document.querySelector(`[data-edit-input="${CSS.escape(ekey)}"]`);
-        const text = input ? input.value : "";
-        void (async () => {
-          try {
-            const response = await fetch(`/api/jobs/${jobId}/save-edit`, {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({ key: ekey, text, origText: editSave.dataset.orig }),
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error || "保存失败");
-            const detail = state.qualityDetails.get(jobId);
-            if (detail) {
-              detail.edits = detail.edits || {};
-              if (data.edits[ekey]) detail.edits[ekey] = data.edits[ekey];
-              else delete detail.edits[ekey];
-            }
-            state.readerEditing.delete(ekey);
-          } catch (error) {
-            showError(error.message);
-          } finally {
-            renderTasks();
-          }
-        })();
-        return;
-      }
-      const editApply = event.target.closest("[data-edit-apply]");
-      if (editApply) {
-        const jobId = editApply.dataset.job;
-        const ekey = editApply.dataset.ekey;
+    }
+
+    // 校对编辑态切换。任务/助手面板经 renderTasks 重绘;阅读器侧栏打开时额外重绘自身
+    function togglePairEditing(el) {
+      const key = el.dataset.editEdit || el.dataset.editCancel;
+      if (!key) return;
+      if (state.readerEditing.has(key)) state.readerEditing.delete(key);
+      else state.readerEditing.add(key);
+      renderTasks();
+      if (state.pdfReader) renderReaderSidebar();
+    }
+
+    // 校对保存(三个入口共用):state 同步 + 上下文感知重绘
+    async function saveParagraphEdit(jobId, ekey, text, origText) {
+      try {
+        const response = await fetch(`/api/jobs/${jobId}/save-edit`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ key: ekey, text, origText }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "保存失败");
         const detail = state.qualityDetails.get(jobId);
-        const entry = detail?.edits?.[ekey];
-        const input = document.querySelector(`[data-edit-input="${CSS.escape(ekey)}"]`);
-        const newText = entry?.text ?? input?.value ?? "";
-        const origText = editApply.dataset.orig;
-        if (!newText.trim()) { showError("没有可写入的译文"); return; }
-        void (async () => {
-          try {
-            const response = await fetch(`/api/jobs/${jobId}/apply-paragraph`, {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({ page: Number(editApply.dataset.page), oldText: origText, newText }),
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error || "写入 PDF 失败");
-            if (detail) {
-              detail.edits = detail.edits || {};
-              const entry = detail.edits[ekey] || { origText };
-              entry.text = newText;
-              entry.lastApplied = newText;
-              detail.edits[ekey] = entry;
-            }
-            showError("✓ 已写入 adjusted-output.pdf，可在任务下载区获取");
-          } catch (error) {
-            showError(error.message);
-          } finally {
-            renderTasks();
-          }
-        })();
-        return;
-      }
-      const figref = event.target.closest("[data-figref]");
-      if (figref) {
-        jumpToFigureRow(figref.dataset.figref, figref.dataset.kind, figref.dataset.num);
-        return;
-      }
-      const retrans = event.target.closest("[data-retranslate]");
-      if (retrans) {
-        const jobId = retrans.dataset.retranslate;
-        const key = retrans.dataset.rkey;
-        if (state.retransBusy.has(key)) return;
-        // 对比重译:工具栏选了对比模型时用它,否则用当前模型;结果累积为多个备选
-        const model = state.compareModel || "";
-        state.retransBusy.add(key);
+        if (detail) {
+          detail.edits = detail.edits || {};
+          if (data.edits[ekey]) detail.edits[ekey] = data.edits[ekey];
+          else delete detail.edits[ekey];
+        }
+        state.readerEditing.delete(ekey);
+      } catch (error) {
+        showError(error.message);
+      } finally {
         renderTasks();
-        void (async () => {
-          try {
-            const response = await fetch(`/api/jobs/${jobId}/retranslate`, {
-              method: "POST",
-              headers: { "content-type": "application/json", "x-api-key": $("#api-key").value.trim() },
-              body: JSON.stringify({ en: retrans.dataset.en, model: model || undefined }),
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error || "重译失败");
-            const entry = state.retranslations.get(key) || { alts: [] };
-            entry.alts = entry.alts || [];
-            entry.alts.push({ text: data.translation, model: data.model });
-            state.retranslations.set(key, entry);
-          } catch (error) {
-            const entry = state.retranslations.get(key) || { alts: [] };
-            entry.alts = entry.alts || [];
-            entry.alts.push({ text: `⚠ ${error.message}`, model: model || "当前模型", error: true });
-            state.retranslations.set(key, entry);
-          } finally {
-            state.retransBusy.delete(key);
-            renderTasks();
-          }
-        })();
-        return;
+        if (state.pdfReader) renderReaderSidebar();
       }
-      const applyAlt = event.target.closest("[data-apply-alt]");
-      if (applyAlt) {
-        const jobId = applyAlt.dataset.applyAlt;
-        const key = applyAlt.dataset.rkey;
-        const altIdx = Number(applyAlt.dataset.altIdx);
-        const entry = state.retranslations.get(key);
-        const alt = entry?.alts?.[altIdx];
-        if (!alt?.text || alt.applying || alt.applied) return;
-        alt.applying = true;
+    }
+
+    // 校对写回 PDF(三个入口共用):adjusted-output.pdf 累积惯例,成功后提示
+    async function applyParagraphToPdf(jobId, ekey, page, oldText, newText) {
+      try {
+        const response = await fetch(`/api/jobs/${jobId}/apply-paragraph`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ page, oldText, newText }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "写入 PDF 失败");
+        const detail = state.qualityDetails.get(jobId);
+        if (detail && ekey) {
+          detail.edits = detail.edits || {};
+          const entry = detail.edits[ekey] || { origText: oldText };
+          entry.text = newText;
+          entry.lastApplied = newText;
+          detail.edits[ekey] = entry;
+        }
+        showError("✓ 已写入 adjusted-output.pdf，可在任务下载区获取");
+      } catch (error) {
+        showError(error.message);
+      } finally {
         renderTasks();
-        void (async () => {
-          try {
-            const response = await fetch(`/api/jobs/${jobId}/apply-paragraph`, {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({ page: Number(applyAlt.dataset.page), oldText: applyAlt.dataset.old, newText: alt.text }),
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error || "应用失败");
-            alt.applied = true;
-          } catch (error) {
-            alt.error = error.message;
-            alt.applied = false;
-          } finally {
-            alt.applying = false;
-            renderTasks();
-          }
-        })();
-        return;
+        if (state.pdfReader) { renderReaderPage(); renderReaderSidebar(); }
       }
-      const chatSend = event.target.closest("[data-chat-send]");
-      if (chatSend) return void sendChat(chatSend.dataset.chatSend);
-      const quick = event.target.closest("[data-chat-quick]");
-      if (quick) {
-        const input = quick.closest(".chat-panel")?.querySelector("[data-chat-input]");
-        if (input && !input.disabled) void sendChat(input.dataset.chatInput, quick.dataset.chatQuick);
-        return;
+    }
+
+    // jobId 兼容读法:标准入口是 data-job;历史标记把 id 放在 data-edit-save/apply 上
+    function startParagraphSave(el) {
+      const jobId = el.dataset.job || el.dataset.editSave;
+      const ekey = el.dataset.ekey;
+      const input = document.querySelector(`[data-edit-input="${CSS.escape(ekey)}"]`);
+      void saveParagraphEdit(jobId, ekey, input ? input.value : "", el.dataset.orig);
+    }
+
+    function startParagraphApply(el) {
+      const jobId = el.dataset.job || el.dataset.editApply;
+      const ekey = el.dataset.ekey;
+      const saved = state.qualityDetails.get(jobId)?.edits?.[ekey]?.text;
+      const input = document.querySelector(`[data-edit-input="${CSS.escape(ekey)}"]`);
+      // 当前输入框内容优先,其次已保存的校对文本
+      const newText = input && input.value.trim() ? input.value : (saved || "");
+      if (!newText.trim()) { showError("没有可写入的译文"); return; }
+      void applyParagraphToPdf(jobId, ekey, Number(el.dataset.page), el.dataset.orig, newText);
+    }
+
+    function translateFigureText(el) {
+      const jobId = el.dataset.figText;
+      const kind = el.dataset.kind;
+      const num = el.dataset.num;
+      const key = `${jobId}:${kind}:${num}`;
+      if (state.figInnerText.get(key)?.loading) return;
+      state.figInnerText.set(key, { loading: true });
+      renderTasks();
+      void (async () => {
+        try {
+          const response = await fetch(`/api/jobs/${jobId}/figure-text`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ kind, num, model: config() }),
+            signal: AbortSignal.timeout(180000),
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "图中文字翻译失败");
+          state.figInnerText.set(key, { original: data.original, translated: data.translated });
+        } catch (error) {
+          state.figInnerText.delete(key);
+          showError(error.message);
+        } finally {
+          renderTasks();
+        }
+      })();
+    }
+
+    function retranslateParagraph(el) {
+      const jobId = el.dataset.retranslate;
+      const key = el.dataset.rkey;
+      if (state.retransBusy.has(key)) return;
+      // 对比重译:工具栏选了对比模型时用它,否则用当前模型;结果累积为多个备选
+      const model = state.compareModel || "";
+      state.retransBusy.add(key);
+      renderTasks();
+      void (async () => {
+        try {
+          const response = await fetch(`/api/jobs/${jobId}/retranslate`, {
+            method: "POST",
+            headers: { "content-type": "application/json", "x-api-key": $("#api-key").value.trim() },
+            body: JSON.stringify({ en: el.dataset.en, model: model || undefined }),
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "重译失败");
+          const entry = state.retranslations.get(key) || { alts: [] };
+          entry.alts = entry.alts || [];
+          entry.alts.push({ text: data.translation, model: data.model });
+          state.retranslations.set(key, entry);
+        } catch (error) {
+          const entry = state.retranslations.get(key) || { alts: [] };
+          entry.alts = entry.alts || [];
+          entry.alts.push({ text: `⚠ ${error.message}`, model: model || "当前模型", error: true });
+          state.retranslations.set(key, entry);
+        } finally {
+          state.retransBusy.delete(key);
+          renderTasks();
+        }
+      })();
+    }
+
+    function applyAlternative(el) {
+      const jobId = el.dataset.applyAlt;
+      const key = el.dataset.rkey;
+      const altIdx = Number(el.dataset.altIdx);
+      const entry = state.retranslations.get(key);
+      const alt = entry?.alts?.[altIdx];
+      if (!alt?.text || alt.applying || alt.applied) return;
+      alt.applying = true;
+      renderTasks();
+      void (async () => {
+        try {
+          const response = await fetch(`/api/jobs/${jobId}/apply-paragraph`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ page: Number(el.dataset.page), oldText: el.dataset.old, newText: alt.text }),
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "应用失败");
+          alt.applied = true;
+        } catch (error) {
+          alt.error = error.message;
+          alt.applied = false;
+        } finally {
+          alt.applying = false;
+          renderTasks();
+        }
+      })();
+    }
+
+    function retranslatePageFromClick(el) {
+      const jobId = el.dataset.retransPage;
+      const page = el.dataset.page;
+      const key = `${jobId}:${page}`;
+      if (state.pageRetransBusy.has(key)) return;
+      state.pageRetransBusy.set(key, true);
+      renderTasks();
+      void (async () => {
+        try {
+          const response = await fetch(`/api/jobs/${jobId}/retranslate-page`, {
+            method: "POST",
+            headers: { "content-type": "application/json", "x-api-key": $("#api-key").value.trim() },
+            body: JSON.stringify({ page: Number(page) }),
+            signal: AbortSignal.timeout(320000),
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "重译失败");
+          showError(`✓ 第 ${page} 页重译完成（${data.seconds || "?"} 秒），已写入 adjusted-output.pdf，可在任务下载区获取`);
+        } catch (error) {
+          showError(error.message);
+        } finally {
+          state.pageRetransBusy.delete(key);
+          await refreshJobs();
+        }
+      })();
+    }
+
+    function saveEditsGlossary(el) {
+      const jobId = el.dataset.editsGlossary;
+      el.disabled = true;
+      el.textContent = "提炼中…";
+      void (async () => {
+        try {
+          const response = await fetch("/api/glossaries/from-edits", {
+            method: "POST",
+            headers: { "content-type": "application/json", "x-api-key": $("#api-key").value.trim() },
+            body: JSON.stringify({ jobId, model: config() }),
+            signal: AbortSignal.timeout(180000),
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "术语提炼失败");
+          showError(`✓ 已将 ${data.added} 条术语对存入术语库「${data.name}」（共 ${data.total} 条），下批翻译可在设置中选用`);
+        } catch (error) {
+          showError(error.message);
+        } finally {
+          renderTasks();
+        }
+      })();
+    }
+
+    // 点击动作表:顺序即优先级(首个命中的 data-* 生效)
+    const PANEL_CLICK_ACTIONS = [
+      ["[data-download-pairs]", (el) => downloadPairsHtml(el.dataset.downloadPairs)],
+      ["[data-revise]", (el) => generateRevisedPdf(el.dataset.revise)],
+      ["[data-cancel]", (el) => cancelJob(el.dataset.cancel)],
+      ["[data-retry]", (el) => retryJob(el.dataset.retry)],
+      ["[data-delete]", (el) => deleteJob(el.dataset.delete)],
+      ["[data-mindmap-refresh]", (el) => void fetchMindmap(el.dataset.mindmapRefresh, true)],
+      ["[data-mm-toggle]", toggleMindmapNode],
+      ["[data-open-reader]", (el) => void openReaderModal(el.dataset.openReader)],
+      ["[data-edit-edit]", togglePairEditing],
+      ["[data-edit-cancel]", togglePairEditing],
+      ["[data-edit-save]", startParagraphSave],
+      ["[data-edit-apply]", startParagraphApply],
+      ["[data-figref]", (el) => jumpToFigureRow(el.dataset.figref, el.dataset.kind, el.dataset.num)],
+      ["[data-fig-text]", translateFigureText],
+      ["[data-retranslate]", retranslateParagraph],
+      ["[data-apply-alt]", applyAlternative],
+      ["[data-fig-explain]", (el) => void askAssistant(el.dataset.figExplain, el.dataset.figQuestion)],
+      ["[data-retrans-page]", retranslatePageFromClick],
+      ["[data-edits-glossary]", saveEditsGlossary],
+      ["[data-sent]", (el) => void askAssistant(el.dataset.job, `请解释论文中的这句英文：\n\n"${el.dataset.sent}"\n\n要求：先给出中文翻译，再解析句子的语法结构或专业含义。\n（该句所在完整段落：${el.dataset.paragraph}）`)],
+      ["[data-log-open]", (el) => { if (state.logModalJobId !== el.dataset.logOpen) openLogModal(el.dataset.logOpen); }],
+    ];
+
+    function handleTaskPanelClick(event) {
+      for (const [selector, action] of PANEL_CLICK_ACTIONS) {
+        const el = event.target.closest(selector);
+        if (el) return action(el);
       }
-      const figExplain = event.target.closest("[data-fig-explain]");
-      if (figExplain) {
-        const id = figExplain.dataset.figExplain;
-        if (state.chatBusy.has(id)) return;
-        state.chatOpen.add(id);
-        void sendChat(id, figExplain.dataset.figQuestion);
-        return;
+    }
+    $("#task-list").addEventListener("click", handleTaskPanelClick);
+    $("#aichat-panel").addEventListener("click", handleTaskPanelClick);
+    // 点句开关/对比模型/对齐粒度只在助手面板的逐段对照中出现,#aichat-panel 一个监听器足够
+    $("#aichat-panel").addEventListener("change", (event) => {
+      if (event.target.matches("[data-assistant-job]")) {
+        state.assistantJobId = event.target.value;
+        renderAssistantPanels(true);
       }
-      const sent = event.target.closest("[data-sent]");
-      if (sent) {
-        const jobId = sent.dataset.job;
-        if (state.chatBusy.has(jobId)) return;
-        state.chatOpen.add(jobId);
-        void sendChat(jobId, `请解释论文中的这句英文：\n\n"${sent.dataset.sent}"\n\n要求：先给出中文翻译，再解析句子的语法结构或专业含义。\n（该句所在完整段落：${sent.dataset.paragraph}）`);
-        return;
-      }
-      const log = event.target.closest("[data-log-open]");
-      if (log) {
-        if (state.logModalJobId !== log.dataset.logOpen) openLogModal(log.dataset.logOpen);
-      }
-    });
-    $("#task-list").addEventListener("change", (event) => {
       if (event.target.matches("[data-reader-sent]")) {
         state.readerSentExplain = event.target.checked;
-        renderTasks();
+        renderAssistantPanels(true);
       }
       if (event.target.matches("[data-compare-model]")) {
         state.compareModel = event.target.value.trim();
       }
       if (event.target.matches("[data-reader-granularity]")) {
         state.readerGranularity = event.target.value;
-        renderTasks();
+        renderAssistantPanels(true);
       }
     });
-    $("#task-list").addEventListener("keydown", (event) => {
-      if (event.key === "Enter" && event.target.matches("[data-chat-input]")) {
-        void sendChat(event.target.dataset.chatInput);
-      }
+    document.querySelectorAll("[data-assistant-tab]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.assistantTab = btn.dataset.assistantTab;
+        state.assistantSignature = "";
+        renderAssistantPanels(true);
+      });
     });
     // 内置翻译规则:查看/编辑(保存到服务端数据目录,空 = 恢复默认)
     async function loadPromptTemplateView() {
@@ -3024,12 +4038,25 @@
     });
 
     $("#tasks-open").addEventListener("click", () => { $("#tasks-backdrop").classList.add("open"); refreshJobs(); syncBodyLock(); });
+    document.querySelectorAll("[data-task-filter]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.taskFilter = btn.dataset.taskFilter;
+        document.querySelectorAll("[data-task-filter]").forEach((b) => b.classList.toggle("selected", b === btn));
+        renderTasks();
+      });
+    });
+    $("#tasks-search").addEventListener("input", (event) => {
+      state.taskSearch = event.target.value;
+      renderTasks();
+    });
+    $("#tasks-close").addEventListener("click", () => { $("#tasks-backdrop").classList.remove("open"); syncBodyLock(); });
     $("#tasks-clear").addEventListener("click", clearFinishedJobs);
     // ── 独立日志抽屉:增量追加不整表重建,向上滚动暂停跟随 ──
     function openLogModal(jobId) {
       state.logModalJobId = jobId;
       state.logFollow = true;
       state.logRenderedLines = 0;
+      state.logLastLine = null;
       $("#log-content").textContent = "";
       $("#log-backdrop").classList.add("open");
       syncBodyLock();
@@ -3050,14 +4077,18 @@
       if (title) title.textContent = `${job.fileName} · ${job.status}`;
       const lines = job.log || [];
       const rendered = state.logRenderedLines || 0;
-      if (lines.length >= rendered) {
+      // 服务端日志窗口(30 行)滑动后行数不变、末行内容变了,
+      // 只看行数差会把新日志永远判为"无新增",这里用末行指纹识别滑动并整体重建
+      const slid = rendered > 0 && lines.length === rendered && lines[lines.length - 1] !== state.logLastLine;
+      if (lines.length < rendered || slid) {
+        box.textContent = lines.join("\n"); // 日志被清空/重置/窗口滑动,整体重建
+      } else {
         // 只追加新增行,保留既有 DOM 与滚动位置
         const fresh = lines.slice(rendered);
         if (fresh.length) box.append(fresh.map((line) => `${line}\n`).join(""));
-      } else {
-        box.textContent = lines.join("\n"); // 日志被清空/重置,整体重建
       }
       state.logRenderedLines = lines.length;
+      state.logLastLine = lines.length ? lines[lines.length - 1] : null;
       const follow = $("#log-follow-check");
       if (follow?.checked) box.scrollTop = box.scrollHeight;
       const meta = $("#log-meta");
@@ -3105,13 +4136,12 @@
       renderAiChatThread();
     });
     $("#aichat-send").addEventListener("click", () => void sendMultiChat());
+    $("#compare-report-btn").addEventListener("click", () => void generateCompareReport());
     $("#aichat-input").addEventListener("keydown", (event) => {
       if (event.key === "Enter" && !event.shiftKey && !event.isComposing) { event.preventDefault(); void sendMultiChat(); }
     });
     $("#assistant-launcher").addEventListener("click", () => {
-      renderAiChat();
-      $("#aichat-panel").showModal();
-      $("#aichat-input").focus();
+      openAssistant(state.assistantTab || "chat");
     });
     $("#assistant-close").addEventListener("click", () => $("#aichat-panel").close());
     $("#assistant-expand").addEventListener("click", (event) => {
@@ -3129,6 +4159,13 @@
       state.pdfReader = null;
       state.pdfReaderAnswers.clear();
     }
+    // 阅读器键盘翻页:←/→ 前后翻页(焦点不在输入控件时),Esc 关闭
+    document.addEventListener("keydown", (event) => {
+      if (!state.pdfReader || event.target.matches("input, textarea, select")) return;
+      const r = state.pdfReader;
+      if (event.key === "ArrowLeft" && r.page > 1) { r.page -= 1; void renderReaderPage(); }
+      if (event.key === "ArrowRight" && r.page < r.total) { r.page += 1; void renderReaderPage(); }
+    });
     $("#reader-close").addEventListener("click", closeReaderModal);
     $("#reader-modal-backdrop").addEventListener("click", (event) => {
       if (event.target === event.currentTarget) closeReaderModal();
@@ -3155,6 +4192,31 @@
       $("#reader-src-trans").classList.remove("selected");
       loadReaderDoc();
     });
+    // 阅读器全文搜索:输入即时计数,回车跳到第一个命中,▲▼ 在命中间循环
+    $("#reader-search-input").addEventListener("keydown", (event) => {
+      if (event.key === "Enter") { event.preventDefault(); readerGotoSearchMatch((state.pdfReader?.search?.idx ?? -1) + 1); }
+      if (event.key === "Escape") { event.target.value = ""; readerRunSearch(); }
+    });
+    $("#reader-search-input").addEventListener("input", () => readerRunSearch());
+    $("#reader-search-next").addEventListener("click", () => readerGotoSearchMatch((state.pdfReader?.search?.idx ?? -1) + 1));
+    $("#reader-search-prev").addEventListener("click", () => readerGotoSearchMatch((state.pdfReader?.search?.idx ?? 1) - 1));
+    // 阅读器滚轮翻页:适配视图(整页放得下)时滚轮直接翻页;
+    // 放大后先在页内滚动,滚到上/下边缘再翻页。带防抖,避免触控板惯性一次翻多页
+    $("#reader-pdf-box").addEventListener("wheel", (event) => {
+      const r = state.pdfReader;
+      if (!r) return;
+      const box = $("#reader-pdf-box");
+      const scrollable = box.scrollHeight > box.clientHeight + 2;
+      const atTop = box.scrollTop <= 2;
+      const atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 2;
+      // 放大后有页内滚动余量且未到边缘:交给原生滚动
+      if (scrollable && !((event.deltaY > 0 && atBottom) || (event.deltaY < 0 && atTop))) return;
+      event.preventDefault();
+      if (Date.now() < state.readerWheelLockUntil) return;
+      state.readerWheelLockUntil = Date.now() + 650;
+      if (event.deltaY > 0 && r.page < r.total) { r.page += 1; box.scrollTop = 0; void renderReaderPage(); }
+      else if (event.deltaY < 0 && r.page > 1) { r.page -= 1; box.scrollTop = 0; void renderReaderPage(); }
+    }, { passive: false });
     $("#reader-prev").addEventListener("click", () => {
       const r = state.pdfReader;
       if (r && r.page > 1) { r.page -= 1; renderReaderPage(); renderReaderSidebar(); }
@@ -3196,7 +4258,8 @@
         const r = state.pdfReader;
         if (!r) return;
         const ansKey = explain.dataset.anskey;
-        if (state.chatBusy.has(r.jobId)) return;
+        if (state.readerExplainBusy.has(r.jobId)) return;
+        state.readerExplainBusy.add(r.jobId);
         state.pdfReaderAnswers.set(ansKey, { text: "解析中…" });
         renderReaderSidebar();
         void (async () => {
@@ -3204,7 +4267,9 @@
             const response = await fetch(`/api/jobs/${r.jobId}/chat`, {
               method: "POST",
               headers: { "content-type": "application/json", "x-api-key": $("#api-key").value.trim() },
-              body: JSON.stringify({ question: explain.dataset.readerExplain.replace(/\\n/g, "\n"), model: config() }),
+              // 点句解释的完整问题存在 pdfReaderQuestions(数据键 anskey);
+              // dataset.readerExplain 只是标志位"1",图表解释按钮才直接携带问题全文
+              body: JSON.stringify({ question: state.pdfReaderQuestions.get(ansKey) || (explain.dataset.readerExplain || "").replace(/\\n/g, "\n"), model: config() }),
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || "解析失败");
@@ -3212,78 +4277,23 @@
           } catch (error) {
             state.pdfReaderAnswers.set(ansKey, { text: `⚠ ${error.message}` });
           } finally {
+            state.readerExplainBusy.delete(r.jobId);
             renderReaderSidebar();
           }
         })();
         return;
       }
+      // 编辑/保存/写回/取消/重译与任务卡共用同一组动作(修复按钮缺 data-job 导致的 /api/jobs/undefined)
       const editEdit = event.target.closest("[data-edit-edit]");
-      if (editEdit) {
-        state.readerEditing.add(editEdit.dataset.editEdit);
-        renderReaderSidebar();
-        return;
-      }
+      if (editEdit) return togglePairEditing(editEdit);
       const editCancelM = event.target.closest("[data-edit-cancel]");
-      if (editCancelM) {
-        state.readerEditing.delete(editCancelM.dataset.editCancel);
-        renderReaderSidebar();
-        return;
-      }
+      if (editCancelM) return togglePairEditing(editCancelM);
       const editSaveM = event.target.closest("[data-edit-save]");
-      if (editSaveM) {
-        const jobId = editSaveM.dataset.job;
-        const ekey = editSaveM.dataset.ekey;
-        const input = document.querySelector(`[data-edit-input="${CSS.escape(ekey)}"]`);
-        const text = input ? input.value : "";
-        void (async () => {
-          try {
-            const response = await fetch(`/api/jobs/${jobId}/save-edit`, {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({ key: ekey, text, origText: editSaveM.dataset.orig }),
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error || "保存失败");
-            const edits = state.qualityDetails.get(jobId)?.edits || {};
-            if (data.edits[ekey]) edits[ekey] = data.edits[ekey];
-            else delete edits[ekey];
-            state.readerEditing.delete(ekey);
-          } catch (error) {
-            showError(error.message);
-          } finally {
-            renderReaderSidebar();
-          }
-        })();
-        return;
-      }
+      if (editSaveM) return startParagraphSave(editSaveM);
       const editApplyM = event.target.closest("[data-edit-apply]");
-      if (editApplyM) {
-        const jobId = editApplyM.dataset.job;
-        const ekey = editApplyM.dataset.ekey;
-        const edits = state.qualityDetails.get(jobId)?.edits || {};
-        const input = document.querySelector(`[data-edit-input="${CSS.escape(ekey)}"]`);
-        const newText = input ? input.value : (edits[ekey]?.text || "");
-        if (!newText.trim()) { showError("没有可写入的译文"); return; }
-        void (async () => {
-          try {
-            const response = await fetch(`/api/jobs/${jobId}/apply-paragraph`, {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({ page: Number(editApplyM.dataset.page), oldText: editApplyM.dataset.orig, newText }),
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error || "写入失败");
-            edits[ekey] = { ...(edits[ekey] || { origText: editApplyM.dataset.orig }), text: newText, lastApplied: newText };
-            showError("✓ 已写入 adjusted-output.pdf");
-          } catch (error) {
-            showError(error.message);
-          } finally {
-            renderReaderPage();
-            renderReaderSidebar();
-          }
-        })();
-        return;
-      }
+      if (editApplyM) return startParagraphApply(editApplyM);
+      const retransM = event.target.closest("[data-retranslate]");
+      if (retransM) return retranslateParagraph(retransM);
     });
 
     $("#tasks-backdrop").addEventListener("click", (event) => { if (event.target === event.currentTarget) { event.currentTarget.classList.remove("open"); syncBodyLock(); } });
@@ -3361,7 +4371,6 @@
     $("#target").addEventListener("change", renderServiceSummary);
 
     loadSettings();
-    updateDualLayoutVisibility();
     renderServiceSummary();
     loadGlossaryLibrary();
     updateNotifyButton();
