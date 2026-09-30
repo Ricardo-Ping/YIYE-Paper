@@ -21,7 +21,7 @@ export function isRuntimeStale(currentMtimeMs = statSync(SERVER_FILE).mtimeMs) {
 export async function getPromptTemplate() {
   try {
     const worker = await readFile(path.join(ROOT, "engine_worker.py"), "utf8");
-    const match = worker.match(/PROMPT_TEMPLATE = \(\n([\s\S]*?)\n\)/);
+    const match = worker.match(/PROMPT_TEMPLATE = \(\r?\n([\s\S]*?)\r?\n\)/);
     if (!match) throw new Error("template not found");
     const lines = match[1].split("\n")
       .map((line) => line.trim().replace(/^"|"$/g, "").replace(/\\n$/, "\n"))
@@ -166,8 +166,24 @@ export function sanitizeGlossaryName(name) {
 }
 
 export function countGlossaryEntries(text) {
-  const lines = parseGlossaryCsv(String(text || "")).split(/\r?\n/).filter((line) => line.trim());
-  return Math.max(0, lines.length - 1);
+  // 引号内换行是单条词条的一部分,朴素按行切会把 1 条记成多条:
+  // 只有不在双引号内的换行才是记录边界(与写入侧 quote() 的转义口径一致)
+  const clean = parseGlossaryCsv(String(text || ""));
+  const lines2 = [];
+  let current = "";
+  let inQuotes = false;
+  const NEWLINE = ["\n", "\r"];
+  for (const ch of clean) {
+    if (ch === '"') inQuotes = !inQuotes;
+    if (NEWLINE.includes(ch) && !inQuotes) {
+      lines2.push(current);
+      current = "";
+      continue;
+    }
+    current += ch;
+  }
+  lines2.push(current);
+  return Math.max(0, lines2.filter((line) => line.trim()).length - 1);
 }
 
 function json(res, status, value) {
@@ -180,8 +196,16 @@ function json(res, status, value) {
   res.end(body);
 }
 
+// gatewayId 只在服务端内部用于路由协议网关,既不能暴露给前端(任务期间可被用来
+// 盗用网关配置里的上游 key),也不应落盘(重启后注册表清空,残留的 id 无效)
+function stripGatewayId(job) {
+  if (!job?.config?.gatewayId) return job;
+  return { ...job, config: (() => { const config = { ...job.config }; delete config.gatewayId; return config; })() };
+}
+
 function publicJob(job) {
-  const { inputPath, outputDir, requestPath, logBuffer, log, ...safe } = job;
+  const { inputPath, outputDir, requestPath, logBuffer, awaitingCompletionValue, log, ...safe } = stripGatewayId(job);
+  // awaitingCompletionValue 是日志折行解析的瞬态标志,对前端无意义
   return { ...safe, outputs: (job.outputs || []).filter((name) => name.toLowerCase().endsWith(".pdf")), log: log.slice(-30) };
 }
 
@@ -194,12 +218,41 @@ async function engineReady() {
   }
 }
 
-async function persistJobs() {
+// 串行化写盘:并发 persistJobs 的 rename 顺序可能与快照顺序颠倒,
+// 把旧状态后写回盘(进程恰在此刻退出会真实回退)。用 promise 链保证落盘顺序。
+let persistChain = Promise.resolve();
+function persistJobs() {
+  const run = persistChain.then(() => doPersistJobs());
+  persistChain = run.then(() => {}, () => {});
+  return run;
+}
+
+async function doPersistJobs() {
   await mkdir(DATA_DIR, { recursive: true });
   const tmp = `${JOBS_FILE}.${process.pid}.${randomUUID()}.tmp`;
-  const data = [...jobs.values()].map(({ inputPath, outputDir, requestPath, logBuffer, ...job }) => job);
+  const data = [...jobs.values()]
+    .map(({ inputPath, outputDir, requestPath, logBuffer, ...job }) => stripGatewayId(job));
   await writeFile(tmp, JSON.stringify(data, null, 2), "utf8");
   await rename(tmp, JOBS_FILE);
+}
+
+// 任务产物 JSON(edits.json/figures.json/mindmap.json)的原子写 + 按任务互斥:
+// 它们是"读-改-写"的活数据,并发请求会互相覆盖(后写者丢更新);
+// 非原子写(截断+重写)还可能被并发读到的半截 JSON 写坏 —— figures.json
+// 只在翻译时生成,一旦写坏图表速读永久 409,无自愈路径
+const jobJsonLocks = new Map();
+
+function withJobJsonLock(id, fn) {
+  const prev = jobJsonLocks.get(id) || Promise.resolve();
+  const run = prev.then(fn, fn);
+  jobJsonLocks.set(id, run.catch(() => {}));
+  return run;
+}
+
+async function writeJsonAtomic(filePath, value) {
+  const tmp = `${filePath}.${process.pid}.${randomUUID()}.tmp`;
+  await writeFile(tmp, JSON.stringify(value, null, 2), "utf8");
+  await rename(tmp, filePath);
 }
 
 async function loadJobs() {
@@ -207,23 +260,48 @@ async function loadJobs() {
   await mkdir(GLOSSARIES_DIR, { recursive: true });
   try {
     const stored = JSON.parse(await readFile(JOBS_FILE, "utf8"));
+    if (!Array.isArray(stored)) throw new SyntaxError("jobs.json 顶层不是数组");
+    let badEntries = 0;
     for (const job of stored) {
-      if (["queued", "running"].includes(job.status)) {
-        job.status = "interrupted";
-        job.error = "应用重启后任务已中断，请重新提交。API key 未被保存。";
+      // 单条损坏(合法 JSON 但元素非对象/缺 id)只跳过并计数,
+      // 不能让整次加载失败 —— 否则前半已入内存,后续持久化会把后半任务永久覆盖丢失
+      try {
+        if (!job || typeof job !== "object" || !job.id) throw new Error("条目缺少 id");
+        if (["queued", "running"].includes(job.status)) {
+          job.status = "interrupted";
+          job.error = "应用重启后任务已中断，请重新提交。API key 未被保存。";
+        }
+        const dir = path.join(JOBS_DIR, job.id);
+        jobs.set(job.id, {
+          ...job,
+          log: Array.isArray(job.log) ? job.log : [],
+          inputPath: path.join(dir, job.inputName || "source.pdf"),
+          outputDir: path.join(dir, "output"),
+          requestPath: path.join(dir, "request.json"),
+        });
+      } catch {
+        badEntries += 1;
       }
-      const dir = path.join(JOBS_DIR, job.id);
-      jobs.set(job.id, {
-        ...job,
-        log: Array.isArray(job.log) ? job.log : [],
-        inputPath: path.join(dir, job.inputName || "source.pdf"),
-        outputDir: path.join(dir, "output"),
-        requestPath: path.join(dir, "request.json"),
-      });
+    }
+    if (badEntries > 0) {
+      // 先备份原文件再持久化恢复列表:persistJobs 会直接覆盖 jobs.json
+      const backup = `${JOBS_FILE}.corrupt-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+      await rename(JOBS_FILE, backup)
+        .then(() => console.warn(`jobs.json 有 ${badEntries} 条损坏条目已跳过，原文件保留为 ${backup}`))
+        .catch(() => {});
     }
     await persistJobs();
   } catch (error) {
     if (error.code !== "ENOENT") console.warn("无法读取历史任务：", error.message);
+    // jobs.json 损坏(解析失败/结构异常/含坏条目)时:先把坏文件改名保留,再继续启动。
+    // 否则内存任务列表不完整,下一次 persistJobs 会用残缺列表覆盖坏文件,
+    // 磁盘上完整的 data/jobs/<id>/ 输出目录从此永久失联。
+    if (error instanceof SyntaxError) {
+      const backup = `${JOBS_FILE}.corrupt-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+      await rename(JOBS_FILE, backup)
+        .then(() => console.warn(`jobs.json 已损坏，原文件保留为 ${backup}；历史任务列表已按可用条目恢复`))
+        .catch(() => {});
+    }
   }
 }
 
@@ -385,8 +463,13 @@ function spawnWorker(extraEnv = {}) {
 }
 
 // 停滞判定:运行中的任务超过该时长没有任何日志输出(进度/Token/阶段行都算),
-// 视为引擎挂死。阈值需大于 BabelDOC 的单请求超时(600 秒),避免误杀慢请求
-export function isStalled(job, now = Date.now(), stallMs = Number(process.env.YIYE_STALL_MINUTES || 12) * 60_000) {
+// 视为引擎挂死。阈值需大于 BabelDOC 的单请求超时(600 秒),避免误杀慢请求。
+// 环境变量容错:非数字会静默禁用看门狗(NaN 比较恒 false),负数会立刻杀掉所有任务
+export function isStalled(job, now = Date.now(), stallMs = null) {
+  if (stallMs == null) {
+    const mins = Number(process.env.YIYE_STALL_MINUTES || 12);
+    stallMs = (Number.isFinite(mins) && mins >= 1 ? mins : 12) * 60_000;
+  }
   if (job.status !== "running" || job.cancelRequested) return false;
   const raw = job.lastProgressAt ?? job.startedAt;
   const last = typeof raw === "number" ? raw : Number.isFinite(Number(raw)) ? Date.parse(raw) : NaN;
@@ -431,7 +514,8 @@ async function runJob(job) {
   child.stderr.on("data", (chunk) => appendLog(job, chunk, apiKey, stderr));
 
   // 停滞看门狗:引擎挂死时自动终止,把"永远卡住"变成可重试的失败
-  const stallMinutes = Number(process.env.YIYE_STALL_MINUTES || 12);
+  const stallMinutesRaw = Number(process.env.YIYE_STALL_MINUTES || 12);
+  const stallMinutes = Number.isFinite(stallMinutesRaw) && stallMinutesRaw >= 1 ? stallMinutesRaw : 12;
   const watchdog = setInterval(() => {
     if (isStalled(job)) {
       job.stalled = true;
@@ -540,6 +624,14 @@ async function pump() {
 // 上传 PDF 的统一解析:multipart 表单 → 大小/扩展名/魔数校验 → Buffer。
 // 提交任务、页数预估、水印检测三个入口共用。
 async function readUploadPdf(req, endpoint) {
+  // formData() 会把整个请求体缓冲进内存,先按 Content-Length 预检,
+  // 避免超大上传先吃满内存再被拒
+  const length = Number(req.headers["content-length"] || 0);
+  if (length > MAX_FILE_BYTES + 1024 * 1024) {
+    const error = new Error("PDF 超过 200 MB 限制");
+    error.status = 413;
+    throw error;
+  }
   const request = new Request(`http://${HOST}:${PORT}${endpoint}`, {
     method: "POST",
     headers: req.headers,
@@ -623,9 +715,12 @@ async function createJob(req) {
 function findDuplicateJob(buffer, config) {
   const hash = createHash("sha256").update(buffer).digest("hex");
   const target = String(config?.target || "zh-CN");
+  const pages = String(config?.pages || "");
   for (const job of jobs.values()) {
     if (job.status !== "completed" || job.fileHash !== hash) continue;
     if (String(job.config?.target || "zh-CN") !== target) continue;
+    // 页码范围不同 → 产物覆盖范围不同(例如历史任务只译了 1-5 页),不能提示复用
+    if (String(job.config?.pages || "") !== pages) continue;
     if (config?.output && job.config?.output && job.config.output !== config.output) continue;
     if ((config?.dualLayout || "side") !== (job.config?.dualLayout || "side")) continue;
     return job;
@@ -650,9 +745,16 @@ async function createJobRecord({ buffer, originalName, fileSize, config, apiKey,
   await writeFile(inputPath, buffer);
   await renderPagePng(inputPath, path.join(dir, "input-page.png"), 0);
   // 先注册协议网关(会写入 config.gatewayId),再落盘 request.json,
-  // 保证 worker 读到的请求里带有网关配置
+  // 保证 worker 读到的请求里带有网关配置。
+  // 落盘失败时任务对象不会进入 jobs,releaseJobSecrets 够不到它 ——
+  // 必须在这里注销网关,否则含上游 key 的网关配置永久驻留内存
   registerGateway(config, apiKey);
-  await writeFile(requestPath, JSON.stringify({ inputPath, outputDir, glossaryPath, config }, null, 2), "utf8");
+  try {
+    await writeFile(requestPath, JSON.stringify({ inputPath, outputDir, glossaryPath, config }, null, 2), "utf8");
+  } catch (error) {
+    if (config.gatewayId) gatewayRegistry.delete(config.gatewayId);
+    throw error;
+  }
 
   const job = {
     id,
@@ -758,6 +860,10 @@ async function mcpTranslatePaper(args) {
   if (!/\.pdf$/i.test(pdfPath) || !existsSync(pdfPath)) {
     return mcpToolResult(`文件不存在或不是 PDF：${pdfPath}`, true);
   }
+  // 与 HTTP 上传同门槛:引擎未安装时给出可操作的指引而非 spawn ENOENT 的失败摘要
+  if (!(await engineReady())) {
+    return mcpToolResult("翻译引擎尚未安装，请先在项目目录运行 uv sync", true);
+  }
   let job;
   try {
     const buffer = await readFile(pdfPath);
@@ -804,7 +910,10 @@ async function mcpHandler(req, res) {
     return json(res, 400, { jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } });
   }
   const { id, method } = rpc || {};
-  if (!method || (id === undefined && method.startsWith("notifications/"))) {
+  if (typeof method !== "string" || !method) {
+    return json(res, 200, { jsonrpc: "2.0", id: id ?? null, error: { code: -32600, message: "Invalid Request" } });
+  }
+  if (id === undefined && method.startsWith("notifications/")) {
     res.writeHead(202);
     return res.end();
   }
@@ -896,6 +1005,10 @@ export async function measureModelSpeed({ baseUrl, model, apiKey }) {
     seconds: Math.round(seconds * 10) / 10,
     measuredAt: Date.now(),
   };
+  if (speedCache.size > 200) {
+    // 无淘汰会随 url|model 组合无限增长;超限时整体清空(缓存仅是优化,清空无害)
+    speedCache.clear();
+  }
   speedCache.set(key, entry);
   return { ...entry, cached: false };
 }
@@ -1059,8 +1172,23 @@ function runRevise({ translatedPdf, originalPdf, outPath, keepOriginal, outputMo
 
 // 页级重译:用引擎按单页重新翻译(强制不走缓存),再把输出页替换回交付 PDF 的对应页。
 // dual 交替页布局的译文页在第 2N 页;其余布局按 1:1 映射。
+// 同一任务的交付 PDF 写入(页级重译的页替换、段落校对写回)都是
+// "读 adjusted-output.pdf → 写同名文件"的非原子序列,并发会写出损坏 PDF:
+// 两个入口共用同一把按任务的写锁。
+const jobPdfWriteLock = new Set();
+
 async function retranslatePage(req, res, job) {
   if (job.status !== "completed") return json(res, 409, { error: "任务未完成，无法重译" });
+  if (jobPdfWriteLock.has(job.id)) return json(res, 409, { error: "该任务正在写回 PDF（重译/校对），请等它完成后再试" });
+  jobPdfWriteLock.add(job.id);
+  try {
+    return await doRetranslatePage(req, res, job);
+  } finally {
+    jobPdfWriteLock.delete(job.id);
+  }
+}
+
+async function doRetranslatePage(req, res, job) {
   let body;
   try {
     body = await readJsonBody(req, 16 * 1024);
@@ -1126,6 +1254,12 @@ async function retranslatePage(req, res, job) {
 
   // 定位临时输出中该页对应的输出页(原文第 N 页)
   const tempPdfs = await walkPdfs(tempDir).catch(() => []);
+  if (!tempPdfs.length) {
+    // 引擎退出码 0 但没产出(异常路径):不清理会泄漏网关配置与临时目录
+    if (requestConfig.gatewayId) gatewayRegistry.delete(requestConfig.gatewayId);
+    await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    return json(res, 500, { error: "单页重译未产出 PDF，请重试" });
+  }
   const tempPdfPath = path.join(tempDir, tempPdfs[0]);
   const targetIndex = outputMode === "dual" && dualLayout === "alternating" ? page * 2 - 1 : page - 1;
 
@@ -1147,6 +1281,17 @@ async function retranslatePage(req, res, job) {
 
 async function buildRevisedPdf(res, job, body) {
   if (job.status !== "completed") return json(res, 409, { error: "任务未完成，无法生成修订版" });
+  // 与页级重译/段落写回同一把交付 PDF 写锁:并发两次修订会写坏 revised-output.pdf
+  if (jobPdfWriteLock.has(job.id)) return json(res, 409, { error: "该任务正在写回 PDF（重译/校对），请稍后再试" });
+  jobPdfWriteLock.add(job.id);
+  try {
+    return await doBuildRevisedPdf(res, job, body);
+  } finally {
+    jobPdfWriteLock.delete(job.id);
+  }
+}
+
+async function doBuildRevisedPdf(res, job, body) {
   const pages = [...new Set((Array.isArray(body?.pages) ? body.pages : []).map(Number))].sort((a, b) => a - b);
   if (pages.some((p) => !Number.isInteger(p) || p < 1)) return json(res, 400, { error: "页码必须为正整数" });
   if (!pages.length) return json(res, 400, { error: "请先选择要保留原文的页码" });
@@ -1253,7 +1398,12 @@ export function applyEditsToPairs(pairsPages, edits) {
 
 // 人工校对 → CSV(页码,原文,原译文,校对后译文):翻译记忆式复用的数据基础
 export function buildEditsCsv(pairsPages, edits) {
-  const escape = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+  const escape = (value) => {
+    let text = String(value ?? "").replace(/"/g, '""');
+    // 防 Excel 公式注入:=/+/-/@ 开头的单元格会被当作公式执行,前置单引号
+    if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+    return `"${text}"`;
+  };
   const lines = ["页码,原文,原译文,校对后译文"];
   for (const page of Array.isArray(pairsPages) ? pairsPages : []) {
     (Array.isArray(page.pairs) ? page.pairs : []).forEach((pair, idx) => {
@@ -1353,8 +1503,10 @@ export function mergeGlossaryEntries(existingText, pairs) {
   const lines = existingText && existingText.trim() ? existingText.trim().split("\n") : ["source,target"];
   const known = new Set();
   for (const line of lines.slice(1)) {
-    const cells = line.split(",").map((cell) => cell.replace(/^"|"$/g, "").trim().toLowerCase());
-    if (cells[0]) known.add(cells[0]);
+    // 引号感知解析(与写入侧 quote() 对齐):含逗号的既有词条按朴素切分
+    // 会得到错值,下次合并被误判为新词条而重复追加
+    const cells = parseCsvLine(line);
+    if (cells[0]) known.add(cells[0].toLowerCase());
   }
   let added = 0;
   for (const { source, target } of pairs) {
@@ -1396,7 +1548,17 @@ async function editsGlossaryRequest(req, res) {
   if (!proofread.length) return json(res, 409, { error: "该任务还没有人工校对记录，请先在阅读器或逐段对照中校对" });
 
   const cfg = readingModelConfig(body?.model, job.config);
-  const listing = proofread.map((item, index) => `${index + 1}. ${item.en}\n   译文：${item.zh}`).join("\n");
+  // 提炼不需要全文语义:listing 总预算 24k 字符、单条截 1200 字符,
+  // 否则重度校对的大论文会生成几十万字符 prompt,必然超出模型上下文
+  const listingLines = [];
+  let listingChars = 0;
+  for (const item of proofread) {
+    const line = `${listingLines.length + 1}. ${item.en.slice(0, 1200)}\n   译文：${item.zh.slice(0, 1200)}`;
+    if (listingChars + line.length > 24000) break;
+    listingLines.push(line);
+    listingChars += line.length;
+  }
+  const listing = listingLines.join("\n");
   const messages = [
     {
       role: "system",
@@ -1450,6 +1612,7 @@ function runReplacePage({ sourcePdf, tempPdf, outPath, pageIndex }) {
 // 图中文字旁注翻译:矢量图表区域内的文字层(引擎已提取)按需翻译并缓存回 figures.json。
 // 位图(无文字层)不在此范围内——OCR 回绘是另一个未开放的 P2 能力。
 async function figureTextTranslate(req, res, job) {
+  if (job.status !== "completed") return json(res, 409, { error: "任务未完成，无法翻译图中文字" });
   let body;
   try {
     body = await readJsonBody(req, 8 * 1024);
@@ -1461,7 +1624,9 @@ async function figureTextTranslate(req, res, job) {
   let figures = [];
   const figuresPath = path.join(job.outputDir, "figures.json");
   try {
-    figures = JSON.parse(await readFile(figuresPath, "utf8"));
+    const parsed = JSON.parse(await readFile(figuresPath, "utf8"));
+    if (!Array.isArray(parsed)) throw new Error("figures.json 结构异常");
+    figures = parsed;
   } catch {
     return json(res, 409, { error: "该任务没有图表速读数据" });
   }
@@ -1482,9 +1647,25 @@ async function figureTextTranslate(req, res, job) {
   ];
   try {
     const { answer, model } = await callConfiguredModel(cfg, String(req.headers["x-api-key"] || "").trim(), messages, { maxTokens: 2000, temperature: 0.2 });
-    entry.translatedInnerText = answer;
-    entry.translatedInnerTextModel = model;
-    await writeFile(figuresPath, JSON.stringify(figures, null, 2), "utf8");
+    // figures.json 是"读-改-写"的活数据:锁内重读最新文件再改写 + 原子替换,
+    // 并发翻译两个图注时各自基于最新数据合并,不丢更新,也不留半截 JSON 窗口
+    await withJobJsonLock(job.id, async () => {
+      let latest = figures;
+      try {
+        const parsed = JSON.parse(await readFile(figuresPath, "utf8"));
+        if (Array.isArray(parsed)) latest = parsed;
+      } catch {}
+      let target = latest.find((f) => f.kind === kind && String(f.num) === num);
+      if (!target) {
+        // 锁内重读的文件里没有该条目(被并发替换过):补进列表再改,
+        // 否则只改了旧数组对象,落盘内容不含本次译文却向客户端返回成功
+        target = { ...entry };
+        latest.push(target);
+      }
+      target.translatedInnerText = answer;
+      target.translatedInnerTextModel = model;
+      await writeJsonAtomic(figuresPath, latest);
+    });
     return json(res, 200, { original: inner, translated: answer, model });
   } catch (error) {
     if (error.name === "TimeoutError") return json(res, 504, { error: "图中文字翻译超时（180 秒），请稍后重试" });
@@ -1649,6 +1830,12 @@ async function glossaryLibraryRequest(req, res, name) {
     }
   }
   if (req.method === "POST" && !name) {
+    const length = Number(req.headers["content-length"] || 0);
+    if (length > 512 * 1024 + 64 * 1024) {
+      const error = new Error("术语表超过 512 KB 限制");
+      error.status = 413;
+      throw error;
+    }
     const request = new Request(`http://${HOST}:${PORT}/api/glossaries`, {
       method: "POST",
       headers: req.headers,
@@ -1669,11 +1856,14 @@ async function glossaryLibraryRequest(req, res, name) {
     const safeName = sanitizeGlossaryName(decodeURIComponent(name));
     const target = path.join(GLOSSARIES_DIR, `${safeName}.csv`);
     if (!target.startsWith(path.resolve(GLOSSARIES_DIR) + path.sep)) return json(res, 400, { error: "非法路径" });
-    await rm(target, { force: false }).catch(() => {
-      const error = new Error("术语表不存在");
-      error.status = 404;
-      throw error;
-    });
+    try {
+      await rm(target, { force: false });
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error; // EBUSY/EPERM 等占用错误不能误报成"不存在"
+      const notFound = new Error("术语表不存在");
+      notFound.status = 404;
+      throw notFound;
+    }
     return json(res, 200, { ok: true, name: safeName });
   }
   return json(res, 405, { error: "不支持的请求方式" });
@@ -1687,6 +1877,11 @@ async function deleteJob(res, jobId) {
   const job = jobs.get(jobId);
   if (!job) return json(res, 404, { error: "任务不存在" });
   if (!isFinishedJob(job)) return json(res, 409, { error: "任务进行中，请先取消再删除" });
+  // 页级重译/段落写回(最长 5 分钟的引擎子进程)进行中不删:
+  // 两次文件操作的间隙删掉目录会让写回报裸 ENOENT,产物也可能删一半。
+  // 重试准备中同样避让:doRetryJob 会删了重建任务目录,期间删除留下孤儿目录
+  if (jobPdfWriteLock.has(job.id)) return json(res, 409, { error: "任务正在写回 PDF（重译/校对），请等它完成后再删除" });
+  if (retryInFlight.has(job.id)) return json(res, 409, { error: "任务正在重试准备中，请稍后再删除" });
   await removeJobFiles(job);
   await persistJobs();
   return json(res, 200, { ok: true, id: jobId });
@@ -1694,13 +1889,22 @@ async function deleteJob(res, jobId) {
 
 async function clearFinishedJobs(res) {
   const finished = [...jobs.values()].filter(isFinishedJob);
-  try {
-    for (const job of finished) await removeJobFiles(job);
-  } finally {
-    // 即使某个目录被占用，也保存此前已成功清理的记录。
-    await persistJobs();
+  const failed = [];
+  let removed = 0;
+  // 逐个容错:一个目录被占用不应中止其余任务的清理
+  for (const job of finished) {
+    try {
+      await removeJobFiles(job);
+      removed += 1;
+    } catch {
+      failed.push(job.fileName || job.id);
+    }
   }
-  return json(res, 200, { ok: true, removed: finished.length });
+  await persistJobs();
+  if (failed.length) {
+    return json(res, 409, { error: `${removed} 个任务已清理，${failed.length} 个因文件被占用跳过：${failed.slice(0, 3).join("、")}${failed.length > 3 ? " 等" : ""}` });
+  }
+  return json(res, 200, { ok: true, removed });
 }
 
 async function removeJobFiles(job) {
@@ -1924,7 +2128,9 @@ export function auditCitations(answer, availableRefs, multi = false) {
   for (const match of String(answer || "").matchAll(pattern)) {
     const doc = multi ? Number(match[1]) : null;
     const start = Number(match[multi ? 2 : 1]);
-    const end = Number(match[multi ? 3 : 2] || start);
+    // 区间终点为字面 "0" 时不能走 || 兜底(0 是 falsy 会错配成 start)
+    const rawEnd = match[multi ? 3 : 2];
+    const end = rawEnd !== undefined && rawEnd !== "" ? Number(rawEnd) : start;
     let valid = Number.isInteger(start) && Number.isInteger(end) && end >= start && end - start <= 100;
     for (let page = start; valid && page <= end; page += 1) {
       if (!available.has(multi ? `${doc}:${page}` : String(page))) valid = false;
@@ -1939,6 +2145,22 @@ export function auditCitations(answer, availableRefs, multi = false) {
       ? `发现 ${invalid.length} 个超出当前上下文范围的页码引用，请勿直接采信`
       : "";
   return { count: found.length, validCount, invalid, warning };
+}
+
+// 问答上下文预算(最坏 1 字符≈1 token):译文 + 历史 + 问题都要装进模型上下文。
+// 历史按剩余预算"从最新往回"截断 —— 只截文档侧时,6 条历史每条 4k 字符
+// 最坏会把总输入顶到近预算两倍,本地 8k/32k 模型长对话必然上游 400
+function fitHistoryInBudget(history, usedChars, budget) {
+  const remaining = Math.max(0, budget - usedChars);
+  const fitted = [];
+  let used = 0;
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    const cost = history[i].content.length + 8;
+    if (used + cost > remaining) break;
+    fitted.unshift(history[i]);
+    used += cost;
+  }
+  return fitted;
 }
 
 // 任务问答:基于任务译文全文,用任务配置的同一模型回答提问。
@@ -1970,6 +2192,8 @@ async function jobChat(req, res, job) {
 
   const apiKey = String(req.headers["x-api-key"] || "").trim();
   const config = readingModelConfig(body.model, job.config);
+  // 历史计入 30k 预算(译文 + 历史 + 问题),装不下最旧的历史先丢
+  const fittedHistory = fitHistoryInBudget(history, context.length + question.length, 30000);
   // 译文全文带【第 N 页】标记时,要求回答标注页码,前端渲染为跳转链接
   const withCitations = context.includes("【第");
   const citationRule = withCitations
@@ -1981,7 +2205,7 @@ async function jobChat(req, res, job) {
       content: `你是论文阅读助手。只依据给出的论文中文译文回答问题；译文里没有的信息就明确说译文中未提及。${citationRule}用中文回答，简明扼要，可直接引用译文。`,
     },
     { role: "user", content: `以下是论文的中文译文全文：\n\n${context}` },
-    ...history,
+    ...fittedHistory,
     { role: "user", content: question },
   ];
   try {
@@ -2029,18 +2253,28 @@ async function jobMindmap(req, res, job) {
     { role: "user", content: `论文译文：\n\n${context}` },
   ];
   try {
-    // 小模型偶发退化输出(只回一两个词),行数过少时自动重试一次
-    let result = null;
-    for (let attempt = 0; attempt < 2 && !result; attempt += 1) {
-      const { answer, model } = await callConfiguredModel(readingModelConfig(body.model, job.config), apiKey, messages, { maxTokens: 1200, temperature: 0.4 });
-      if (answer.split("\n").filter((line) => line.trim()).length >= 5) {
-        result = { markdown: answer.slice(0, 6000), model, generatedAt: new Date().toISOString() };
-      } else if (attempt === 1) {
-        result = { markdown: answer.slice(0, 6000), model, generatedAt: new Date().toISOString(), sparse: true };
+    // 独立命名空间互斥:思维导图生成最坏可持锁数分钟,不能阻塞同任务
+    // 的段落校对/图注翻译(它们各自文件互不相干);锁内重查缓存避免并发双倍调用
+    return await withJobJsonLock(`${job.id}:mindmap`, async () => {
+      if (body?.refresh !== true) {
+        try {
+          const cached = JSON.parse(await readFile(mmPath, "utf8"));
+          if (typeof cached?.markdown === "string" && cached.markdown.trim()) return json(res, 200, cached);
+        } catch {}
       }
-    }
-    await writeFile(mmPath, JSON.stringify(result, null, 2), "utf8");
-    return json(res, 200, result);
+      // 小模型偶发退化输出(只回一两个词),行数过少时自动重试一次
+      let result = null;
+      for (let attempt = 0; attempt < 2 && !result; attempt += 1) {
+        const { answer, model } = await callConfiguredModel(readingModelConfig(body.model, job.config), apiKey, messages, { maxTokens: 1200, temperature: 0.4 });
+        if (answer.split("\n").filter((line) => line.trim()).length >= 5) {
+          result = { markdown: answer.slice(0, 6000), model, generatedAt: new Date().toISOString() };
+        } else if (attempt === 1) {
+          result = { markdown: answer.slice(0, 6000), model, generatedAt: new Date().toISOString(), sparse: true };
+        }
+      }
+      await writeJsonAtomic(mmPath, result);
+      return json(res, 200, result);
+    });
   } catch (error) {
     if (error.name === "TimeoutError") return json(res, 504, { error: "思维导图生成超时（180 秒），请稍后重试" });
     return json(res, error.status || 502, { error: `思维导图生成失败：${error.message}` });
@@ -2080,11 +2314,13 @@ async function chatMulti(req, res) {
   // 模型来源:请求携带当前界面配置(本地 Ollama 或云 API)时优先使用,否则沿用第一篇任务的配置
   const cfg = readingModelConfig(body?.model, docs[0].job.config);
 
-  const history = (Array.isArray(body?.history) ? body.history : [])
+  const historyRaw = (Array.isArray(body?.history) ? body.history : [])
     .filter((m) => m && ["user", "assistant"].includes(m.role) && typeof m.content === "string")
     .slice(-6)
     .map((m) => ({ role: m.role, content: m.content.slice(0, 4000) }));
   const context = docs.map((d, i) => `【文档 ${i + 1}：${d.job.fileName}】\n${d.text}`).join("\n\n");
+  // 历史计入 32k 总预算(文档 + 历史 + 问题)
+  const history = fitHistoryInBudget(historyRaw, context.length + question.length, 32000);
   const messages = [
     {
       role: "system",
@@ -2114,12 +2350,32 @@ async function chatMulti(req, res) {
   }
 }
 
-// 解析术语表 CSV 为 [source, target] 数组(简单 CSV:不含嵌套引号转义)
+// 单行 CSV 解析:支持双引号包裹与 "" 转义(值内可含逗号),与写入侧 quote() 对齐
+function parseCsvLine(line) {
+  const cells = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (line[i + 1] === '"') { current += '"'; i += 1; }
+        else inQuotes = false;
+      } else current += ch;
+    } else if (ch === '"') inQuotes = true;
+    else if (ch === ",") { cells.push(current.trim()); current = ""; }
+    else current += ch;
+  }
+  cells.push(current.trim());
+  return cells;
+}
+
+// 解析术语表 CSV 为 [source, target] 数组(带引号转义感知,含逗号的词条可正确切分)
 export function parseGlossaryEntries(text) {
   const lines = String(text || "").replace(/^\uFEFF/, "").split(/\r?\n/).filter((line) => line.trim());
   const entries = [];
   for (const line of lines.slice(1)) {
-    const cells = line.split(",").map((cell) => cell.trim().replace(/^"|"$/g, ""));
+    const cells = parseCsvLine(line);
     if (cells.length >= 2 && cells[0] && cells[1]) entries.push([cells[0], cells[1]]);
   }
   return entries;
@@ -2159,20 +2415,27 @@ async function saveParagraphEdit(req, res, job) {
   if (!text.trim()) return json(res, 400, { error: "校对内容不能为空" });
   if (text.length > 8000) return json(res, 400, { error: "校对内容过长" });
 
-  const edits = await loadEdits(job);
-  const entry = edits[key] || {};
-  const norm = (s) => String(s).replace(/\s+/g, "");
-  if (origText && norm(text) === norm(origText)) {
-    delete edits[key]; // 改回引擎原译 = 撤销校对
-  } else {
-    edits[key] = {
-      text: text.slice(0, 8000),
-      origText: origText.slice(0, 8000),
-      lastApplied: entry.lastApplied || null,
-      updatedAt: new Date().toISOString(),
-    };
-  }
-  await writeFile(editsPath(job), JSON.stringify(edits, null, 2), "utf8");
+  const edits = await withJobJsonLock(job.id, async () => {
+    const current = await loadEdits(job);
+    const entry = current[key] || {};
+    const norm = (s) => String(s).replace(/\s+/g, "");
+    if (origText && norm(text) === norm(origText)) {
+      delete current[key]; // 改回引擎原译 = 撤销校对
+    } else {
+      current[key] = {
+        text: text.slice(0, 8000),
+        origText: origText.slice(0, 8000),
+        // lastApplied = 最近写入 PDF 的文本:累积写回时 PDF 里的内容是它,
+        // 下次写回的匹配基准必须用它,否则 oldText 还是原始译文、必然失配
+        lastApplied: typeof body?.lastApplied === "string" && body.lastApplied.trim()
+          ? body.lastApplied.slice(0, 8000)
+          : (entry.lastApplied || null),
+        updatedAt: new Date().toISOString(),
+      };
+    }
+    await writeJsonAtomic(editsPath(job), current);
+    return current;
+  });
   return json(res, 200, { ok: true, edits });
 }
 
@@ -2243,6 +2506,17 @@ function runApplyParagraph({ sourcePdf, outPath, page, oldText, newText }) {
 
 async function applyParagraph(req, res, job) {
   if (job.status !== "completed") return json(res, 409, { error: "任务未完成，无法应用重译" });
+  // 与页级重译共用交付 PDF 写锁:两者都以 adjusted-output.pdf 为源并写同名文件
+  if (jobPdfWriteLock.has(job.id)) return json(res, 409, { error: "该任务正在写回 PDF（重译/校对），请等它完成后再试" });
+  jobPdfWriteLock.add(job.id);
+  try {
+    return await doApplyParagraph(req, res, job);
+  } finally {
+    jobPdfWriteLock.delete(job.id);
+  }
+}
+
+async function doApplyParagraph(req, res, job) {
   let body;
   try {
     body = await readJsonBody(req, 64 * 1024);
@@ -2274,12 +2548,27 @@ async function applyParagraph(req, res, job) {
   return json(res, 200, { ok: true, file: adjustedName });
 }
 
+// 正在执行"重试准备"(清理旧产物/重写 request.json)的任务集合:
+// 重试路径有多个 await,不挡的话并发两次重试都会通过状态检查并各入队一次,
+// 同一任务会被串行翻译两遍并重复调用模型
+const retryInFlight = new Set();
+
 async function retryJob(req, res, oldJob) {
   const job = oldJob;
   if (!job) return json(res, 404, { error: "任务不存在" });
+  if (retryInFlight.has(job.id)) return json(res, 409, { error: "任务正在重试准备中，请勿重复点击" });
   if (!["failed", "canceled", "interrupted"].includes(job.status)) {
     return json(res, 409, { error: "只有失败、取消或中断的任务可以重试" });
   }
+  retryInFlight.add(job.id);
+  try {
+    return await doRetryJob(req, res, job);
+  } finally {
+    retryInFlight.delete(job.id);
+  }
+}
+
+async function doRetryJob(req, res, job) {
   if (!(await engineReady())) {
     const error = new Error("翻译引擎尚未安装，请先在项目目录运行 uv sync");
     error.status = 503;
@@ -2305,7 +2594,6 @@ async function retryJob(req, res, oldJob) {
   delete config.gatewayId; // 旧 gatewayId 属于上次运行,重试重新注册
   config.ignoreCache = ignoreCache ?? job.config.ignoreCache === true;
   job.config = config;
-  registerGateway(config, apiKey || "ollama");
 
   const lastError = job.error;
   // 术语表路径记录在原 request.json 里,原地重试必须沿用
@@ -2316,16 +2604,38 @@ async function retryJob(req, res, oldJob) {
       glossaryPath = prior.glossaryPath;
     }
   } catch {}
+  // 以下清理动作可能失败(旧 PDF 被阅读器锁定等):失败路径必须注销上面
+  // 刚注册的网关,否则含上游 key 的配置驻留内存直到任务被删除
   try {
-    await rm(job.outputDir, { recursive: true, force: true });
-  } catch {}
-  await mkdir(job.outputDir, { recursive: true });
-  await writeFile(
-    job.requestPath,
-    JSON.stringify({ inputPath: job.inputPath, outputDir: job.outputDir, glossaryPath, config }, null, 2),
-    "utf8",
-  );
+    try {
+      await rm(job.outputDir, { recursive: true, force: true });
+    } catch {
+      // Windows 下旧译文 PDF 被阅读器锁定时整体 rm 会失败;逐个删 PDF 再验证,
+      // 仍删不掉就中止重试 —— 否则残留旧 PDF 会被 walkPdfs 当成新产出,交付旧译文
+      const entries = await readdir(job.outputDir, { withFileTypes: true }).catch(() => []);
+      await Promise.all(entries
+        .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".pdf"))
+        .map((entry) => rm(path.join(job.outputDir, entry.name), { force: true }).catch(() => {})));
+      const leftover = await readdir(job.outputDir).catch(() => []);
+      if (leftover.some((name) => name.toLowerCase().endsWith(".pdf"))) {
+        const error = new Error("旧译文 PDF 被占用无法清理（可能正被浏览器或 PDF 阅读器打开），请关闭后重试");
+        error.status = 409;
+        throw error;
+      }
+    }
+    await mkdir(job.outputDir, { recursive: true });
+    await writeFile(
+      job.requestPath,
+      JSON.stringify({ inputPath: job.inputPath, outputDir: job.outputDir, glossaryPath, config }, null, 2),
+      "utf8",
+    );
+  } catch (error) {
+    if (config.gatewayId) gatewayRegistry.delete(config.gatewayId);
+    throw error;
+  }
 
+  // 清理全部成功后才注册网关(含上游 key):失败路径已在上方注销,不会驻留
+  registerGateway(config, apiKey || "ollama");
   job.status = "queued";
   job.stage = "等待执行（重试）";
   job.progress = 0;
@@ -2336,8 +2646,10 @@ async function retryJob(req, res, oldJob) {
   job.tokensUsed = null;
   job.promptTokens = null;
   job.completionTokens = null;
+  job.awaitingCompletionValue = false; // 上次折行残留会把新运行的进度行误记为补全 token 数
   job.stats = undefined;
   job.stalled = false;
+  job.error = null; // 重试运行期间不应再显示上一次失败的红色错误框
   job.cancelRequested = false;
   job.lastProgressAt = null;
   job.log = lastError ? [`上次未完成（${lastError}），重试中已译段落将经缓存跳过`] : [];
@@ -2379,8 +2691,34 @@ async function loadQualityDetail(job) {
   return detail;
 }
 
+// 仅允许的本机访问来源:DNS rebinding 攻击会把外部域名解析到 127.0.0.1,
+// 此时请求 Host 仍是攻击者域名 —— 校验 Host/Origin 即可同时阻断
+// rebinding 读取任务与译文、以及恶意网页的免预检跨站写请求(浏览器跨站 POST 必带 Origin)。
+// curl / MCP 等非浏览器客户端不带 Origin,不受影响。
+function localAuthoritySet() {
+  return new Set([`127.0.0.1:${PORT}`, `localhost:${PORT}`, `[::1]:${PORT}`, `127.0.0.1`, `localhost`, `[::1]`]);
+}
+
 export async function handle(req, res) {
+  const localHosts = localAuthoritySet();
+  const hostHeader = String(req.headers.host || "").toLowerCase();
+  if (hostHeader && !localHosts.has(hostHeader)) {
+    return json(res, 403, { error: "拒绝非本机 Host 的请求" });
+  }
   const url = new URL(req.url, `http://${req.headers.host || `${HOST}:${PORT}`}`);
+  // /mcp 的调用方是本机 MCP 客户端(无浏览器上下文),部分实现按规范携带
+  // 自身页面 Origin,不适用跨站校验;DNS rebinding 已被上面的 Host 校验拦住。
+  // 浏览器发起的其余请求:跨站 POST 必带 Origin,校验它即可阻断免预检 CSRF
+  if (url.pathname !== "/mcp") {
+    const origin = String(req.headers.origin || "").toLowerCase();
+    if (origin) {
+      let originHost = "";
+      try { originHost = new URL(origin).host.toLowerCase(); } catch { originHost = "invalid"; }
+      if (!localHosts.has(originHost)) {
+        return json(res, 403, { error: "拒绝跨站请求" });
+      }
+    }
+  }
   if (req.method === "GET" && url.pathname === "/") {
     const body = await readFile(APP_FILE);
     res.writeHead(200, { "content-type": "text/html; charset=utf-8", "content-length": body.length, "cache-control": "no-store" });
@@ -2429,7 +2767,10 @@ export async function handle(req, res) {
     const [mount, baseDir] = url.pathname.startsWith("/pdfjs/")
       ? ["/pdfjs/", path.join(ROOT, "app", "pdfjs")]
       : ["/vendor/", path.join(ROOT, "app", "vendor")];
-    const rel = url.pathname.slice(mount.length).replaceAll("\\", "/");
+    const rel = (() => {
+      try { return decodeURIComponent(url.pathname.slice(mount.length)).replaceAll("\\", "/"); }
+      catch { return url.pathname.slice(mount.length).replaceAll("\\", "/"); }
+    })(); // decode 后才能命中含 %20 等转义字符的文件名;路径遍历仍由 resolve+startsWith 拦截
     const base = path.resolve(baseDir) + path.sep;
     const filePath = path.resolve(path.join(baseDir, rel));
     if (!filePath.startsWith(base) || !existsSync(filePath) || statSync(filePath).isDirectory()) {
@@ -2670,7 +3011,7 @@ export async function handle(req, res) {
   }
   const glossaryEntriesMatch = url.pathname.match(/^\/api\/glossaries\/([^/]+)\/entries$/i);
   if (req.method === "GET" && glossaryEntriesMatch) {
-    return glossaryEntryRequest(req, res, decodeURIComponent(glossaryEntriesMatch[1]));
+    return glossaryEntryRequest(req, res, glossaryEntriesMatch[1]); // 函数内统一 decode,避免双重解码
   }
   const glossaryEntryMatch = url.pathname.match(/^\/api\/glossaries\/([^/]+)\/entry$/i);
   if (req.method === "DELETE" && glossaryEntryMatch) {
@@ -2793,11 +3134,13 @@ function scheduleRestart() {
   if (restartPending) return;
   restartPending = true;
   runSyntaxCheck(() => {
-    if (active) {
-      console.log("检测到服务端更新，将在当前任务完成后自动重载…");
+    // 排队中的任务也要等:runJob 之间 active 会被短暂置空,
+    // 只看 active 会在队列未排空时强退,把 queued 任务全部打断成 interrupted
+    if (active || queue.length) {
+      console.log("检测到服务端更新，将在当前任务（含排队任务）完成后自动重载…");
       // 轮询等待当前任务(及队列)完成;队列排空后由下方检查触发重载
       const waiter = setInterval(() => {
-        if (!restartPending || active) return;
+        if (!restartPending || active || queue.length) return;
         clearInterval(waiter);
         // 等待期间文件可能又被改坏,重启前再预检一次
         runSyntaxCheck(() => {
@@ -2813,6 +3156,9 @@ function scheduleRestart() {
 }
 
 function gracefulRestart() {
+  // 3 秒强退兜底会绕过 runJob 的正常收尾;先把引擎子进程整树杀掉,
+  // 避免退出后留下仍占用模型、还在写任务目录的孤儿 Python 进程
+  if (active?.child) stopChild(active.child);
   if (!runningServerRef) { process.exit(RESTART_EXIT_CODE); }
   console.log("服务端自动重载：等待连接排空…");
   const force = setTimeout(() => process.exit(RESTART_EXIT_CODE), 3000);
