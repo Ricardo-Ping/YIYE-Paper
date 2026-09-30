@@ -2700,6 +2700,15 @@ def build_pdf_outline(translated_pdf: str, output_mode: str = "dual", dual_layou
                 return True
             if title.startswith(("•", "·", "‣", "▪", "- ")):
                 return True
+            # 纯数值/统计串(表格单元格行,加粗大字号会被字号信号误中)
+            if re.match(r"^[\d\s.,:%±\-–—()°/x×≈≤≥~]+$", title) and any(c.isdigit() for c in title):
+                return True
+            # 作者行:姓名+上标数字(中英文)重复出现,如 "徐栋杰1* 崔越2"
+            if len(re.findall(r"[\u4e00-\u9fff]\d", title)) + len(re.findall(r"[A-Za-z]{2,}\d", title)) >= 2:
+                return True
+            # 图/表题注及其标题部分(如 "Figure 3: LLM-R2 ...")
+            if re.match(r"^(figure|fig\.?|table|图|表)\s*\d", title, re.IGNORECASE):
+                return True
             return False
 
         headlines = [h for h in headlines if not is_noise(h["title"])]
