@@ -619,6 +619,13 @@
     @media (max-width: 1200px) { .layout { grid-template-columns: 1fr; } }
     @media (max-width: 900px) { .workspace { grid-template-columns: 1fr; } }
     @media (max-width: 600px) { .assistant-dialog .panel-head { align-items: flex-start; gap: 10px; padding: 16px; } .assistant-dialog .aichat-body { padding: 14px; } .assistant-actions .preview-badge { display: none; } #assistant-launcher { right: 14px; bottom: 14px; } }
+    /* PDF 全屏态:reader-split 只剩 PDF 画布区,侧栏整体隐藏 */
+    .reader-modal-backdrop.open .reader-split.reader-pdf-only { grid-template-columns: 1fr; }
+    .reader-split.reader-pdf-only .reader-side { display: none; }
+    /* 侧栏隐藏但非全屏时(用户主动收起):PDF 占满整行 */
+    .reader-split.reader-side-collapsed { grid-template-columns: 1fr; }
+    .reader-split.reader-side-collapsed .reader-side { display: none; }
+    .reader-toolbar .ghost.small.active { border-color: rgba(114, 223, 202, .55); color: var(--mint); background: rgba(114, 223, 202, .08); }
     /* 阅读器全屏:遮罩铺满全屏、模态 inset 归零,像原生应用的全屏查看器 */
     .reader-modal-backdrop.open.reader-fullscreen { background: #050b14; }
     .reader-modal-backdrop.open.reader-fullscreen .reader-modal { inset: 0; border-radius: 0; border: 0; }
@@ -1047,7 +1054,8 @@ button:active:not(:disabled) { transform: translateY(1px); }
           <button class="ghost small" id="reader-zoom-out">－</button>
           <span class="reader-zoom-val" id="reader-zoom-val">适配</span>
           <button class="ghost small" id="reader-zoom-in">＋</button>
-          <button class="ghost small" id="reader-fullscreen" title="全屏阅读(F11 同效)">全屏</button>
+          <button class="ghost small" id="reader-sidebar-toggle" title="显示/隐藏侧栏(译文段落、图表、目录)">侧栏</button>
+          <button class="ghost small" id="reader-fullscreen" title="PDF 全屏:隐藏侧栏,仅显示论文页面">PDF 全屏</button>
           <button class="ghost small" id="reader-close">关闭</button>
         </div>
       </div>
@@ -2525,6 +2533,10 @@ button:active:not(:disabled) { transform: translateY(1px); }
       // 否则"译文/原文"两个按钮都没有高亮,看不出当前在看哪个
       $("#reader-src-trans").classList.add("selected");
       $("#reader-src-orig").classList.remove("selected");
+      $(".reader-split").classList.remove("reader-pdf-only", "reader-side-collapsed");
+      const sbToggle = document.getElementById("reader-sidebar-toggle");
+      if (sbToggle) sbToggle.classList.remove("active");
+      state.pdfReaderSidebarHiddenByFs = false;
       $("#reader-modal-backdrop").classList.add("open");
       syncBodyLock();
       await loadReaderDoc();
@@ -4889,26 +4901,54 @@ button:active:not(:disabled) { transform: translateY(1px); }
       const btn = document.getElementById("reader-fullscreen");
       if (!document.fullscreenElement) {
         backdrop.requestFullscreen?.().then(() => {
+          enterPdfOnlyMode();
           btn.textContent = "退出全屏";
           scheduleReaderRender();
         }).catch(() => {
           // 原生全屏不可用(权限/嵌套):回退 CSS 全屏
           backdrop.classList.toggle("reader-fullscreen");
-          btn.textContent = backdrop.classList.contains("reader-fullscreen") ? "退出全屏" : "全屏";
+          enterPdfOnlyMode();
+          btn.textContent = backdrop.classList.contains("reader-fullscreen") ? "退出全屏" : "PDF 全屏";
           scheduleReaderRender();
         });
       } else {
         document.exitFullscreen?.();
-        btn.textContent = "全屏";
+        exitPdfOnlyMode();
+        btn.textContent = "PDF 全屏";
         scheduleReaderRender();
       }
     }
+    // PDF 全屏模式:隐藏译文段落/图表/目录侧栏,只看论文页面;退出时恢复
+    function enterPdfOnlyMode() {
+      state.pdfReaderSidebarHiddenByFs = true;
+      $(".reader-split").classList.add("reader-pdf-only");
+      const t = document.getElementById("reader-sidebar-toggle");
+      if (t) t.classList.remove("active");
+    }
+    function exitPdfOnlyMode() {
+      state.pdfReaderSidebarHiddenByFs = false;
+      $(".reader-split").classList.remove("reader-pdf-only");
+      const split = $(".reader-split");
+      const t = document.getElementById("reader-sidebar-toggle");
+      const collapsed = split.classList.contains("reader-side-collapsed");
+      if (t) t.classList.toggle("active", !collapsed);
+    }
+    // 侧栏开合:全屏与普通态都可用;与 PDF 全屏隐藏互不冲突
+    $("#reader-sidebar-toggle").addEventListener("click", () => {
+      const split = $(".reader-split");
+      const collapsed = split.classList.toggle("reader-side-collapsed");
+      const t = document.getElementById("reader-sidebar-toggle");
+      if (t) t.classList.toggle("active", !collapsed);
+      scheduleReaderRender();
+    });
     $("#reader-fullscreen").addEventListener("click", toggleReaderFullscreen);
     // 原生全屏态变化(用户按 Esc 退出系统全屏)时同步按钮文案与重渲染
     document.addEventListener("fullscreenchange", () => {
       const btn = document.getElementById("reader-fullscreen");
       if (btn && state.pdfReader) {
-        btn.textContent = document.fullscreenElement ? "退出全屏" : "全屏";
+        btn.textContent = document.fullscreenElement ? "退出全屏" : "PDF 全屏";
+        if (document.fullscreenElement) enterPdfOnlyMode();
+        else exitPdfOnlyMode();
         scheduleReaderRender();
       }
     });
@@ -5086,7 +5126,8 @@ button:active:not(:disabled) { transform: translateY(1px); }
           // CSS 全屏态下先退回普通态,再关阅读器
           $("#reader-modal-backdrop").classList.remove("reader-fullscreen");
           const fsBtn = document.getElementById("reader-fullscreen");
-          if (fsBtn) fsBtn.textContent = "全屏";
+          if (fsBtn) fsBtn.textContent = "PDF 全屏";
+          state.pdfReaderSidebarHiddenByFs = false;
           closeReaderModal();
           return;
         }
