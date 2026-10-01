@@ -640,6 +640,10 @@
     .textLayer span, .textLayer br { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0% 0%; }
     .textLayer ::selection { background: rgba(114, 223, 202, .45); }
     .textLayer ::-moz-selection { background: rgba(114, 223, 202, .45); }
+    /* 自定义行选区:禁用原生选取(原生选区沿 DOM 流动,双栏/越界即大面积误选),
+       以 .yl-sel 高亮代替;Ctrl+C 由 keydown 监听写入剪贴板 */
+    .textLayer { user-select: none; -webkit-user-select: none; }
+    .textLayer span.yl-sel { background: rgba(114, 223, 202, .5); border-radius: 2px; }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 
 /* Editorial workspace: keep the established dark, bilingual reading direction. */
@@ -1100,6 +1104,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
       figInnerText: new Map(),
       pageRetransBusy: new Map(),
       qualityDetailBusy: new Set(), qualityDetailPromises: new Map(),
+      pdfReaderSel: { active: false, spans: [], text: "" },
       editsGlossaryBusy: new Set(),
       paraApplyBusy: new Set(),
       duplicateNotices: [],
@@ -4899,11 +4904,22 @@ button:active:not(:disabled) { transform: translateY(1px); }
       const r = state.pdfReader;
       state.pdfReader = null;
       state.pdfReaderAnswers.clear();
+      state.pdfReaderSel = { active: false, spans: [], text: "" };
       // 释放槽位与画布,避免反复开关阅读器在 worker 侧累积内存
       const pages = $("#reader-pages");
       if (pages) pages.innerHTML = "";
       if (r?.doc) { try { void r.doc.destroy(); } catch {} }
     }
+    // Ctrl/Cmd+C:存在自定义行选区且原生选区为空时,把行文本写入剪贴板
+    document.addEventListener("keydown", (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c"
+          && state.pdfReaderSel?.spans.length && (window.getSelection()?.isCollapsed !== false)) {
+        navigator.clipboard.writeText(state.pdfReaderSel.text).then(
+          () => showError(`✓ 已复制 ${state.pdfReaderSel.text.length} 字`),
+          () => {},
+        );
+      }
+    });
     // 阅读器键盘翻页:←/→ 前后翻页(焦点不在输入控件时),Esc 关闭
     document.addEventListener("keydown", (event) => {
       if (!state.pdfReader || event.target.matches("input, textarea, select")) return;
@@ -4970,6 +4986,119 @@ button:active:not(:disabled) { transform: translateY(1px); }
         else exitPdfOnlyMode();
         scheduleReaderRender();
       }
+    });
+
+    // ── 行级/栏感知选区(Zotero 式) ──
+    // 原生选区沿文本层 DOM 顺序流动:双栏论文里轻微越界就会跨栏大面积误选。
+    // 这里自实现:按下记录起始行,拖动只在"与起始行横向重叠(同栏)"的行集合内
+    // 按阅读序扩展高亮,Ctrl+C 由 keydown 写入剪贴板。
+    function readerSelAllSpans() {
+      return [...$("#reader-pages").querySelectorAll(".textLayer span")];
+    }
+    function clearReaderSel() {
+      for (const el of state.pdfReaderSel.spans) el.classList.remove("yl-sel");
+      state.pdfReaderSel = { active: false, spans: [], text: "" };
+    }
+    function readerSelJoinText(items) {
+      // 同页片段直连;跨页换行;ASCII 词间补空格
+      let out = "";
+      let prevSlot = null;
+      for (const it of items) {
+        const t = it.el.textContent;
+        if (prevSlot !== null && it.slot !== prevSlot) out += "\n";
+        else if (out && /[A-Za-z0-9]$/.test(out) && /^[A-Za-z0-9]/.test(t)) out += " ";
+        out += t;
+        prevSlot = it.slot;
+      }
+      return out;
+    }
+
+    let readerSelDrag = null; // { meta, startIdx, lastEnd, slotOf(el) }
+
+    function readerSelBegin(spanEl, pointerX) {
+      const all = readerSelAllSpans();
+      if (!all.length) return;
+      const slotOf = (el) => {
+        const slot = el.closest(".reader-page-slot");
+        return slot ? Number(slot.dataset.page) : 0;
+      };
+      const r0 = spanEl.getBoundingClientRect();
+      const slotRect = spanEl.closest(".reader-page-slot").getBoundingClientRect();
+      const slotMid = slotRect.left + slotRect.width / 2;
+      const x0 = r0.left, x1 = r0.right;
+      // 全宽行(宽 > 槽位 45%,如标题/通栏公式):栏范围按指针所在半侧收窄,
+      // 否则从整宽行起选时两栏都会被划进选区
+      if (r0.width > slotRect.width * 0.45) {
+        if (pointerX < slotMid) { r0.right = Math.min(r0.right, slotMid); }
+        else { r0.left = Math.max(r0.left, slotMid); }
+      }
+      const meta = [];
+      all.forEach((el, i) => {
+        const b = el.getBoundingClientRect();
+        if (b.height === 0 && b.width === 0) return;
+        // 同栏判定:横向范围与起始行重叠(放宽 12px),其他栏/页边距文字不纳入
+        const overlap = Math.min(b.right, x1 + 12) - Math.max(b.left, x0 - 12);
+        if (overlap > Math.min(24, (x1 - x0) * 0.25)) meta.push({ el, i, slot: slotOf(el), b });
+      });
+      const startIdx = meta.findIndex((m) => m.el === spanEl);
+      readerSelDrag = { meta, startIdx: startIdx >= 0 ? startIdx : 0 };
+      clearReaderSel();
+      state.pdfReaderSel.active = true;
+      readerSelUpdate(spanEl);
+    }
+
+    function readerSelUpdate(hoverEl) {
+      const drag = readerSelDrag;
+      if (!drag || !drag.meta.length) return;
+      const r = state.pdfReader;
+      if (!r) return;
+      let curIdx = drag.startIdx;
+      if (hoverEl) {
+        const found = drag.meta.findIndex((m) => m.el === hoverEl);
+        if (found >= 0) curIdx = found;
+        else {
+          // 指针落在行间隙:按纵向距离取最近的同栏行
+          const yc = (hoverEl.getBoundingClientRect().top + hoverEl.getBoundingClientRect().bottom) / 2;
+          let best = null;
+          for (let i = 0; i < drag.meta.length; i += 1) {
+            const b = drag.meta[i].el.getBoundingClientRect();
+            const d = Math.abs((b.top + b.bottom) / 2 - yc);
+            if (best === null || d < best.d) best = { i, d };
+          }
+          if (best) curIdx = best.i;
+        }
+      }
+      const a = drag.startIdx, b = curIdx;
+      const lo = Math.min(a, b), hi = Math.max(a, b);
+      const spans = drag.meta.slice(lo, hi + 1).map((m) => m.el);
+      for (const el of state.pdfReaderSel.spans) if (!spans.includes(el)) el.classList.remove("yl-sel");
+      for (const el of spans) el.classList.add("yl-sel");
+      state.pdfReaderSel.spans = spans;
+      state.pdfReaderSel.text = readerSelJoinText(drag.meta.slice(lo, hi + 1));
+    }
+
+    function readerSelSpanFromPoint(x, y) {
+      const el = document.elementFromPoint(x, y);
+      return el ? el.closest(".textLayer span") : null;
+    }
+
+    $("#reader-pdf-box").addEventListener("mousedown", (event) => {
+      if (event.button !== 0) return;
+      const span = event.target.closest ? event.target.closest(".textLayer span") : null;
+      const r = state.pdfReader;
+      if (!r || !span) { clearReaderSel(); return; }
+      event.preventDefault(); // 阻断原生跨栏选区
+      readerSelBegin(span, event.clientX);
+      const move = (ev) => {
+        const hit = readerSelSpanFromPoint(ev.clientX, ev.clientY);
+        readerSelUpdate(hit);
+      };
+      const up = () => {
+        window.removeEventListener("mousemove", move);
+        window.removeEventListener("mouseup", up);
+      };
+      window.addEventListener("mousemove", move);
+      window.addEventListener("mouseup", up);
     });
     $("#reader-close").addEventListener("click", closeReaderModal);
     $("#reader-modal-backdrop").addEventListener("click", (event) => {
@@ -5142,7 +5271,8 @@ button:active:not(:disabled) { transform: translateY(1px); }
         // 只关最上层:阅读器模态打开时 Esc 只关阅读器,
         // 否则会把它背后的任务/设置抽屉一起关掉
         if (state.pdfReader) {
-          // CSS 全屏态下先退回普通态,再关阅读器
+          // 有行选区时第一次 Esc 只清选区,第二次才关闭
+          if (state.pdfReaderSel.spans.length) { clearReaderSel(); return; }
           $("#reader-modal-backdrop").classList.remove("reader-fullscreen");
           const fsBtn = document.getElementById("reader-fullscreen");
           if (fsBtn) fsBtn.textContent = "PDF 全屏";
