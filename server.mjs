@@ -3191,9 +3191,34 @@ function gracefulRestart() {
   // 3 秒强退兜底会绕过 runJob 的正常收尾;先把引擎子进程整树杀掉,
   // 避免退出后留下仍占用模型、还在写任务目录的孤儿 Python 进程
   if (active?.child) stopChild(active.child);
+  // 无监督运行(直接 node server.mjs,非启动.bat)时,75 退出后没有任何人拉起,
+  // 服务就此停摆。自行以 detached 子进程拉起替换实例:子进程的 startServer
+  // 自带 EADDRINUSE 重试,等本进程释放端口后接管。
+  // 启动.bat 会设 YIYE_SUPERVISED=1,保持原有的 75 退出协议由监督循环重启。
+  if (process.env.YIYE_SUPERVISED !== "1") {
+    try {
+      const replacement = spawn(process.execPath, [SERVER_FILE], {
+        detached: true,
+        stdio: ["ignore", "inherit", "inherit"],
+        windowsHide: true,
+        env: { ...process.env, YIYE_RESPAWNED: "1" },
+      });
+      replacement.unref();
+      console.log("独立运行模式：已拉起替换进程交接端口，本进程退出");
+    } catch (error) {
+      console.error(`拉起替换进程失败（${error.message}），按 75 退出交由外部处理`);
+      process.exit(RESTART_EXIT_CODE);
+    }
+    const handover = () => process.exit(0);
+    if (runningServerRef) runningServerRef.close(handover);
+    setTimeout(handover, 2000).unref(); // close 回调卡住时兜底
+    return;
+  }
   if (!runningServerRef) { process.exit(RESTART_EXIT_CODE); }
   console.log("服务端自动重载：等待连接排空…");
   const force = setTimeout(() => process.exit(RESTART_EXIT_CODE), 3000);
   force.unref();
   runningServerRef.close(() => process.exit(RESTART_EXIT_CODE));
 }
+
+

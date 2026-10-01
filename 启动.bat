@@ -29,6 +29,9 @@ if not exist ".venv\Scripts\python.exe" (
 
 rem 端口与服务端保持同一事实来源:server.mjs 读 YIYE_PORT,未设置时默认 4173
 if not defined YIYE_PORT set YIYE_PORT=4173
+rem 监督模式标记:服务端自动重载时以 75 退出交由本脚本重启;
+rem 未设此标记的直接运行(如 node server.mjs)会自行拉起替换进程,不依赖外部监督
+set YIYE_SUPERVISED=1
 
 echo 正在启动译页，浏览器将自动打开 http://127.0.0.1:%YIYE_PORT% （按 Ctrl+C 停止服务）
 rem 只有当前后端代码已真正启动时才打开页面，避免新版前端误连未重启的旧服务。
