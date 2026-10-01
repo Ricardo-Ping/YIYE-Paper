@@ -619,6 +619,10 @@
     @media (max-width: 1200px) { .layout { grid-template-columns: 1fr; } }
     @media (max-width: 900px) { .workspace { grid-template-columns: 1fr; } }
     @media (max-width: 600px) { .assistant-dialog .panel-head { align-items: flex-start; gap: 10px; padding: 16px; } .assistant-dialog .aichat-body { padding: 14px; } .assistant-actions .preview-badge { display: none; } #assistant-launcher { right: 14px; bottom: 14px; } }
+    /* 阅读器全屏:遮罩铺满全屏、模态 inset 归零,像原生应用的全屏查看器 */
+    .reader-modal-backdrop.open.reader-fullscreen { background: #050b14; }
+    .reader-modal-backdrop.open.reader-fullscreen .reader-modal { inset: 0; border-radius: 0; border: 0; }
+    .reader-modal { transition: inset .28s var(--ease-out, ease), border-radius .28s ease; }
     /* Zotero 式连续滚动:整篇 PDF 纵向槽位堆叠 */
     .reader-pages { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 14px; }
     .reader-page-slot { position: relative; flex: 0 0 auto; background: #fff; border-radius: 3px; box-shadow: 0 3px 16px rgba(0, 0, 0, .38); overflow: hidden; }
@@ -1043,6 +1047,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
           <button class="ghost small" id="reader-zoom-out">－</button>
           <span class="reader-zoom-val" id="reader-zoom-val">适配</span>
           <button class="ghost small" id="reader-zoom-in">＋</button>
+          <button class="ghost small" id="reader-fullscreen" title="全屏阅读(F11 同效)">全屏</button>
           <button class="ghost small" id="reader-close">关闭</button>
         </div>
       </div>
@@ -4875,6 +4880,38 @@ button:active:not(:disabled) { transform: translateY(1px); }
       if (event.key === "ArrowLeft" && r.page > 1) readerScrollToPage(r.page - 1);
       if (event.key === "ArrowRight" && r.page < r.total) readerScrollToPage(r.page + 1);
     });
+    // 阅读器全屏:优先原生 Fullscreen API(真正的系统全屏),失败/退出后回退 CSS 全屏态
+    function readerIsFullscreen() {
+      return document.fullscreenElement === $("#reader-modal-backdrop") || $("#reader-modal-backdrop").classList.contains("reader-fullscreen");
+    }
+    function toggleReaderFullscreen() {
+      const backdrop = $("#reader-modal-backdrop");
+      const btn = document.getElementById("reader-fullscreen");
+      if (!document.fullscreenElement) {
+        backdrop.requestFullscreen?.().then(() => {
+          btn.textContent = "退出全屏";
+          scheduleReaderRender();
+        }).catch(() => {
+          // 原生全屏不可用(权限/嵌套):回退 CSS 全屏
+          backdrop.classList.toggle("reader-fullscreen");
+          btn.textContent = backdrop.classList.contains("reader-fullscreen") ? "退出全屏" : "全屏";
+          scheduleReaderRender();
+        });
+      } else {
+        document.exitFullscreen?.();
+        btn.textContent = "全屏";
+        scheduleReaderRender();
+      }
+    }
+    $("#reader-fullscreen").addEventListener("click", toggleReaderFullscreen);
+    // 原生全屏态变化(用户按 Esc 退出系统全屏)时同步按钮文案与重渲染
+    document.addEventListener("fullscreenchange", () => {
+      const btn = document.getElementById("reader-fullscreen");
+      if (btn && state.pdfReader) {
+        btn.textContent = document.fullscreenElement ? "退出全屏" : "全屏";
+        scheduleReaderRender();
+      }
+    });
     $("#reader-close").addEventListener("click", closeReaderModal);
     $("#reader-modal-backdrop").addEventListener("click", (event) => {
       if (event.target === event.currentTarget) closeReaderModal();
@@ -4924,7 +4961,33 @@ button:active:not(:disabled) { transform: translateY(1px); }
       const num = Math.min(r.total, Math.max(1, Math.round(Number(event.target.value) || 1)));
       if (num !== r.page) readerScrollToPage(num);
     });
-    // 滚动 → 懒渲染 + 当前页跟踪(rAF 节流)
+    // Ctrl+滚轮缩放:以指针下的位置为锚点放大/缩小(Zotero/Acrobat 惯例)。
+    // 缩放后按比例换算 scrollTop,保证指针所指内容仍停留在指针下。
+    $("#reader-pdf-box").addEventListener("wheel", (event) => {
+      if (!event.ctrlKey) return; // 无 Ctrl:交给原生滚动
+      const r = state.pdfReader;
+      if (!r) return;
+      event.preventDefault();
+      const box = readerBox();
+      const rect = box.getBoundingClientRect();
+      // 指针相对内容区的位置(缩放锚点)
+      const pointerY = event.clientY - rect.top;
+      const contentY = pointerY + box.scrollTop;
+      const next = Math.min(3, Math.max(0.4, (r.zoom || 1) * (event.deltaY < 0 ? 1.12 : 1 / 1.12)));
+      if (Math.abs(next - (r.zoom || 1)) < 1e-6) return;
+      // 锚点页与页内比例:缩放后把该页滚回锚点位置
+      const idx = readerIndexAt(r, contentY);
+      const tops = readerPageTops(r);
+      const pageTop = tops[idx];
+      const ratio = Math.min(1, Math.max(0, (contentY - pageTop) / Math.max(1, r.slotHeights[idx] || 1)));
+      applyReaderZoom(Number(next.toFixed(3)));
+      const newTops = readerPageTops(r);
+      const slotEl = $(`#reader-pages .reader-page-slot[data-page="${idx + 1}"]`);
+      const newPageH = slotEl ? slotEl.offsetHeight : (r.slotHeights[idx] || 0);
+      box.scrollTop = newTops[idx] + newPageH * ratio - pointerY;
+      scheduleReaderRender();
+    }, { passive: false });
+    // 滚轮:连续滚动模式下交给原生滚动(整篇内容已在槽位堆叠中)
     $("#reader-pdf-box").addEventListener("scroll", () => scheduleReaderRender(), { passive: true });
     window.addEventListener("resize", () => {
       const r = state.pdfReader;
@@ -5020,6 +5083,10 @@ button:active:not(:disabled) { transform: translateY(1px); }
         // 只关最上层:阅读器模态打开时 Esc 只关阅读器,
         // 否则会把它背后的任务/设置抽屉一起关掉
         if (state.pdfReader) {
+          // CSS 全屏态下先退回普通态,再关阅读器
+          $("#reader-modal-backdrop").classList.remove("reader-fullscreen");
+          const fsBtn = document.getElementById("reader-fullscreen");
+          if (fsBtn) fsBtn.textContent = "全屏";
           closeReaderModal();
           return;
         }
