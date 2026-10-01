@@ -614,7 +614,152 @@
     @media (max-width: 900px) { .workspace { grid-template-columns: 1fr; } }
     @media (max-width: 600px) { .assistant-dialog .panel-head { align-items: flex-start; gap: 10px; padding: 16px; } .assistant-dialog .aichat-body { padding: 14px; } .assistant-actions .preview-badge { display: none; } #assistant-launcher { right: 14px; bottom: 14px; } }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
-  </style>
+  
+    /* ═══════════════ Design Polish Layer ═══════════════
+       Awwwards 级精修:排版 / 表面 / 动效 / 微交互 / 原创性。
+       追加在基础层之后,靠级联覆盖;类名与 DOM 不变,不破坏测试。 */
+
+    /* ── A. 排版 ── */
+    :root {
+      --display: "Palatino Linotype", Palatino, Georgia, "STZhongsong", "SimSun", "Songti SC", serif;
+      --ease-out: cubic-bezier(.22, .68, .26, 1);
+    }
+    .intro h1 {
+      font-family: var(--display);
+      font-weight: 600;
+      letter-spacing: .015em;
+      line-height: 1.08;
+    }
+    .intro h1 span { padding-right: .08em; }
+    .drawer-head h2, .assistant-dialog .panel-head strong {
+      font-family: var(--display);
+      font-weight: 700;
+      letter-spacing: .02em;
+    }
+    .task-meta, .preview-timing, .health, .status-pill, .step-num, .reader-total, .rp-pair-tag, .mm-meta {
+      font-variant-numeric: tabular-nums;
+    }
+    /* 过小的辅助文字提到可读下限 */
+    .settings-note { font-size: 11.5px; line-height: 1.75; }
+    .drop p { font-size: 12.5px; }
+    .step small { font-size: 12.5px; }
+    .task-stage { font-size: 12.5px; }
+    .health { font-size: 11px; letter-spacing: .04em; }
+    .panel-head small { font-size: 12.5px; }
+    ::selection { background: rgba(114, 223, 202, .78); color: #06131e; }
+
+    /* ── B. 表面与层级 ── */
+    .panel { box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, .055); }
+    .task-item {
+      transition: transform .22s var(--ease-out), border-color .22s ease, box-shadow .22s ease;
+    }
+    .task-item:hover {
+      transform: translateY(-2px);
+      border-color: rgba(114, 223, 202, .26);
+      box-shadow: 0 18px 44px rgba(0, 0, 0, .4);
+    }
+    /* 交付物下载按钮 = 任务卡内唯一主动作:薄荷渐变实底,与次级按钮拉开层级
+       (下载链接无 download 属性,靠 content-disposition;用 result 非内联特征匹配) */
+    .task-actions a[href*="/result/"]:not([href*="inline"]) {
+      border-color: transparent;
+      color: #06131e;
+      font-weight: 800;
+      background: linear-gradient(100deg, var(--mint), #a9d9ff);
+      box-shadow: 0 8px 22px rgba(81, 185, 199, .22);
+    }
+    .task-actions a[download]:hover { filter: brightness(1.06); }
+    .chip, .ghost.small, .task-actions a, .task-actions button {
+      transition: transform .16s var(--ease-out), background .16s ease, border-color .16s ease, box-shadow .16s ease, filter .16s ease;
+    }
+    .ghost:hover { border-color: rgba(215, 231, 255, .22); }
+    .primary { transition: transform .16s var(--ease-out), box-shadow .22s ease, filter .16s ease; }
+    .primary:hover:not(:disabled) { filter: brightness(1.05); box-shadow: 0 18px 44px rgba(81, 185, 199, .3); }
+    /* 表单留白呼吸感 */
+    .form-body { padding: 22px 24px 26px; }
+    .settings-note { margin-top: 6px; }
+
+    /* ── C. 动效 ── */
+    @keyframes rise-in {
+      from { opacity: 0; transform: translateY(14px); }
+      to { opacity: 1; transform: none; }
+    }
+    @keyframes fade-scale-in {
+      from { opacity: 0; transform: scale(.985); }
+      to { opacity: 1; transform: none; }
+    }
+    @keyframes sheen {
+      from { transform: translateX(-120%); }
+      to { transform: translateX(340%); }
+    }
+    /* 首屏两栏随载荷错峰上浮 */
+    .intro { animation: rise-in .62s var(--ease-out) both; }
+    .workspace > .panel { animation: rise-in .62s var(--ease-out) both; }
+    .workspace > .panel:nth-child(2) { animation-delay: .08s; }
+    /* 抽屉/模态/对话框入场 */
+    .drawer-backdrop.open .settings-drawer,
+    .drawer-backdrop.open .tasks-drawer,
+    .drawer-backdrop.open .log-drawer { animation: rise-in .4s var(--ease-out) both; }
+    .reader-modal { animation: fade-scale-in .3s var(--ease-out) both; }
+    dialog.assistant-dialog[open] { animation: fade-scale-in .32s var(--ease-out) both; }
+    /* 任务卡在抽屉内错峰上浮 */
+    .drawer-backdrop.open .task-item { animation: rise-in .45s var(--ease-out) both; }
+    .drawer-backdrop.open .task-item:nth-child(1) { animation-delay: .02s; }
+    .drawer-backdrop.open .task-item:nth-child(2) { animation-delay: .07s; }
+    .drawer-backdrop.open .task-item:nth-child(3) { animation-delay: .12s; }
+    .drawer-backdrop.open .task-item:nth-child(4) { animation-delay: .17s; }
+    .drawer-backdrop.open .task-item:nth-child(n+5) { animation-delay: .22s; }
+    /* 进度条流光:完成态亦有缓慢高光掠过,像覆膜纸张 */
+    .task-progress > i { position: relative; overflow: hidden; }
+    .task-progress > i::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      width: 34%;
+      background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .5), transparent);
+      animation: sheen 3.6s ease-in-out infinite;
+    }
+    /* 悬停抬升的一致位移语言 */
+    .chip:hover, .task-actions a:hover, .task-actions button:hover, .ghost.small:hover { transform: translateY(-1px); }
+    button:active, .chip:active { transform: translateY(0) scale(.98); }
+
+    /* ── D. 微交互 ── */
+    input[type="checkbox"] { accent-color: var(--mint); width: 15px; height: 15px; }
+    .link-btn { transition: color .15s ease; }
+    .link-btn:hover { color: var(--mint); }
+    .reader-toolbar .ghost.small, .reader-toolbar .primary { box-shadow: none; }
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-thumb { border-radius: 99px; background: rgba(215, 231, 255, .13); border: 2px solid transparent; background-clip: padding-box; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(215, 231, 255, .24); background-clip: padding-box; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    * { scrollbar-width: thin; scrollbar-color: rgba(215, 231, 255, .16) transparent; }
+    input[class], textarea, select { transition: border-color .16s ease, box-shadow .16s ease; }
+    #base-url:focus, #model:focus, #api-key:focus, #pages-range:focus, #qps:focus,
+    #aichat-input:focus, #reader-search-input:focus, .rp-edit-area:focus {
+      border-color: rgba(114, 223, 202, .55);
+      box-shadow: 0 0 0 3px rgba(114, 223, 202, .13);
+      outline: none;
+    }
+
+    /* ── E. 原创性:稿纸点阵纹理 ── */
+    /* ── F. 精修二轮:留白与窄屏 ── */
+    .preview-canvas { min-height: 380px; }
+    @media (max-width: 1100px) {
+      .reader-toolbar { flex-wrap: wrap; }
+      .reader-search { flex: 1 1 180px; }
+    }
+    dialog.assistant-dialog { overscroll-behavior: contain; }
+    .intro::before {
+      content: "";
+      position: absolute;
+      inset: -40px -30px auto -60px;
+      height: 340px;
+      background-image: radial-gradient(rgba(147, 183, 255, .14) 1px, transparent 1.4px);
+      background-size: 22px 22px;
+      -webkit-mask-image: radial-gradient(ellipse 70% 62% at 38% 22%, #000 20%, transparent 72%);
+      mask-image: radial-gradient(ellipse 70% 62% at 38% 22%, #000 20%, transparent 72%);
+      pointer-events: none;
+    }
+    </style>
 </head>
 <body>
   <div class="app">
