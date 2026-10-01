@@ -1157,24 +1157,28 @@ def generate_summary(request: dict, api_key: str) -> dict | None:
     失败只告警不阻断 —— 速览是增值能力,翻译成果本身不受影响。
     """
     text = translated_full_text(request["outputDir"], request["config"]["output"], dual_layout=request["config"].get("dualLayout", "side"))
+    text = re.sub(r"[\uF900-\uFAFF\U0002F800-\U0002FA1F]", lambda match: unicodedata.normalize("NFKC", match[0]), text)
     if len(text) < 200:
         return None
     config = request["config"]
     client = build_llm_client(request, api_key)
     # zh-TW 任务的速览也输出繁体,与正文翻译语言一致
     target_note = "请用繁体中文输出。" if config.get("target") == "zh-TW" else ""
-    response = client.chat.completions.create(
-        model=config["model"],
-        temperature=0.2,
-        max_tokens=1200,
-        messages=[
-            {"role": "system", "content": SUMMARY_PROMPT + target_note},
-            {"role": "user", "content": f"论文译文如下：\n{text}"},
-        ],
-    )
-    content = (response.choices[0].message.content or "").strip()
-    if not content:
-        return None
+    for attempt in range(2):
+        response = client.chat.completions.create(
+            model=config["model"],
+            temperature=0.2,
+            max_tokens=1200,
+            messages=[
+                {"role": "system", "content": SUMMARY_PROMPT + target_note},
+                {"role": "user", "content": f"论文译文如下：\n{text}" + ("\n上次速览缺少必要部分。请完整输出【一句话总结】【研究问题】【方法】【主要结果】【局限与展望】五部分。" if attempt else "")},
+            ],
+        )
+        content = (response.choices[0].message.content or "").strip()
+        if all(f"【{label}】" in content for label in ("一句话总结", "研究问题", "方法", "主要结果", "局限与展望")):
+            break
+    else:
+        raise ValueError("模型返回的 AI 速览不完整，重试后仍缺少必要部分")
     return {
         "model": config["model"],
         "generatedAt": datetime.now().isoformat(timespec="seconds"),
@@ -1847,7 +1851,11 @@ def _looks_like_json(text: str) -> bool:
     return body[0] in "\"}" or body.startswith("\n")
 
 
-def _load_translation_cache_map() -> dict[str, str]:
+def _pair_text_key(text: str) -> str:
+    return re.sub(r"\s+", "", unicodedata.normalize("NFKC", text))
+
+
+def _load_translation_cache_map(output_text: str | None = None) -> dict[str, str]:
     """从 BabelDOC 全局翻译缓存(SQLite)读取 原文→译文 映射。
 
     键为去除全部空白后的原文,用于把位置配对校正为语义配对。
@@ -1859,6 +1867,7 @@ def _load_translation_cache_map() -> dict[str, str]:
     from babeldoc.const import CACHE_FOLDER
 
     mapping: dict[str, str] = {}
+    output_key = _pair_text_key(output_text) if output_text is not None else None
     for db_file in glob.glob(str(Path(CACHE_FOLDER) / "*.db")):
         try:
             conn = sqlite3.connect(f"file:{db_file}?mode=ro", uri=True)
@@ -1870,6 +1879,9 @@ def _load_translation_cache_map() -> dict[str, str]:
                     # 混进语料库会让包含匹配吐出 JSON
                     if _looks_like_json(original) or _looks_like_json(translation):
                         continue
+                    # 全局缓存跨模型共享;对照只接受确实出现在当前 PDF 中的译文。
+                    if output_key is not None and _pair_text_key(translation) not in output_key:
+                        continue
                     # 批量/术语提示词整段入缓存时(响应未解析成结构化文本),几千字符的
                     # 提示词会连同其回显混进语料,包含匹配会配出完全无关的译文
                     flat_original = re.sub(r"\s+", "", original)
@@ -1879,7 +1891,7 @@ def _load_translation_cache_map() -> dict[str, str]:
                         or "multilingualterminologist" in flat_original
                     ):
                         continue
-                    mapping[re.sub(r"\s+", "", original)] = re.sub(r"[ \t]+", " ", translation).strip()
+                    mapping[_pair_text_key(original)] = re.sub(r"[ \t]+", " ", translation).strip()
             finally:
                 conn.close()
         except sqlite3.Error:
@@ -2010,11 +2022,11 @@ def extract_paragraph_pairs(input_path: str, output_dir: str, output_mode: str, 
     if not pdfs:
         return pages
     # 翻译缓存是"原文段落 → 译文段落"的精确对照,用它校正位置配对的错位
-    cache_map = _load_translation_cache_map()
-    corpus, entries = _build_corpus_index(cache_map)
-    cache_lookup = make_cache_lookup(cache_map, corpus, entries)
     alternating = output_mode == "dual" and dual_layout == "alternating"
     with pymupdf.open(input_path) as src, pymupdf.open(mono or pdfs[0]) as dst:
+        cache_map = _load_translation_cache_map("\n".join(page.get_text() for page in dst))
+        corpus, entries = _build_corpus_index(cache_map)
+        cache_lookup = make_cache_lookup(cache_map, corpus, entries)
         # 交替页译文在输出第 2i+1 页,原文页数以 dst.page_count//2 为上界,
         # 防止产物页数异常(分批合并失败/被截断)时索引越界
         count = (min(src.page_count, dst.page_count // 2, max_pages) if alternating
@@ -2062,7 +2074,9 @@ def extract_paragraph_pairs(input_path: str, output_dir: str, output_mode: str, 
                     two_column = _looks_two_column(en_centers, src[i].rect.width)
                     zh = blocks(tpage, clip, not two_column, mid_override=(clip.x0 + clip.x1) / 2, skip_rects=zh_skip)
             pairs = []
-            cached_translations = [cache_lookup(re.sub(r"\s+", "", en_text)) for en_text in en]
+            page_key = _pair_text_key(" ".join(zh))
+            cached_translations = [cache_lookup(_pair_text_key(en_text)) for en_text in en]
+            cached_translations = [text if text and _pair_text_key(text) in page_key else None for text in cached_translations]
             # 第 1 页存在作者区时块组成两侧差异大(标题通栏/侧栏文字/恢复的英文作者区),
             # 位置配对必然错位,强制保守模式:只保留缓存确认的配对,其余单侧占位
             conservative = (len(en) != len(zh) and any(cached_translations)) or (i == 0 and bool(zh_skip))
@@ -2077,10 +2091,10 @@ def extract_paragraph_pairs(input_path: str, output_dir: str, output_mode: str, 
                 # 语义校正:该原文块在缓存里有对应译文时,以缓存为准
                 if cached:
                     zh_text = cached
-                    cached_key = re.sub(r"\s+", "", cached)
+                    cached_key = _pair_text_key(cached)
                     match = next((
                         k for k, text in enumerate(zh)
-                        if k not in used_zh and re.sub(r"\s+", "", text) == cached_key
+                        if k not in used_zh and _pair_text_key(text) == cached_key
                     ), None)
                     if match is not None:
                         used_zh.add(match)
@@ -2981,6 +2995,7 @@ def main() -> int:
     sys.argv = build_args(request, api_key)
     print("YIYE_STAGE: starting BabelDOC", flush=True)
     cli()
+    print("YIYE_STAGE: postprocessing", flush=True)
     # 章节书签:从译文版式收集标题写入 PDF 书签(阅读器目录导航);失败不影响任务
     try:
         out_pdfs = main_translated_pdfs(request["outputDir"])
@@ -3061,6 +3076,7 @@ def main() -> int:
 
     # AI 速览:用同一模型对译文做中文速读总结;失败仅告警,不影响任务结果
     if request["config"].get("aiSummary", True):
+        print("YIYE_STAGE: ai summary starting", flush=True)
         try:
             summary = generate_summary(request, api_key)
             if summary:

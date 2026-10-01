@@ -203,9 +203,13 @@ function stripGatewayId(job) {
   return { ...job, config: (() => { const config = { ...job.config }; delete config.gatewayId; return config; })() };
 }
 
-function publicJob(job) {
+export function publicJob(job) {
   const { inputPath, outputDir, requestPath, logBuffer, awaitingCompletionValue, log, ...safe } = stripGatewayId(job);
   // awaitingCompletionValue 是日志折行解析的瞬态标志,对前端无意义
+  // 旧版本遗漏 Complete 帧计数;已成功导出的历史任务也按最终阶段总数展示。
+  if (job.status === "completed" && job.stats?.paragraphs) {
+    safe.stats = { ...job.stats, paragraphs: { ...job.stats.paragraphs, done: job.stats.paragraphs.total } };
+  }
   return { ...safe, outputs: (job.outputs || []).filter((name) => name.toLowerCase().endsWith(".pdf")), log: log.slice(-30) };
 }
 
@@ -227,13 +231,31 @@ function persistJobs() {
   return run;
 }
 
+// rename 在 Windows 下偶发 EPERM(杀毒/索引服务瞬时锁定目标文件),
+// 短退避重试;重试耗尽时保留 tmp 供诊断而非直接丢数据
+async function renameWithRetry(tmp, target, attempts = 5) {
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      await rename(tmp, target);
+      return;
+    } catch (error) {
+      if (error.code !== "EPERM" && error.code !== "EACCES") throw error;
+      if (i === attempts - 1) {
+        console.warn(`持久化 rename 重试耗尽（${target}），临时文件保留：${tmp}`);
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 60 * 2 ** i));
+    }
+  }
+}
+
 async function doPersistJobs() {
   await mkdir(DATA_DIR, { recursive: true });
   const tmp = `${JOBS_FILE}.${process.pid}.${randomUUID()}.tmp`;
   const data = [...jobs.values()]
     .map(({ inputPath, outputDir, requestPath, logBuffer, ...job }) => stripGatewayId(job));
   await writeFile(tmp, JSON.stringify(data, null, 2), "utf8");
-  await rename(tmp, JOBS_FILE);
+  await renameWithRetry(tmp, JOBS_FILE);
 }
 
 // 任务产物 JSON(edits.json/figures.json/mindmap.json)的原子写 + 按任务互斥:
@@ -252,7 +274,7 @@ function withJobJsonLock(id, fn) {
 async function writeJsonAtomic(filePath, value) {
   const tmp = `${filePath}.${process.pid}.${randomUUID()}.tmp`;
   await writeFile(tmp, JSON.stringify(value, null, 2), "utf8");
-  await rename(tmp, filePath);
+  await renameWithRetry(tmp, filePath);
 }
 
 async function loadJobs() {
@@ -352,7 +374,7 @@ function stagePercent(progressEvent) {
   return Math.round(range.start + fraction * (range.end - range.start));
 }
 
-function appendLog(job, chunk, apiKey = "", stream = { logBuffer: "" }) {
+export function appendLog(job, chunk, apiKey = "", stream = { logBuffer: "" }) {
   // 过短的 key 做逐字替换会把日志里的正常单词一起污染，因此只脱敏足够长的 key
   const secret = apiKey && apiKey.length >= 8 ? apiKey : "";
   // stdout 与 stderr 各自持有行缓冲：两路管道的数据块边界互不相干，
@@ -401,9 +423,15 @@ function appendLog(job, chunk, apiKey = "", stream = { logBuffer: "" }) {
         ? Math.min(99, Math.round(progressEvent.overall))
         : stagePercent(progressEvent);
       if (pct !== null && pct > (job.progress || 0)) job.progress = pct;
+      if (pct !== null && pct >= (job.progress || 0)) {
+        const stageIndex = STAGE_RANGES.findIndex((entry) => progressEvent.stage.startsWith(entry.label));
+        if (stageIndex >= 0) job.stage = stageIndex < 6 ? "正在分析版式" : stageIndex === 6 ? "正在翻译正文" : "正在重建 PDF";
+      }
       job.stats = job.stats || {};
       if (progressEvent.stage === "Translate Paragraphs" && progressEvent.total > 0) {
         job.stats.paragraphs = { done: progressEvent.current, total: progressEvent.total };
+      } else if (progressEvent.stage === "Translate Paragraphs" && /\(Complete\)/.test(line) && job.stats.paragraphs) {
+        job.stats.paragraphs.done = job.stats.paragraphs.total;
       }
       if (progressEvent.stage === "DetectScannedFile") job.stats.scannedCheck = true;
     }
@@ -412,9 +440,8 @@ function appendLog(job, chunk, apiKey = "", stream = { logBuffer: "" }) {
     if (job.log.length > 100) job.log.shift();
     // 百分比形态的日志(模型下载等)与真实翻译进度无关,不做进度映射:
     // 阶段进度完全由上面的分数式进度条驱动,避免早到的"100%"把进度条钉死
-    if (/layout|parse|版式/i.test(clean)) job.stage = "正在分析版式";
-    if (/translat|翻译/i.test(clean)) job.stage = "正在翻译正文";
-    if (/render|generate|save|渲染|生成/i.test(clean)) job.stage = "正在重建 PDF";
+    if (line.includes("YIYE_STAGE: postprocessing")) job.stage = "正在校验与整理译文";
+    if (line.includes("YIYE_STAGE: ai summary starting")) job.stage = "正在生成 AI 速览";
   }
 }
 
@@ -2071,9 +2098,14 @@ async function gatewayChat(req, res, gatewayId) {
   }
 }
 
+// PDF 兼容汉字会使部分本地模型提前结束，保留公式和其他兼容字符。
+export function normalizeReadingText(text) {
+  return text.replace(/[\uF900-\uFAFF\u{2F800}-\u{2FA1F}]/gu, (glyph) => glyph.normalize("NFKC"));
+}
+
 // 用任务配置的模型发一次补全:兼容接口直连,anthropic/gemini 经临时网关转换(用完即释放)
 async function callConfiguredModel(config, apiKey, messages, { maxTokens = 1500, temperature = 0.3 } = {}) {
-  const payload = JSON.stringify({ model: config.model, messages, max_tokens: maxTokens, temperature, stream: false });
+  const payload = JSON.stringify({ model: config.model, messages: messages.map((message) => ({ ...message, content: normalizeReadingText(message.content) })), max_tokens: maxTokens, temperature, stream: false });
   let response;
   if (needsGateway(config)) {
     const gatewayId = randomUUID();

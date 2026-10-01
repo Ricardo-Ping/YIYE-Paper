@@ -721,6 +721,42 @@ class LayoutScopeTest(unittest.TestCase):
                 mapping = _load_translation_cache_map()
             self.assertEqual(list(mapping.keys()), ["Normalparagraphtext."])
 
+    def test_summary_retries_incomplete_response(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock, patch
+        from engine_worker import generate_summary
+        def response(text):
+            return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=text))])
+        full = "【一句话总结】结论\n【研究问题】问题\n【方法】方法\n【主要结果】结果\n【局限与展望】局限"
+        client = Mock()
+        client.chat.completions.create.side_effect = [response("【一句话总结】未完成"), response(full)]
+        request = {"outputDir": "unused", "config": {"output": "dual", "model": "local"}}
+        with patch("engine_worker.translated_full_text", return_value="可执行性 x² " * 50), patch("engine_worker.build_llm_client", return_value=client):
+            self.assertEqual(generate_summary(request, "local")["content"], full)
+        self.assertEqual(client.chat.completions.create.call_count, 2)
+        prompt = client.chat.completions.create.call_args.kwargs["messages"][1]["content"]
+        self.assertIn("可执行性 x²", prompt)
+        self.assertNotIn("行", prompt)
+
+    def test_cache_pairing_rejects_other_models_translation(self):
+        import os
+        import sqlite3
+        import tempfile
+        from unittest.mock import patch
+        from engine_worker import _load_translation_cache_map
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with sqlite3.connect(os.path.join(tmp, "cache.db")) as conn:
+                conn.execute("CREATE TABLE _TranslationCache (original_text TEXT, translation TEXT)")
+                conn.executemany("INSERT INTO _TranslationCache VALUES (?, ?)", [
+                    ("SQL query rewriting", "查询重写更高效。"),
+                    ("SQL query rewriting", "深度学习模型改变了自然语言处理。"),
+                ])
+            conn.close()
+            with patch("babeldoc.const.CACHE_FOLDER", tmp):
+                mapping = _load_translation_cache_map("查询重写更高效。")
+            self.assertEqual(mapping, {"SQLqueryrewriting": "查询重写更高效。"})
+
     def test_short_block_cache_lookup_requires_exact_match(self):
         """短块(如 Abstract)只允许精确缓存命中,包含匹配会把无关译文配给短标题。"""
         from engine_worker import _build_corpus_index, make_cache_lookup

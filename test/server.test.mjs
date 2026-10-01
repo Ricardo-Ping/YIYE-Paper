@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applyThinkingToUpstream, auditCitations, countGlossaryEntries, isPdf, isRuntimeStale, parseBabeldocProgress, parseGlossaryCsv, parseHttpUrl, sanitizeFileName, sanitizeGlossaryName, validateConfig, validatePages } from "../server.mjs";
+import { appendLog, applyThinkingToUpstream, auditCitations, countGlossaryEntries, isPdf, isRuntimeStale, parseBabeldocProgress, parseGlossaryCsv, parseHttpUrl, publicJob, sanitizeFileName, sanitizeGlossaryName, validateConfig, validatePages } from "../server.mjs";
 
 test("PDF trust-boundary validation", () => {
   assert.equal(isPdf(Buffer.from("%PDF-1.7\n")), true);
@@ -312,4 +312,27 @@ test("translation stall watchdog", async () => {
   assert.equal(isStalled(running({ status: "queued" }), now, stallMs), false);
   assert.equal(isStalled(running({ status: "completed" }), now, stallMs), false);
   assert.equal(isStalled(running({ cancelRequested: true, lastProgressAt: now - 13 * 60_000 }), now, stallMs), false);
+});
+
+test("completed paragraph frames and cleanup logs retain accurate task state", () => {
+  const job = { progress: 0, log: [] };
+  appendLog(job, "Translate Paragraphs (69/475):  58%|x| 58/100 [00:32]\n");
+  assert.equal(publicJob(job).stats.paragraphs.done, 69);
+  assert.equal(publicJob({ ...job, status: "completed" }).stats.paragraphs.done, 475);
+  assert.equal(job.stats.paragraphs.done, 69);
+  appendLog(job, "Translate Paragraphs (Complete):  89%|x| 89/100 [00:34]\n");
+  assert.deepEqual(job.stats.paragraphs, { done: 475, total: 475 });
+  appendLog(job, "Save PDF (Complete):  99%|x| 99/100 [00:40]\n");
+  assert.equal(job.stage, "正在重建 PDF");
+  appendLog(job, "INFO:babeldoc.format.pdf.translation_config:cleanup temp files\n");
+  assert.equal(job.stage, "正在重建 PDF");
+  appendLog(job, "YIYE_STAGE: postprocessing\n");
+  assert.equal(job.stage, "正在校验与整理译文");
+  appendLog(job, "YIYE_STAGE: ai summary starting\n");
+  assert.equal(job.stage, "正在生成 AI 速览");
+});
+
+test("reading context normalizes PDF CJK glyphs without changing formulas", async () => {
+  const { normalizeReadingText } = await import("../server.mjs");
+  assert.equal(normalizeReadingText("可执行性、等价性和效率；x² + ①"), "可执行性、等价性和效率；x² + ①");
 });
