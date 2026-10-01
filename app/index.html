@@ -635,6 +635,11 @@
     .reader-page-slot { position: relative; flex: 0 0 auto; background: #fff; border-radius: 3px; box-shadow: 0 3px 16px rgba(0, 0, 0, .38); overflow: hidden; }
     .reader-page-slot canvas { display: block; }
     .reader-page-slot.reader-page-placeholder { background: rgba(255, 255, 255, .045); box-shadow: none; border: 1px dashed rgba(255, 255, 255, .09); }
+    /* PDF.js 文本层:透明文字叠在画布上,提供选取/复制能力;选区用薄荷高亮 */
+    .textLayer { position: absolute; inset: 0; overflow: hidden; line-height: 1; text-size-adjust: none; forced-color-adjust: none; z-index: 2; }
+    .textLayer span, .textLayer br { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0% 0%; }
+    .textLayer ::selection { background: rgba(114, 223, 202, .45); }
+    .textLayer ::-moz-selection { background: rgba(114, 223, 202, .45); }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 
 /* Editorial workspace: keep the established dark, bilingual reading direction. */
@@ -2615,6 +2620,14 @@ button:active:not(:disabled) { transform: translateY(1px); }
     const READER_PAD = 14;
     const READER_MAX_RENDERED = 8; // 同时在 DOM 里的画布上限,防长文档内存膨胀
 
+    function releaseReaderSlotEntry(entry) {
+      entry.canvas.width = 0;
+      entry.canvas.height = 0;
+      entry.canvas.remove();
+      entry.slot.querySelectorAll(".textLayer").forEach((l) => l.remove());
+      entry.slot.classList.add("reader-page-placeholder");
+    }
+
     function readerBox() { return $("#reader-pdf-box"); }
 
     function readerFitWidth(r) {
@@ -2740,10 +2753,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
       for (const [p, entry] of [...r.renderedPages]) {
         if (!keep.has(p) && p >= first - 2 && p <= last + 2) continue;
         if (keep.has(p)) continue;
-        entry.canvas.width = 0;
-        entry.canvas.height = 0;
-        entry.canvas.remove();
-        entry.slot.classList.add("reader-page-placeholder");
+        releaseReaderSlotEntry(entry);
         r.renderedPages.delete(p);
       }
       // 超上限时把离视口最远的已渲染页释放掉
@@ -2753,11 +2763,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
           .sort((a, b) => Math.abs(b - page) - Math.abs(a - page))
           .slice(0, r.renderedPages.size - READER_MAX_RENDERED);
         for (const p of extras) {
-          const entry = r.renderedPages.get(p);
-          entry.canvas.width = 0;
-          entry.canvas.height = 0;
-          entry.canvas.remove();
-          entry.slot.classList.add("reader-page-placeholder");
+          releaseReaderSlotEntry(r.renderedPages.get(p));
           r.renderedPages.delete(p);
         }
       }
@@ -2805,6 +2811,21 @@ button:active:not(:disabled) { transform: translateY(1px); }
           transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined,
         }).promise;
         if (state.pdfReader !== r) { canvas.width = 0; canvas.height = 0; canvas.remove(); return; }
+        // 文本层:透明文字叠在画布上,提供选取/复制;失败不影响页面显示
+        try {
+          const textContent = await page.getTextContent();
+          if (state.pdfReader !== r) return;
+          const layer = document.createElement("div");
+          layer.className = "textLayer";
+          layer.style.width = `${w}px`;
+          layer.style.height = `${h}px`;
+          slot.appendChild(layer);
+          await pdfjsLib.renderTextLayer({
+            textContentSource: textContent,
+            container: layer,
+            viewport,
+          }).promise;
+        } catch { /* 文本层失败仅失去选取能力 */ }
         slot.classList.remove("reader-page-placeholder");
         r.renderedPages.set(p, { canvas, slot });
       } finally {
@@ -2842,10 +2863,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
       }
       markReaderTopsDirty(r);
       for (const [, entry] of [...r.renderedPages]) {
-        entry.canvas.width = 0;
-        entry.canvas.height = 0;
-        entry.canvas.remove();
-        entry.slot.classList.add("reader-page-placeholder");
+        releaseReaderSlotEntry(entry);
       }
       r.renderedPages.clear();
       const page = r.page;
