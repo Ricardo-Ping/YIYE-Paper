@@ -643,7 +643,9 @@
     /* 自定义行选区:禁用原生选取(原生选区沿 DOM 流动,双栏/越界即大面积误选),
        以 .yl-sel 高亮代替;Ctrl+C 由 keydown 监听写入剪贴板 */
     .textLayer { user-select: none; -webkit-user-select: none; }
-    .textLayer span.yl-sel { background: rgba(114, 223, 202, .5); border-radius: 2px; }
+    /* 行盒互相压线是 BabelDOC 译文的固有形态,半透明背景叠加会呈杂乱色块;
+       multiply 混合让重叠区域色调统一,且画布文字透出 */
+    .textLayer span.yl-sel { background: #9be1cb; mix-blend-mode: multiply; border-radius: 2px; }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 
 /* Editorial workspace: keep the established dark, bilingual reading direction. */
@@ -2738,12 +2740,14 @@ button:active:not(:disabled) { transform: translateY(1px); }
 
     let readerRenderQueued = false;
     function scheduleReaderRender() {
+      // 用 setTimeout(16) 而非 rAF:rAF 在被遮挡/后台标签页不触发,
+      // 会导致滚动渲染停摆直到用户切回前台
       if (readerRenderQueued) return;
       readerRenderQueued = true;
-      requestAnimationFrame(() => {
+      setTimeout(() => {
         readerRenderQueued = false;
         void renderVisibleReaderPages();
-      });
+      }, 16);
     }
 
     async function renderVisibleReaderPages() {
@@ -2830,7 +2834,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
             container: layer,
             viewport,
           }).promise;
-        } catch { /* 文本层失败仅失去选取能力 */ }
+        } catch (e) { console.warn("文本层生成失败（仅失去选取能力）:", e); }
         slot.classList.remove("reader-page-placeholder");
         r.renderedPages.set(p, { canvas, slot });
       } finally {
