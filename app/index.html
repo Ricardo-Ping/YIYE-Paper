@@ -222,7 +222,10 @@
     .run-row .primary { width: 100%; padding: 14px; }
     .preview { min-width: 0; position: sticky; top: 28px; }
     .preview-badge { padding: 7px 10px; border-radius: 999px; color: #07131e; background: var(--mint); font-size: 10px; font-weight: 900; }
-    .preview-actions { display: inline-flex; gap: 6px; margin-right: 8px; }
+    .preview-actions { display: inline-flex; align-items: center; gap: 6px; margin-right: 8px; }
+    /* <a>(block,文字自顶排)与 <button>(UA 匿名行盒居中)的文字基线不同:统一 flex 居中,
+       消除 min-height 40px 下两按钮文字 6.6px 的垂直错位 */
+    .preview-actions .ghost.small { display: inline-flex; align-items: center; justify-content: center; }
     .preview-actions .ghost.small { font-size: 11px; padding: 5px 10px; }
     .preview-actions .ghost.small:disabled { opacity: .45; cursor: not-allowed; }
     .preview-canvas { display: grid; place-items: center; min-height: 530px; padding: 14px; background: radial-gradient(circle at 50% 35%,rgba(83,127,242,.13),transparent 50%),rgba(2,8,18,.25); }
@@ -625,6 +628,15 @@
 
 /* Editorial workspace: keep the established dark, bilingual reading direction. */
 a { text-decoration: none; } /* 按钮形态的 <a>(下载 PDF/阅读器打开等)不该有链接下划线;悬停线索由颜色/背景承担 */
+a.ghost, a.primary { text-align: center; } /* UA 对 <a>/<button> 默认对齐不同(start/center),min-height 放大后文字错位 */
+button { text-align: center; }
+/* 按钮组内 <a> 与 <button> 混排时的行内垂直对齐:
+   <a> 是 block 文字自顶排、<button> 是 UA 匿名行盒居中,统一 inline-flex 居中消除错位 */
+.task-actions a, .drawer-actions a, .header-actions a, .preview-actions .ghost.small {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
 :root { --bg: #07101f; --panel-solid: #101c31; --mint: #9be1cb; --blue: #b4cbd5; --muted: #a0afb6; --line: #ffffff17; --display: "Palatino Linotype", "STZhongsong", "SimSun", Georgia, serif; --ease-out: cubic-bezier(.22,.68,.26,1); }
 body { background: radial-gradient(circle at 12% 16%, #3c61f03d, transparent 30%), radial-gradient(circle at 83% 8%, #3cd6b721, transparent 26%), linear-gradient(150deg, #091326 0%, #07101f 58%, #07131d 100%); }
 ::selection { background: var(--mint); color: var(--bg); }
