@@ -62,6 +62,25 @@ def repair_translation_integrity(source: str, translated: str, layout_label: str
     retried=True 表示当前已是兜底（简单翻译）路径的输出——它是最后一次机会,
     直接接受译文,避免整段回退英文(富文本跨度可能不完美,但内容已翻译)。
     """
+    # BabelDOC 富文本只识别 <style id="N">；模型偶尔把同一标记改写成
+    # <code id="N">，否则内部标记会作为字面 HTML 泄漏到 PDF。
+    source_styles = {
+        style_id: body
+        for style_id, body in re.findall(r"<style\s+id=['\"](\d+)['\"]>(.*?)</style>", source, re.IGNORECASE | re.DOTALL)
+    }
+    def normalize_code_tag(match):
+        style_id, body = match.group(1), match.group(2)
+        # When the model translates a styled span and then echoes the original
+        # span as <code>, discard the echoed source to prevent duplicated text.
+        if style_id in source_styles and re.sub(r"\s+", " ", body).strip() == re.sub(r"\s+", " ", source_styles[style_id]).strip():
+            return ""
+        return f"<style id='{style_id}'>{body}</style>"
+    translated = re.sub(
+        r"<code\s+id=['\"](\d+)['\"]>(.*?)</code>",
+        normalize_code_tag,
+        translated,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
     if retried:
         return translated if translated.strip() else None
     placeholders = set(re.findall(r"\{v\d+\}", source + translated))
@@ -1513,6 +1532,70 @@ def patch_layout_translation_scope(translate_figures: bool, translate_tables: bo
             and getattr(layout, "box", None) is not None
         ]
 
+    def scoped_paragraphs(page):
+        """暂时移除关闭开关覆盖的段落，覆盖跨页/跨栏预处理入口。"""
+        scope_boxes = excluded_boxes_fn(page)
+        removed = []
+        kept = []
+        for idx, paragraph in enumerate(getattr(page, "pdf_paragraph", [])):
+            label = (getattr(paragraph, "layout_label", "") or "").strip()
+            caption = is_caption_paragraph(paragraph)
+            skip = is_protected_reference_paragraph(paragraph) or (
+                label.replace("_hybrid", "") in excluded
+                and label.replace("_hybrid", "") not in CAPTION_LAYOUTS
+                and not caption
+            )
+            if not skip and not caption and scope_boxes and getattr(paragraph, "box", None) is not None:
+                box = paragraph.box
+                # Any overlap is protected; centre-only checks let cross-column
+                # batches capture a paragraph that straddles a disabled region.
+                for scope_box in scope_boxes:
+                    if box.x < scope_box.x2 and box.x2 > scope_box.x and box.y < scope_box.y2 and box.y2 > scope_box.y:
+                        skip = True
+                        break
+            if skip:
+                removed.append((idx, paragraph))
+            else:
+                kept.append(paragraph)
+        if removed:
+            page.pdf_paragraph = kept
+        return removed
+
+    def restore_scoped_paragraphs(page, removed):
+        for idx, paragraph in removed:
+            page.pdf_paragraph.insert(min(idx, len(page.pdf_paragraph)), paragraph)
+
+    def wrap_cross_scope(cls):
+        if not hasattr(cls, "process_cross_page_paragraph") or not hasattr(cls, "process_cross_column_paragraph"):
+            return
+        original_cross_page = getattr(cls.process_cross_page_paragraph, "_yiye_original", cls.process_cross_page_paragraph)
+        original_cross_column = getattr(cls.process_cross_column_paragraph, "_yiye_original", cls.process_cross_column_paragraph)
+        def cross_page_scoped(self, docs, *args, **kwargs):
+            saved = [(page, scoped_paragraphs(page)) for page in docs.page]
+            try:
+                return original_cross_page(self, docs, *args, **kwargs)
+            finally:
+                for page, removed in saved:
+                    restore_scoped_paragraphs(page, removed)
+        def cross_column_scoped(self, page, *args, **kwargs):
+            removed = scoped_paragraphs(page)
+            try:
+                return original_cross_column(self, page, *args, **kwargs)
+            finally:
+                restore_scoped_paragraphs(page, removed)
+        cross_page_scoped._yiye_original = original_cross_page
+        cross_page_scoped._yiye_scoped = True
+        cross_column_scoped._yiye_original = original_cross_column
+        cross_column_scoped._yiye_scoped = True
+        cls.process_cross_page_paragraph = cross_page_scoped
+        cls.process_cross_column_paragraph = cross_column_scoped
+
+    # BabelDOC 0.6.4 schedules cross-page/cross-column batches before process_page.
+    try:
+        wrap_cross_scope(translator_cls)
+    except Exception as exc:
+        print(f"翻译范围补丁(跨页/跨栏)未生效（{exc}），对应增强已跳过", file=sys.stderr)
+
     # LLM 引擎实际走 ILTranslatorLLMOnly(独立实现),同样包装
     try:
         llm_cls = getattr(it, "ILTranslatorLLMOnly", None)
@@ -1522,6 +1605,7 @@ def patch_layout_translation_scope(translate_figures: bool, translate_tables: bo
             llm_cls = itl.ILTranslatorLLMOnly
 
         # 跨页/跨栏翻译在 process_page 之前运行，也必须在共享筛选入口排除参考文献。
+        wrap_cross_scope(llm_cls)
         original_should_translate = getattr(
             llm_cls._should_translate_paragraph,
             "_yiye_original",

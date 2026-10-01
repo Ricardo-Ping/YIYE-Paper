@@ -257,6 +257,7 @@ class ParagraphPairTest(unittest.TestCase):
         """双栏页面:左栏先于右栏,栏内按纵坐标排序;原文译文按序配对。"""
         import os
         import tempfile
+        from unittest.mock import patch
 
         import pymupdf
 
@@ -861,6 +862,42 @@ class LayoutScopeTest(unittest.TestCase):
         self.assertIn("简体中文", build_prompt("zh-CN"))
 
 
+    def test_cross_page_scope_excludes_disabled_regions_before_batching(self):
+        from types import SimpleNamespace
+        from babeldoc.format.pdf.document_il.il_version_1 import Box
+        import babeldoc.format.pdf.document_il.midend.il_translator_llm_only as llm_mod
+        from engine_worker import patch_layout_translation_scope
+
+        page = SimpleNamespace(
+            page_layout=[SimpleNamespace(class_name="figure", box=Box(x=100, y=100, x2=300, y2=300))],
+            pdf_paragraph=[
+                SimpleNamespace(layout_label="plain text", box=Box(x=120, y=120, x2=180, y2=140), unicode="figure text"),
+                SimpleNamespace(layout_label="plain text", box=Box(x=280, y=160, x2=340, y2=180), unicode="straddled figure text"),
+                SimpleNamespace(layout_label="plain text", box=Box(x=20, y=20, x2=80, y2=40), unicode="body text"),
+            ],
+        )
+        docs = SimpleNamespace(page=[page])
+        seen = []
+        original_page = llm_mod.ILTranslatorLLMOnly.process_cross_page_paragraph
+        original_column = llm_mod.ILTranslatorLLMOnly.process_cross_column_paragraph
+        def sentinel(self, *args, **kwargs):
+            target = args[0] if args else kwargs.get("page")
+            seen.append(list(target.page[0].pdf_paragraph) if hasattr(target, "page") else list(target.pdf_paragraph))
+        try:
+            llm_mod.ILTranslatorLLMOnly.process_cross_page_paragraph = sentinel
+            llm_mod.ILTranslatorLLMOnly.process_cross_column_paragraph = sentinel
+            patch_layout_translation_scope(translate_figures=False, translate_tables=True)
+            llm_mod.ILTranslatorLLMOnly.process_cross_page_paragraph(object(), docs, None)
+            llm_mod.ILTranslatorLLMOnly.process_cross_column_paragraph(object(), page, None)
+            self.assertEqual([p.unicode for p in seen[0]], ["body text"])
+            self.assertEqual([p.unicode for p in seen[1]], ["body text"])
+            self.assertEqual([p.unicode for p in page.pdf_paragraph], ["figure text", "straddled figure text", "body text"])
+        finally:
+            llm_mod.ILTranslatorLLMOnly.process_cross_page_paragraph = original_page
+            llm_mod.ILTranslatorLLMOnly.process_cross_column_paragraph = original_column
+
+
+
 class TranslationIntegrityTest(unittest.TestCase):
     def test_reference_entry_detection_requires_bibliography_evidence(self):
         from types import SimpleNamespace
@@ -1055,6 +1092,14 @@ class TranslationIntegrityTest(unittest.TestCase):
         self.assertEqual(repair_translation_integrity(source, translated, "plain text", retried=True), translated)
         self.assertIsNone(repair_translation_integrity("Text {v1}", "译文 {v1} {v1}", "plain text", retried=False))
         self.assertIsNone(repair_translation_integrity("Text {v1}", "译文 {v1} {v2}", "plain text", retried=False))
+        self.assertEqual(
+            repair_translation_integrity("<style id='1'>Label Smoothing</style>", "<code id='1'>标签平滑</code>", "plain text", retried=False),
+            "<style id='1'>标签平滑</style>",
+        )
+        self.assertEqual(
+            repair_translation_integrity("<style id='1'>Label Smoothing</style>", "标签平滑<code id='1'>Label Smoothing</code>", "plain text", retried=False),
+            "标签平滑",
+        )
 
     def test_batch_content_bleed_falls_back_only_the_contaminated_item(self):
         import json

@@ -10,11 +10,6 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const APP_FILE = path.join(ROOT, "app", "index.html");
 const SERVER_FILE = fileURLToPath(import.meta.url);
-const SERVER_START_MTIME_MS = statSync(SERVER_FILE).mtimeMs;
-
-export function isRuntimeStale(currentMtimeMs = statSync(SERVER_FILE).mtimeMs) {
-  return currentMtimeMs !== SERVER_START_MTIME_MS;
-}
 
 // 默认翻译提示词模板(与 engine_worker.py 的 PROMPT_TEMPLATE 保持同步):
 // 从 engine_worker 读取,保证单一事实来源
@@ -40,6 +35,17 @@ const GLOSSARIES_DIR = path.join(DATA_DIR, "glossaries");
 const JOBS_FILE = path.join(DATA_DIR, "jobs.json");
 const PROMPT_TEMPLATE_FILE = path.join(DATA_DIR, "prompt-template.txt");
 const WORKER_FILE = path.join(ROOT, "engine_worker.py");
+const WATCHED_SOURCE_FILES = [SERVER_FILE, APP_FILE, WORKER_FILE];
+const SOURCE_START_MTIMES = new Map(WATCHED_SOURCE_FILES.map((file) => [file, statSync(file).mtimeMs]));
+
+export function isRuntimeStale(currentMtimeMs) {
+  // 保留测试/调用方传入服务端 mtime 的兼容语义。
+  if (currentMtimeMs !== undefined) return currentMtimeMs !== SOURCE_START_MTIMES.get(SERVER_FILE);
+  return WATCHED_SOURCE_FILES.some((file) => {
+    try { return statSync(file).mtimeMs !== SOURCE_START_MTIMES.get(file); }
+    catch { return true; }
+  });
+}
 const PYTHON = path.join(ROOT, ".venv", "Scripts", "python.exe");
 const MAX_FILE_BYTES = 200 * 1024 * 1024;
 const HOST = "127.0.0.1";
@@ -3095,7 +3101,7 @@ export async function startServer(retries = 30) {
 // 进程启动标识:前端据此发现服务已重载并自动刷新页面
 const BOOT_ID = randomUUID();
 
-// 自动重载:监视服务端源文件,变更且无进行中任务时以退出码 75 优雅退出,
+// 自动重载:监视会影响页面/翻译行为的本地源文件,变更且无进行中任务时以退出码 75 优雅退出,
 // 由启动脚本(启动.bat 的监督循环)自动重启;有进行中任务则推迟到任务完成。
 const RESTART_EXIT_CODE = 75;
 let restartPending = false;
@@ -3111,13 +3117,26 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
 export function setupAutoReload(server) {
   if (process.env.YIYE_AUTO_RELOAD === "off") return;
   runningServerRef = server;
-  const serverFile = path.basename(SERVER_FILE);
+  const watchedNames = new Set(WATCHED_SOURCE_FILES.map((file) => path.basename(file).toLowerCase()));
   const dir = path.dirname(SERVER_FILE);
   let fsWatcher = null;
   try {
-    fsWatcher = watch(dir, (event, filename) => {
-      // Windows 下目录事件的大小写/短文件名不保证一致,按不区分大小写比较
-      if (filename && filename.toLowerCase() !== serverFile.toLowerCase()) return;
+    // recursive:Windows 原生支持;app/index.html 在子目录,不开则收不到其变更事件。
+    // 非 Windows 平台不支持时回退非递归,由 10s poller 兜底
+    let recursive = true;
+    try {
+      const probe = watch(dir, { recursive: true }, () => {});
+      probe.close();
+    } catch {
+      recursive = false;
+    }
+    fsWatcher = watch(dir, { recursive }, (event, filename) => {
+      // Windows 下目录事件的大小写/短文件名不保证一致,按不区分大小写比较;
+      // recursive 模式下 filename 可能带子目录前缀(app/index.html),取 basename 匹配
+      if (filename) {
+        const base = filename.split(/[\/]/).pop().toLowerCase();
+        if (!watchedNames.has(base)) return;
+      }
       if (restartTimer) return;
       restartTimer = setTimeout(() => {
         restartTimer = null;
@@ -3220,5 +3239,4 @@ function gracefulRestart() {
   force.unref();
   runningServerRef.close(() => process.exit(RESTART_EXIT_CODE));
 }
-
 
