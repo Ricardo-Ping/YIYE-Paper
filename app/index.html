@@ -616,6 +616,11 @@
     @media (max-width: 1200px) { .layout { grid-template-columns: 1fr; } }
     @media (max-width: 900px) { .workspace { grid-template-columns: 1fr; } }
     @media (max-width: 600px) { .assistant-dialog .panel-head { align-items: flex-start; gap: 10px; padding: 16px; } .assistant-dialog .aichat-body { padding: 14px; } .assistant-actions .preview-badge { display: none; } #assistant-launcher { right: 14px; bottom: 14px; } }
+    /* Zotero 式连续滚动:整篇 PDF 纵向槽位堆叠 */
+    .reader-pages { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 14px; }
+    .reader-page-slot { position: relative; flex: 0 0 auto; background: #fff; border-radius: 3px; box-shadow: 0 3px 16px rgba(0, 0, 0, .38); overflow: hidden; }
+    .reader-page-slot canvas { display: block; }
+    .reader-page-slot.reader-page-placeholder { background: rgba(255, 255, 255, .045); box-shadow: none; border: 1px dashed rgba(255, 255, 255, .09); }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 
 /* Editorial workspace: keep the established dark, bilingual reading direction. */
@@ -1030,7 +1035,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
         </div>
       </div>
       <div class="reader-split">
-        <div class="reader-pdf-box" id="reader-pdf-box"><canvas id="reader-canvas"></canvas><div class="reader-loading" id="reader-loading">加载中…</div></div>
+        <div class="reader-pdf-box" id="reader-pdf-box"><div class="reader-pages" id="reader-pages"></div><div class="reader-loading" id="reader-loading">加载中…</div></div>
         <div class="reader-side">
           <div class="reader-side-tabs">
             <button class="reader-tab selected" data-reader-tab="pairs">译文段落</button>
@@ -2489,6 +2494,10 @@ button:active:not(:disabled) { transform: translateY(1px); }
       state.pdfReader = {
         jobId, doc: null, page: Number.isFinite(savedPage) && savedPage > 0 ? savedPage : 1, total: detail.paragraphs.length, zoom: 0,
         rendering: false, pending: false,
+        // 连续滚动渲染状态:槽位尺寸/前缀和/在渲染集合/已渲染画布
+        slotHeights: [], slotWidths: [], pageTops: [], pageTopsDirty: true,
+        renderedPages: new Map(), renderingSlots: new Set(),
+        fitWidth: 0, lastScale: 1, base1: null, syncedPage: 0,
         src: "trans", srcUrl: `/api/jobs/${jobId}/result/${encodeURIComponent(pdfName)}?inline=1`,
         sideTab: "pairs",
         // 交替页对照:输出的奇数页是原文页、偶数页是译文页,侧栏按原文页码取数据
@@ -2535,7 +2544,10 @@ button:active:not(:disabled) { transform: translateY(1px); }
         // PDF 书签(章节目录):解析为"标题+输出页码"的平铺列表,供目录页签跳转
         r.outline = await flattenReaderOutline(r.doc);
         if (state.pdfReader !== r || seq !== r.loadSeq) return;
-        await renderReaderPage();
+        await buildReaderPages();
+        if (state.pdfReader !== r || seq !== r.loadSeq) return;
+        readerScrollToPage(r.page, true);
+        scheduleReaderRender();
       } catch (error) {
         if (state.pdfReader === r && seq === r.loadSeq) {
           $("#reader-loading").textContent = `PDF 加载失败：${error.message}`;
@@ -2566,57 +2578,259 @@ button:active:not(:disabled) { transform: translateY(1px); }
       return out;
     }
 
-    async function renderReaderPage() {
+    // ── Zotero 式连续滚动引擎 ──
+    // 整篇 PDF 的页槽位纵向堆叠,滚轮原生滚动;视口附近的页懒渲染,
+    // 远处槽位是占位框(首页宽高比),渲染时校正为真实宽高并重建前缀和。
+    const READER_GAP = 14;
+    const READER_PAD = 14;
+    const READER_MAX_RENDERED = 8; // 同时在 DOM 里的画布上限,防长文档内存膨胀
+
+    function readerBox() { return $("#reader-pdf-box"); }
+
+    function readerFitWidth(r) {
+      return Math.max(240, readerBox().clientWidth - READER_PAD * 2 - 18); // 18:纵向滚动条余量
+    }
+
+    // 建全部槽位:占位尺寸用第 1 页宽高比 × 当前缩放;渲染时逐页校正
+    async function buildReaderPages() {
       const r = state.pdfReader;
-      // r.doc 可能为 null(切换文档的加载窗口);关闭后 state.pdfReader 为 null
+      const box = readerBox();
+      const first = await r.doc.getPage(1);
+      r.base1 = first.getViewport({ scale: 1 });
+      r.fitWidth = readerFitWidth(r);
+      r.lastScale = r.zoom > 0 ? r.zoom : r.fitWidth / r.base1.width;
+      r.slotHeights = new Array(r.total).fill(0);
+      r.slotWidths = new Array(r.total).fill(0);
+      r.pageTops = new Array(r.total + 1).fill(0);
+      r.pageTopsDirty = true;
+      r.renderedPages = new Map();
+      r.renderingSlots = new Set();
+      r.syncedPage = r.page;
+      const container = $("#reader-pages");
+      container.innerHTML = "";
+      const frag = document.createDocumentFragment();
+      for (let p = 1; p <= r.total; p += 1) {
+        const slot = document.createElement("div");
+        slot.className = "reader-page-slot reader-page-placeholder";
+        slot.dataset.page = String(p);
+        const w = Math.round(r.base1.width * r.lastScale);
+        const h = Math.round(r.base1.height * r.lastScale);
+        slot.style.width = `${w}px`;
+        slot.style.height = `${h}px`;
+        r.slotWidths[p - 1] = w;
+        r.slotHeights[p - 1] = h;
+        frag.appendChild(slot);
+      }
+      container.appendChild(frag);
+      r.pageTopsDirty = true;
+      $("#reader-total").textContent = `/ ${r.total}`;
+      $("#reader-loading").hidden = true;
+    }
+
+    function readerScaleFor(r, index) {
+      // 适配模式:所有页统一宽度(各自按真实宽高比得高度);缩放模式:统一倍率
+      const baseW = r.base1 ? r.base1.width : 1;
+      return r.zoom > 0 ? r.zoom : r.fitWidth / Math.max(1, baseW);
+    }
+
+    function markReaderTopsDirty(r) { r.pageTopsDirty = true; }
+
+    // 槽位顶部前缀和(相对容器内容区顶部),供二分定位当前页/可见范围
+    function readerPageTops(r) {
+      if (r.pageTopsDirty) {
+        let acc = READER_PAD;
+        r.pageTops[0] = acc;
+        for (let i = 0; i < r.total; i += 1) {
+          acc += (r.slotHeights[i] || 0) + READER_GAP;
+          r.pageTops[i + 1] = acc;
+        }
+        r.pageTopsDirty = false;
+      }
+      return r.pageTops;
+    }
+
+    function readerIndexAt(r, y) {
+      const tops = readerPageTops(r);
+      let lo = 0, hi = r.total - 1;
+      while (lo < hi) {
+        const mid = (lo + hi + 1) >> 1;
+        if (tops[mid] <= y) lo = mid;
+        else hi = mid - 1;
+      }
+      return lo;
+    }
+
+    function readerVisibleRange(r) {
+      const box = readerBox();
+      const top = box.scrollTop - 700;
+      const bottom = box.scrollTop + box.clientHeight + 700;
+      const first = Math.max(1, readerIndexAt(r, top) + 1);
+      const last = Math.min(r.total, readerIndexAt(r, bottom) + 2);
+      return [first, last];
+    }
+
+    function readerPageFromScroll(r) {
+      const box = readerBox();
+      const y = box.scrollTop + box.clientHeight / 2;
+      return readerIndexAt(r, y) + 1;
+    }
+
+    // 当前页变化时的 UI 同步:页码框/总页数/页码记忆/侧栏
+    function syncReaderPageUI(r) {
+      r.syncedPage = r.page;
+      $("#reader-page-num").value = r.page;
+      if (r.alternating && r.src !== "orig") {
+        $("#reader-total").textContent = `/ ${r.total} · 原文 ${readerOriginalPage(r)}/${Math.ceil(r.total / 2)}`;
+      } else {
+        $("#reader-total").textContent = `/ ${r.total}`;
+      }
+      storageSet(`yiye-reader-page-${r.jobId}`, String(r.page));
+      renderReaderSidebar();
+    }
+
+    let readerRenderQueued = false;
+    function scheduleReaderRender() {
+      if (readerRenderQueued) return;
+      readerRenderQueued = true;
+      requestAnimationFrame(() => {
+        readerRenderQueued = false;
+        void renderVisibleReaderPages();
+      });
+    }
+
+    async function renderVisibleReaderPages() {
+      const r = state.pdfReader;
       if (!r || !r.doc) return;
-      if (r.rendering) { r.pending = true; return; }
-      r.rendering = true;
+      const [first, last] = readerVisibleRange(r);
+      const keep = new Set();
+      for (let p = first; p <= last; p += 1) {
+        keep.add(p);
+        if (!r.renderedPages.has(p) && !r.renderingSlots.has(p)) void renderReaderSlot(p);
+      }
+      for (const [p, entry] of [...r.renderedPages]) {
+        if (!keep.has(p) && p >= first - 2 && p <= last + 2) continue;
+        if (keep.has(p)) continue;
+        entry.canvas.width = 0;
+        entry.canvas.height = 0;
+        entry.canvas.remove();
+        entry.slot.classList.add("reader-page-placeholder");
+        r.renderedPages.delete(p);
+      }
+      // 超上限时把离视口最远的已渲染页释放掉
+      if (r.renderedPages.size > READER_MAX_RENDERED) {
+        const page = readerPageFromScroll(r);
+        const extras = [...r.renderedPages.keys()]
+          .sort((a, b) => Math.abs(b - page) - Math.abs(a - page))
+          .slice(0, r.renderedPages.size - READER_MAX_RENDERED);
+        for (const p of extras) {
+          const entry = r.renderedPages.get(p);
+          entry.canvas.width = 0;
+          entry.canvas.height = 0;
+          entry.canvas.remove();
+          entry.slot.classList.add("reader-page-placeholder");
+          r.renderedPages.delete(p);
+        }
+      }
+      const page = readerPageFromScroll(r);
+      if (page !== r.page) { r.page = page; syncReaderPageUI(r); }
+    }
+
+    async function renderReaderSlot(p) {
+      const r = state.pdfReader;
+      if (!r || !r.doc || r.renderedPages.has(p) || r.renderingSlots.has(p)) return;
+      r.renderingSlots.add(p);
+      const slot = $(`#reader-pages .reader-page-slot[data-page="${p}"]`);
+      if (!slot) { r.renderingSlots.delete(p); return; }
       try {
-        $("#reader-loading").hidden = false;
-        const page = await r.doc.getPage(r.page);
+        const page = await r.doc.getPage(p);
+        if (state.pdfReader !== r) return;
         const base = page.getViewport({ scale: 1 });
-        const box = $("#reader-pdf-box");
-        // 适配模式不设下限:超宽页(双栏/横版)在 0.4 下限下放不进容器,
-        // 会出现横向滚动条,"适配"名不副实;手动缩放仍由 zoom 值控制。
-        // 预留纵向滚动条宽度:渲染完成后页高超出会出现滚动条,挤压横向
-        // 空间导致横向溢出(实测 ~14px)
-        const scale = r.zoom > 0 ? r.zoom : (box.clientWidth - 24 - 18) / base.width;
-        // 按设备像素比(至少 2 倍)超采样渲染,再以 CSS 尺寸显示,高分屏/缩放下不模糊;
-        // 画布像素总量设上限(约 64MB RGBA):高倍缩放时降低超采样倍数,
-        // 避免低配机在 3x 缩放 + dpr2 下生成数百 MB 位图卡顿
+        const scale = readerScaleFor(r, p - 1);
         let dpr = Math.max(window.devicePixelRatio || 1, 2);
         const viewport = page.getViewport({ scale });
         const maxCanvasPixels = 16 * 1024 * 1024;
         if (viewport.width * viewport.height * dpr * dpr > maxCanvasPixels) {
-          // 像素面积按平方增长,dpr 上限要开方换算,线性除法会反而放大采样
           dpr = Math.max(1, Math.floor(Math.sqrt(maxCanvasPixels / (viewport.width * viewport.height))));
         }
-        const canvas = $("#reader-canvas");
-        const ctx = canvas.getContext("2d");
+        // 校正槽位真实尺寸(占位用的是第 1 页宽高比)
+        const w = Math.floor(viewport.width);
+        const h = Math.floor(viewport.height);
+        if (Math.abs(slot.offsetWidth - w) > 1 || Math.abs(slot.offsetHeight - h) > 1) {
+          slot.style.width = `${w}px`;
+          slot.style.height = `${h}px`;
+          r.slotWidths[p - 1] = w;
+          r.slotHeights[p - 1] = h;
+          markReaderTopsDirty(r);
+        }
+        const canvas = document.createElement("canvas");
         canvas.width = Math.floor(viewport.width * dpr);
         canvas.height = Math.floor(viewport.height * dpr);
-        canvas.style.width = `${Math.floor(viewport.width)}px`;
-        canvas.style.height = `${Math.floor(viewport.height)}px`;
+        canvas.style.width = `${w}px`;
+        canvas.style.height = `${h}px`;
+        slot.appendChild(canvas);
+        const ctx = canvas.getContext("2d");
         await page.render({
           canvasContext: ctx,
           viewport,
           transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined,
         }).promise;
-        $("#reader-zoom-val").textContent = r.zoom > 0 ? `${Math.round(scale * 100)}%` : "适配";
-        $("#reader-page-num").value = r.page;
-        // 页码记忆:按任务存入 localStorage,重开阅读器回到上次位置
-        storageSet(`yiye-reader-page-${r.jobId}`, String(r.page));
-        if (r.alternating && r.src !== "orig") {
-          // 交替页布局:同时显示输出页与对应的原文页,避免两套页码对不上
-          $("#reader-total").textContent = `/ ${r.total} · 原文 ${readerOriginalPage(r)}/${Math.ceil(r.total / 2)}`;
-        }
+        if (state.pdfReader !== r) { canvas.width = 0; canvas.height = 0; canvas.remove(); return; }
+        slot.classList.remove("reader-page-placeholder");
+        r.renderedPages.set(p, { canvas, slot });
       } finally {
-        r.rendering = false;
-        $("#reader-loading").hidden = true;
-        renderReaderSidebar();
-        if (r.pending) { r.pending = false; renderReaderPage(); }
+        r.renderingSlots.delete(p);
       }
+    }
+
+    // 跳页:槽位滚入视口顶部;instant=true 供打开恢复/换源复位(无平滑动画)
+    function readerScrollToPage(p, instant = false) {
+      const r = state.pdfReader;
+      if (!r) return;
+      r.page = Math.min(r.total, Math.max(1, Math.round(p) || 1));
+      const slot = $(`#reader-pages .reader-page-slot[data-page="${r.page}"]`);
+      if (slot) slot.scrollIntoView({ block: "start", behavior: instant ? "auto" : "smooth" });
+      syncReaderPageUI(r);
+      scheduleReaderRender();
+    }
+
+    // 缩放:全部槽位按新旧缩放比等比放大,重建可见页(旧的全部释放)
+    function applyReaderZoom(nextZoom) {
+      const r = state.pdfReader;
+      if (!r) return;
+      const prevScale = r.lastScale;
+      r.zoom = nextZoom;
+      const newScale = nextZoom > 0 ? nextZoom : (r.fitWidth = readerFitWidth(r)) / Math.max(1, r.base1.width);
+      const ratio = newScale / (prevScale || 1);
+      r.lastScale = newScale;
+      const slots = $("#reader-pages").children;
+      for (let i = 0; i < slots.length; i += 1) {
+        const slot = slots[i];
+        slot.style.width = `${Math.max(80, Math.round(slot.offsetWidth * ratio))}px`;
+        slot.style.height = `${Math.max(110, Math.round(slot.offsetHeight * ratio))}px`;
+        r.slotWidths[i] = parseInt(slot.style.width, 10);
+        r.slotHeights[i] = parseInt(slot.style.height, 10);
+      }
+      markReaderTopsDirty(r);
+      for (const [, entry] of [...r.renderedPages]) {
+        entry.canvas.width = 0;
+        entry.canvas.height = 0;
+        entry.canvas.remove();
+        entry.slot.classList.add("reader-page-placeholder");
+      }
+      r.renderedPages.clear();
+      const page = r.page;
+      readerScrollToPage(page, true);
+      scheduleReaderRender();
+      $("#reader-zoom-val").textContent = r.zoom > 0 ? `${Math.round(newScale * 100)}%` : "适配";
+    }
+
+    // 兼容 shim:历史 16 处调用点的统一入口。
+    // r.page 与滚动同步页不同 → 跳页语义(滚到该页);相同(缩放/换源后) → 重渲染可见页
+    function renderReaderPage() {
+      const r = state.pdfReader;
+      if (!r || !r.doc) return;
+      if (r.page !== r.syncedPage) { readerScrollToPage(r.page); return; }
+      scheduleReaderRender();
     }
 
     // 交替页页码映射:输出第 2N-1 页是原文页、第 2N 页是译文页,都对应原文第 N 页。
@@ -2695,8 +2909,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
       const matches = r?.search?.matches || [];
       if (!matches.length) return;
       r.search.idx = ((idx % matches.length) + matches.length) % matches.length;
-      r.page = readerOutputPage(r, matches[r.search.idx].page);
-      void renderReaderPage();
+      readerScrollToPage(readerOutputPage(r, matches[r.search.idx].page));
     }
 
     function renderReaderSidebar() {
@@ -2715,8 +2928,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
           : '<div class="chat-hint">该 PDF 没有书签目录</div>';
         body.querySelectorAll(".rs-toc-click").forEach((el) => {
           el.addEventListener("click", () => {
-            r.page = Number(el.dataset.tocPage);
-            void renderReaderPage();
+            readerScrollToPage(Number(el.dataset.tocPage));
           });
         });
         body.scrollTop = 0;
@@ -3526,7 +3738,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
         flashReaderFig(kind, num);
       } else {
         r.page = figOutputPage;
-        void renderReaderPage().then(() => flashReaderFig(kind, num));
+        void readerScrollToPage(r.page).then(() => flashReaderFig(kind, num));
       }
     }
 
@@ -4639,15 +4851,17 @@ button:active:not(:disabled) { transform: translateY(1px); }
       const r = state.pdfReader;
       state.pdfReader = null;
       state.pdfReaderAnswers.clear();
-      // 释放 PDF.js 文档,避免反复开关阅读器在 worker 侧累积内存
+      // 释放槽位与画布,避免反复开关阅读器在 worker 侧累积内存
+      const pages = $("#reader-pages");
+      if (pages) pages.innerHTML = "";
       if (r?.doc) { try { void r.doc.destroy(); } catch {} }
     }
     // 阅读器键盘翻页:←/→ 前后翻页(焦点不在输入控件时),Esc 关闭
     document.addEventListener("keydown", (event) => {
       if (!state.pdfReader || event.target.matches("input, textarea, select")) return;
       const r = state.pdfReader;
-      if (event.key === "ArrowLeft" && r.page > 1) { r.page -= 1; void renderReaderPage(); }
-      if (event.key === "ArrowRight" && r.page < r.total) { r.page += 1; void renderReaderPage(); }
+      if (event.key === "ArrowLeft" && r.page > 1) readerScrollToPage(r.page - 1);
+      if (event.key === "ArrowRight" && r.page < r.total) readerScrollToPage(r.page + 1);
     });
     $("#reader-close").addEventListener("click", closeReaderModal);
     $("#reader-modal-backdrop").addEventListener("click", (event) => {
@@ -4683,48 +4897,37 @@ button:active:not(:disabled) { transform: translateY(1px); }
     $("#reader-search-input").addEventListener("input", () => readerRunSearch());
     $("#reader-search-next").addEventListener("click", () => readerGotoSearchMatch((state.pdfReader?.search?.idx ?? -1) + 1));
     $("#reader-search-prev").addEventListener("click", () => readerGotoSearchMatch((state.pdfReader?.search?.idx ?? 1) - 1));
-    // 阅读器滚轮翻页:适配视图(整页放得下)时滚轮直接翻页;
-    // 放大后先在页内滚动,滚到上/下边缘再翻页。带防抖,避免触控板惯性一次翻多页
-    $("#reader-pdf-box").addEventListener("wheel", (event) => {
-      const r = state.pdfReader;
-      if (!r) return;
-      const box = $("#reader-pdf-box");
-      const scrollable = box.scrollHeight > box.clientHeight + 2;
-      const atTop = box.scrollTop <= 2;
-      const atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 2;
-      // 放大后有页内滚动余量且未到边缘:交给原生滚动
-      if (scrollable && !((event.deltaY > 0 && atBottom) || (event.deltaY < 0 && atTop))) return;
-      event.preventDefault();
-      if (Date.now() < state.readerWheelLockUntil) return;
-      state.readerWheelLockUntil = Date.now() + 650;
-      if (event.deltaY > 0 && r.page < r.total) { r.page += 1; box.scrollTop = 0; void renderReaderPage(); }
-      else if (event.deltaY < 0 && r.page > 1) { r.page -= 1; box.scrollTop = 0; void renderReaderPage(); }
-    }, { passive: false });
+    // 滚轮:连续滚动模式下交给原生滚动(整篇内容已在槽位堆叠中)
     $("#reader-prev").addEventListener("click", () => {
       const r = state.pdfReader;
-      if (r && r.page > 1) { r.page -= 1; renderReaderPage(); renderReaderSidebar(); }
+      if (r && r.page > 1) readerScrollToPage(r.page - 1);
     });
     $("#reader-next").addEventListener("click", () => {
       const r = state.pdfReader;
-      if (r && r.page < r.total) { r.page += 1; renderReaderPage(); renderReaderSidebar(); }
+      if (r && r.page < r.total) readerScrollToPage(r.page + 1);
     });
     $("#reader-page-num").addEventListener("change", (event) => {
       const r = state.pdfReader;
       if (!r) return;
       const num = Math.min(r.total, Math.max(1, Math.round(Number(event.target.value) || 1)));
-      if (num !== r.page) { r.page = num; renderReaderPage(); renderReaderSidebar(); }
+      if (num !== r.page) readerScrollToPage(num);
+    });
+    // 滚动 → 懒渲染 + 当前页跟踪(rAF 节流)
+    $("#reader-pdf-box").addEventListener("scroll", () => scheduleReaderRender(), { passive: true });
+    window.addEventListener("resize", () => {
+      const r = state.pdfReader;
+      if (!r || !r.doc) return;
+      applyReaderZoom(r.zoom);
     });
     $("#reader-zoom-in").addEventListener("click", () => {
       const r = state.pdfReader;
       if (!r) return;
-      r.zoom = Math.min(3, (r.zoom || 1) + 0.2);
-      renderReaderPage();
+      applyReaderZoom(Math.min(3, (r.zoom || 1) + 0.2));
     });
     $("#reader-zoom-out").addEventListener("click", () => {
       const r = state.pdfReader;
       if (!r) return;
-      r.zoom = Math.max(0.4, (r.zoom || 1) - 0.2);
-      renderReaderPage();
+      applyReaderZoom(Math.max(0.4, (r.zoom || 1) - 0.2));
     });
     document.querySelectorAll(".reader-tab").forEach((tab) => tab.addEventListener("click", () => {
       const r = state.pdfReader;
