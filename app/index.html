@@ -1094,6 +1094,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
       taskFilter: "all", taskSearch: "",
       figInnerText: new Map(),
       pageRetransBusy: new Map(),
+      qualityDetailBusy: new Set(), qualityDetailPromises: new Map(),
       editsGlossaryBusy: new Set(),
       paraApplyBusy: new Set(),
       duplicateNotices: [],
@@ -3954,7 +3955,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
       state.readerOpen.delete(jobId);
       state.editsGlossaryBusy.delete(jobId);
       state.pageRetransBusy.delete(jobId);
-      state.qualityDetailBusy.delete(jobId);
+      state.qualityDetailBusy?.delete(jobId);
       state.qualityDetailPromises?.delete(jobId);
       for (const key of [...state.mindmapCollapsed.keys()]) {
         if (key.startsWith(`${jobId}:`)) state.mindmapCollapsed.delete(key);
