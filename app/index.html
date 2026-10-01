@@ -205,6 +205,9 @@
     .toggle span { position: absolute; inset: 0; border-radius: 999px; background: rgba(255,255,255,.16); transition: .18s; }
     .toggle span::after { content: ""; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; border-radius: 50%; background: white; transition: .18s; }
     .toggle input:checked + span { background: var(--mint); }
+    /* 勾选后滑块从左滑到右:轨道 38px、滑块 16px、左距 3px → 位移 38-16-2*3=16px;
+       过渡写在 span::after 上(transition: .18s),transform 位移即可平滑滑动 */
+    .toggle input:checked + span::after { transform: translateX(16px); }
     .glossary-box { margin-top: 11px; padding: 12px 14px; border: 1px dashed rgba(255,255,255,.16); border-radius: 13px; }
     .glossary-head { display: flex; justify-content: space-between; align-items: center; color: #75849b; font-size: 8px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
     .link-btn { padding: 0; border: 0; color: var(--blue); background: none; font-size: 9px; font-weight: 800; letter-spacing: .06em; }
