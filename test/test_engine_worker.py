@@ -1356,3 +1356,59 @@ class PdfOutlineTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ReplacePageSameTargetTest(unittest.TestCase):
+    """第二次单页重译 source==out:必须原地替换成功,不留孤儿临时文件。
+
+    该模式此前零覆盖,曾同时踩过两个坑:payload 键名不存在、
+    os.replace 在 pymupdf 持有目标句柄时执行(Windows 必抛 PermissionError)。
+    """
+
+    def test_replace_page_same_target(self):
+        import json
+        import os
+        import subprocess
+        import sys
+        import tempfile
+        from pathlib import Path
+
+        import pymupdf
+
+        root = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as td:
+            pdf_path = os.path.join(td, "doc.pdf")
+            doc = pymupdf.open()
+            for tag in ("ORIGINAL-P1", "ORIGINAL-P2"):
+                page = doc.new_page(width=400, height=300)
+                page.insert_text((50, 80), tag, fontsize=14)
+            doc.save(pdf_path)
+            doc.close()
+            newdoc = pymupdf.open()
+            np = newdoc.new_page(width=400, height=300)
+            np.insert_text((50, 80), "REPLACED-P1", fontsize=14)
+            temp_pdf = os.path.join(td, "new1.pdf")
+            newdoc.save(temp_pdf)
+            newdoc.close()
+            request = {
+                "mode": "replace-page",
+                "sourcePdf": pdf_path,
+                "tempPdf": temp_pdf,
+                "outPath": pdf_path,
+                "pageIndex": 0,
+            }
+            proc = subprocess.run(
+                [sys.executable, str(root / "engine_worker.py")],
+                input=json.dumps(request).encode(),
+                capture_output=True,
+                timeout=120,
+                cwd=str(root),
+            )
+            self.assertEqual(proc.returncode, 0, proc.stderr.decode("utf-8", "replace")[-300:])
+            with pymupdf.open(pdf_path) as check:
+                texts = [check[i].get_text().strip() for i in range(check.page_count)]
+            self.assertEqual(len(texts), 2)
+            self.assertIn("REPLACED-P1", texts[0])
+            self.assertIn("ORIGINAL-P2", texts[1])
+            orphans = [n for n in os.listdir(td) if n.endswith(".tmp") or "replace-new" in n]
+            self.assertEqual(orphans, [])

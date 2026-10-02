@@ -321,7 +321,7 @@ def translated_half_clip(page, output_mode: str):
     return left
 
 
-def translated_page_clip(page, output_mode: str):
+def translated_page_clip(page, output_mode: str, force_full: bool = False):
     """译文区域:dual 并排布局返回译文所在半页;dual 交替布局的译文页(两半都有
     大量中文)返回整页;mono 返回 None 表示整页。
 
@@ -331,6 +331,10 @@ def translated_page_clip(page, output_mode: str):
 
     if output_mode != "dual":
         return None
+    if force_full:
+        # 调用方已确认该输出位是交替页布局的整页译文:图表占主体的页 CJK 计数
+        # 会骗过两半各 >50 的启发式,把整页错切成半页(漏检/丢上下文/跳过补译)
+        return pymupdf.Rect(page.cropbox)
     rect = page.cropbox
     mid = (rect.x0 + rect.x1) / 2
     left = pymupdf.Rect(rect.x0, rect.y0, mid, rect.y1)
@@ -391,8 +395,8 @@ def build_args(request: dict, api_key: str) -> list[str]:
         "--openai-model", config["model"],
         "--openai-base-url", upstream[0],
         "--openai-api-key", upstream[1],
-        "--qps", str(config["qps"]),
-        "--pool-max-workers", str(config["qps"]),
+        "--qps", str(int(float(config["qps"]))),
+        "--pool-max-workers", str(int(float(config["qps"]))),
         "--report-interval", "0.5",
         "--watermark-output-mode", "no_watermark",
         "--custom-system-prompt", prompt,
@@ -477,14 +481,24 @@ def preflight(pdf_path: str, ocr_enabled: bool) -> tuple[list[str], list[str]]:
         if doc.page_count > 20:
             mid = doc.page_count // 2
             sample_indexes.update({mid - 1, mid, min(mid + 4, doc.page_count - 1)})
-        text_chars = sum(len(doc[i].get_text().strip()) for i in sorted(sample_indexes))
+        # 逐页容错:xref 受损/页对象异常的 PDF 会让 get_text 抛错,
+        # 预检自身崩掉就失去了"预检并明确报错"的意义;异常页按 0 字符计入
+        def _safe_text_chars(index):
+            try:
+                return len(doc[index].get_text().strip())
+            except Exception:
+                return 0
+        text_chars = sum(_safe_text_chars(i) for i in sorted(sample_indexes))
         if text_chars < 100:
             if ocr_enabled:
                 warnings.append("预检警告：未检测到有效文字层，将按扫描件 OCR 兼容模式处理，效果可能受限")
             else:
                 errors.append("预检失败：未检测到文字层（可能是扫描件）。可在界面开启「扫描页 OCR」后重试")
 
-        rotated = [str(i + 1) for i in range(doc.page_count) if doc[i].rotation % 360 in (90, 270)]
+        try:
+            rotated = [str(i + 1) for i in range(doc.page_count) if doc[i].rotation % 360 in (90, 270)]
+        except Exception:
+            rotated = []
         if rotated:
             warnings.append("预检警告：第 " + "、".join(rotated[:10]) + " 页为横向/旋转页面，请核对译文中该页方向")
     return errors, warnings
@@ -707,7 +721,7 @@ def quality_check(
                 page = doc[i]
                 # dual 对照自动识别译文在哪一半(兼容模式会把译文页排在左侧),
                 # 译文溢出到左半的页与交替页的整页译文都按识别结果检查
-                clip = translated_page_clip(page, output_mode)
+                clip = translated_page_clip(page, output_mode, force_full=alternating)
                 text = page.get_text(clip=clip)
                 if len(text.strip()) < 5 and not _has_visual_content(page, clip):
                     # dual 模式下左半有原文、右半为空，说明这一页没有翻出来
@@ -882,14 +896,21 @@ def translated_full_text(output_dir: str, output_mode: str, max_chars: int = 200
                     break
         for i, page in enumerate(doc):
             if mono is None and output_mode == "dual":
-                # 交替页布局的原文页整页无中文,跳过以免污染问答上下文与引用定位
-                if alternating and len(re.findall(r"[\u4e00-\u9fff]", page.get_text())) < 20:
-                    continue
-                clip = translated_page_clip(page, output_mode)
-                text = page.get_text(clip=clip)
+                # 交替页布局:BabelDOC 把译文页排在 0-based 奇数位(2k+1),
+                # 偶数位是原样原文页,直接跳过以免污染问答上下文与引用定位;
+                # 译文页整页取文本(图表占主体时 CJK 阈值会误切成半页),
+                # 页码标记换算回原文页号(消费方按原文页解释引用与跳转)
+                if alternating:
+                    if i % 2 == 0:
+                        continue
+                    text = page.get_text()
+                else:
+                    clip = translated_page_clip(page, output_mode)
+                    text = page.get_text(clip=clip)
             else:
                 text = page.get_text()
-            parts.append(f"【第 {i + 1} 页】\n{text}" if page_markers else text)
+            marker_page = (i // 2 + 1) if (alternating and output_mode == "dual") else (i + 1)
+            parts.append(f"【第 {marker_page} 页】\n{text}" if page_markers else text)
     text = re.sub(r"[ \t]+", " ", "\n".join(parts)).strip()
     return text[:max_chars]
 
@@ -938,6 +959,28 @@ def patch_auto_glossary_cleanup() -> None:
     patched._yiye_glossary_cleanup = True
     patched._yiye_original = original
     tc_mod.SharedContextCrossSplitPart.finalize_auto_extracted_glossary = patched
+
+
+def llm_chat_with_retry(client, *, retries: int = 2, **kwargs):
+    """收尾增值能力(题注补译/AI 速览)的 LLM 调用包装:限流/瞬时错误退避重试。
+
+    主翻译的重试由 BabelDOC 负责;这两处原先一次 429/超时就静默放弃整块能力。
+    参数类错误(鉴权/模型名)不重试,立即抛出。
+    """
+    delays = (2.0, 6.0)
+    for attempt in range(retries + 1):
+        try:
+            return client.chat.completions.create(**kwargs)
+        except Exception as exc:
+            text = f"{type(exc).__name__} {exc}".lower()
+            transient = any(k in text for k in (
+                "429", "rate limit", "timeout", "timed out",
+                "connection", "502", "503", "504", "temporarily",
+            ))
+            if attempt >= retries or not transient:
+                raise
+            time.sleep(delays[min(attempt, len(delays) - 1)])
+    raise RuntimeError("unreachable")
 
 
 def build_llm_client(request: dict, api_key: str):
@@ -1032,7 +1075,81 @@ def main_translated_pdfs(output_dir: str) -> list[Path]:
     ]
 
 
-def rescue_untranslated_captions(request: dict, api_key: str) -> list[tuple[str, int, str]]:
+# 等宽字体特征(代码块排版字体):Inconsolatazi4 是 LaTeX Inconsolata
+MONO_FONT_TOKENS = ("mono", "inconsolata", "courier", "consolas", "cascadia", "menlo", "zi4", "source code", "fira code")
+
+
+def restore_dual_code_blocks(pdf_path: str) -> int:
+    """双栏并排产物中,右半译文的代码块常被重排版损坏(行合并/顺序错乱/重复片段),
+    而左半原始页的代码排版是完好的。这里把右半对应区域白底擦除后,
+    用左半同 y 区间的原始代码内容原样矢量复制过去。返回修复的代码块数。
+
+    只动"左半 ≥2 行等宽字体聚类"对应的右半区域,正文不会被触碰。
+    """
+    import pymupdf
+
+    fixed = 0
+    doc = pymupdf.open(pdf_path)
+    src = pymupdf.open(pdf_path)  # 印章源:独立句柄,读未修改的左半原始内容
+    try:
+        for pno in range(doc.page_count):
+            page = doc[pno]
+            half_w = page.rect.width / 2
+            if half_w < 100:
+                continue
+            mono_lines = []
+            for block in page.get_text("dict").get("blocks", []):
+                if block.get("type") != 0:
+                    continue
+                for line in block.get("lines", []):
+                    spans = line.get("spans", [])
+                    if not spans:
+                        continue
+                    x0, y0, x1, y1 = line["bbox"]
+                    if x1 > half_w + 2:  # 只看左半(原始页)
+                        continue
+                    total = sum(len(sp.get("text", "")) for sp in spans)
+                    if total == 0:
+                        continue
+                    mono = sum(len(sp.get("text", "")) for sp in spans
+                               if any(t in sp.get("font", "").lower() for t in MONO_FONT_TOKENS))
+                    if mono / total >= 0.7:
+                        mono_lines.append(pymupdf.Rect(x0, y0, x1, y1))
+            if len(mono_lines) < 2:
+                continue
+            mono_lines.sort(key=lambda r: (r.y0, r.x0))
+            # 纵向聚类:行距 < 16pt 视为同一代码块
+            clusters: list[pymupdf.Rect] = []
+            for r in mono_lines:
+                if clusters and r.y0 - clusters[-1].y1 <= 16:
+                    clusters[-1] |= r
+                else:
+                    clusters.append(pymupdf.Rect(r))
+            for cluster in clusters:
+                left_rect = pymupdf.Rect(
+                    max(2, cluster.x0 - 4), max(2, cluster.y0 - 3),
+                    min(half_w - 2, cluster.x1 + 4), min(page.rect.height - 2, cluster.y1 + 3),
+                )
+                right_rect = pymupdf.Rect(
+                    left_rect.x0 + half_w, left_rect.y0,
+                    min(page.rect.width - 2, left_rect.x1 + half_w), left_rect.y1,
+                )
+                # 右半对应区域必须有残留文本才需要修(纯空白说明该处本无代码)
+                if len(page.get_text(clip=right_rect).strip()) < 4:
+                    continue
+                page.add_redact_annot(right_rect)
+                page.apply_redactions(images=pymupdf.PDF_REDACT_IMAGE_NONE)
+                page.show_pdf_page(right_rect, src, pno, clip=left_rect)
+                fixed += 1
+        if fixed:
+            doc.saveIncr()
+    finally:
+        doc.close()
+        src.close()
+    return fixed
+
+
+def rescue_untranslated_captions(request, api_key):
     """补译仍为英文的图表题注并写回成品 PDF(失败只告警,不阻断)。
 
     返回实际写回的 (kind("图"/"表"), num, 补译文本) 列表,供 figures.json 同步刷新。
@@ -1067,10 +1184,11 @@ def rescue_untranslated_captions(request: dict, api_key: str) -> list[tuple[str,
             elif i not in in_scope:
                 continue
             page = doc[i]
-            clip = translated_page_clip(page, output_mode)
+            clip = translated_page_clip(page, output_mode, force_full=alternating)
             scope_text = page.get_text(clip=clip) if clip is not None else page.get_text()
-            # 该页译文侧没有中文(保留原文页/交替页的原文页)则跳过,避免把译文写上原文页
-            if len(re.findall(r"[\u4e00-\u9fff]", scope_text)) < 50:
+            # 整页无中文才跳过(保留原文页/交替页的原文页),避免把译文写上原文页。
+            # 旧的"<50 汉字跳过"闸门恰好挡住主要目标:整页图表页的译文侧只有短题注
+            if not re.search(r"[\u4e00-\u9fff]", scope_text) and not CAPTION_TEXT_START.match(scope_text.strip()):
                 continue
             translated: set[tuple[str, str]] = set()
             english: dict[tuple[str, str], tuple[int, str]] = {}
@@ -1102,7 +1220,8 @@ def rescue_untranslated_captions(request: dict, api_key: str) -> list[tuple[str,
             target_rule = "把下列学术论文的图表题注逐条翻译成繁体中文。编号格式固定：Table N 译作「表 N」、Figure N 译作「圖 N」"
         else:
             target_rule = "把下列学术论文的图表题注逐条翻译成简体中文。编号格式固定：Table N 译作“表 N”、Figure N 译作“图 N”"
-        response = client.chat.completions.create(
+        response = llm_chat_with_retry(
+            client,
             model=request["config"]["model"],
             temperature=0.2,
             max_tokens=2000,
@@ -1129,7 +1248,7 @@ def rescue_untranslated_captions(request: dict, api_key: str) -> list[tuple[str,
             new_text = translations.get(idx)
             if not new_text:
                 continue
-            if replace_caption_block(doc[page_index], kind, num, new_text, clip=translated_page_clip(doc[page_index], output_mode)):
+            if replace_caption_block(doc[page_index], kind, num, new_text, clip=translated_page_clip(doc[page_index], output_mode, force_full=alternating)):
                 applied.append(("图" if kind == "figure" else "表", int(num), new_text))
         if applied:
             tmp_path = target_path.with_suffix(".rescue.tmp.pdf")
@@ -1184,7 +1303,8 @@ def generate_summary(request: dict, api_key: str) -> dict | None:
     # zh-TW 任务的速览也输出繁体,与正文翻译语言一致
     target_note = "请用繁体中文输出。" if config.get("target") == "zh-TW" else ""
     for attempt in range(2):
-        response = client.chat.completions.create(
+        response = llm_chat_with_retry(
+            client,
             model=config["model"],
             temperature=0.2,
             max_tokens=1200,
@@ -1306,10 +1426,13 @@ def check_glossary_consistency(report: dict, output_dir: str, output_mode: str, 
     suspect: list[str] = []
     unseen: list[str] = []
     figure_kept = 0
+    # 大小写不敏感比较:BabelDOC 的术语匹配是 caseless,PDF 原文大小写与
+    # CSV 不同(如 csv 写 iphone、PDF 是 iPhone)时,大小写敏感统计会误报"未按术语表"
+    full_lower = full_text.lower()
     for src, tgt in entries:
-        if full_text.count(squash_text(tgt)):
+        if full_lower.count(squash_text(tgt).lower()):
             applied += 1
-        elif full_text.count(squash_text(src)):
+        elif full_lower.count(squash_text(src).lower()):
             if fig_rects and _term_only_inside_figures(first_pdf, src, fig_rects, output_mode, in_scope, dual_layout):
                 figure_kept += 1
             else:
@@ -1370,7 +1493,14 @@ STYLE_MARKUP = re.compile(r"<style\s+id=['\"]\d+['\"]>|</style>")
 
 def paragraph_plain_text(paragraph) -> str:
     """去掉富文本标记后的段落纯文本,供参考文献/题注判定使用。"""
-    return STYLE_MARKUP.sub("", (getattr(paragraph, "unicode", "") or "")).strip()
+    value = getattr(paragraph, "unicode", "")
+    if not isinstance(value, str):
+        # 某些合成段落的 unicode 是片段列表:拼接为字符串再清洗
+        try:
+            value = "".join(str(item) for item in value)
+        except Exception:
+            value = str(value or "")
+    return STYLE_MARKUP.sub("", (value or "")).strip()
 
 
 def is_protected_reference_paragraph(paragraph) -> bool:
@@ -1387,7 +1517,17 @@ def is_protected_reference_paragraph(paragraph) -> bool:
     if not text:
         return False
     if REFERENCE_ENTRY_START.match(text) and REFERENCE_ENTRY_EVIDENCE.search(text):
-        return True
+        # 编号后还须紧跟作者特征(姓,名. / 名. 姓 / et al.),或段落含 ≥3 个编号
+        # (跨栏合并的多条目)。正文段也可能以 "[12] and [13] showed in 2019..."
+        # 开头,只看年份/期刊词会把整段正文误判成文献而静默跳译
+        after = text[text.index("]") + 1:].lstrip()[:48]
+        if (
+            REFERENCE_AUTHOR_YEAR_START.match(after)
+            or REFERENCE_INITIAL_FIRST_START.match(after)
+            or REFERENCE_ET_AL.search(after)
+            or len(re.findall(r"\[\d{1,3}\]", text)) >= 3
+        ):
+            return True
     if REFERENCE_YEAR.search(text):
         if REFERENCE_AUTHOR_YEAR_START.match(text) and REFERENCE_VENUE_EVIDENCE.search(text):
             return True
@@ -1430,7 +1570,7 @@ def is_caption_paragraph(paragraph) -> bool:
     return bool(CAPTION_TEXT_START.match(paragraph_plain_text(paragraph)))
 
 
-def patch_layout_translation_scope(translate_figures: bool, translate_tables: bool) -> None:
+def patch_layout_translation_scope(translate_figures: bool, translate_tables: bool, translate_refs: bool = False) -> None:
     """按开关收紧 BabelDOC 的翻译范围(默认:图内文字与表格单元格保留英文原文)。
 
     两个拦截层:
@@ -1442,7 +1582,73 @@ def patch_layout_translation_scope(translate_figures: bool, translate_tables: bo
     from babeldoc.format.pdf.document_il.utils import layout_helper as lh
     import babeldoc.format.pdf.document_il.midend.paragraph_finder as paragraph_finder
 
+    class _PatchLayerSkip(Exception):
+        """单层签名不符时跳过本层:各层已有 except Exception 隔离,
+        旧实现的裸 return 会连坐跳过其后所有层(cross-scope/LLM 层)。"""
+
+
+    refs_protected = not translate_refs  # 默认保护参考文献;translate_refs=True 时放开翻译
     excluded: set[str] = {"reference", "reference_hybrid"}
+    # 参考文献区域判定:论文排版千差万别(单栏/双栏/编号/作者-年份/跨栏续行),
+    # 逐段模式匹配总有漏网(跨栏续行段不以 [N] 开头就会被翻译)。
+    # 改为页级区域判定:一页内 ≥3 个文献特征段落(或 References 标题 + ≥2 个),
+    # 即整页视为文献区,区内所有段落默认保护;跨页续行沿用上一页状态。
+    # translate_refs=True(用户开启"翻译参考文献")时区域判定整体关闭
+    _ref_state = {"prev_active": False, "prev_page": None, "cache": {}, "par_ids": set()}
+
+    def _refish_paragraph(paragraph) -> bool:
+        text = paragraph_plain_text(paragraph)
+        if not text:
+            return False
+        if is_protected_reference_paragraph(paragraph):
+            return True
+        if len(text) > 600:
+            return False
+        if REFERENCE_ENTRY_START.match(text) and REFERENCE_ENTRY_EVIDENCE.search(text):
+            return True
+        if REFERENCE_YEAR.search(text) and REFERENCE_VENUE_EVIDENCE.search(text) and len(REFERENCE_YEAR.findall(text)) >= 2:
+            return True
+        return False
+
+    def _page_is_reference_region(page, prev_active) -> bool:
+        paras = [p for p in getattr(page, "pdf_paragraph", []) if paragraph_plain_text(p)]
+        if not paras:
+            return False
+        refish = sum(1 for p in paras if _refish_paragraph(p))
+        if refish >= 3:
+            return True
+        heading = any(
+            re.match(r"^\s*(?:\d+\.?\s+)?(?:references|bibliography|参考文献)\b", paragraph_plain_text(p), re.I)
+            for p in paras
+        )
+        if refish >= 2 and heading:
+            return True
+        # 跨页续行:上一页是文献区,本页开头仍是文献特征(续行段常不以 [N] 开头)
+        if prev_active:
+            first = paragraph_plain_text(paras[0])
+            if REFERENCE_ENTRY_START.match(first) or REFERENCE_YEAR.search(first[:120]) or REFERENCE_VENUE_EVIDENCE.search(first[:120]):
+                return True
+            if sum(1 for p in paras[:6] if _refish_paragraph(p)) >= 1:
+                return True
+        return False
+
+    def _ref_region_active(page) -> bool:
+        key = id(page)
+        if key in _ref_state["cache"]:
+            return _ref_state["cache"][key]
+        try:
+            active = _page_is_reference_region(page, _ref_state["prev_active"])
+            if active:
+                for p in getattr(page, "pdf_paragraph", []):
+                    _ref_state["par_ids"].add(id(p))
+        except Exception as exc:
+            # 区域判定属于增强能力:任何异常都降级为"非文献区",绝不让任务失败
+            print(f"参考文献区域判定失败（{exc.__class__.__name__}: {exc}），本页按非文献区处理", file=sys.stderr)
+            active = False
+        _ref_state["cache"][key] = active
+        _ref_state["prev_page"] = key
+        _ref_state["prev_active"] = active
+        return active
     if not translate_figures:
         excluded |= {"figure_text", "figure_text_hybrid", "figure_title", "chart_title"}
     if not translate_tables:
@@ -1476,17 +1682,18 @@ def patch_layout_translation_scope(translate_figures: bool, translate_tables: bo
         params = list(inspect.signature(original_process).parameters)
         if params[:3] != ["self", "page", "executor"]:
             print("翻译范围补丁(段落层)跳过：引擎签名已变化", file=sys.stderr)
-            return
+            raise _PatchLayerSkip()
 
         def process_page_scoped(self, page, executor, *args, **kwargs):
             # 摘除被排除的段落(调用后放回,不影响后续阶段):原版对每个段落无条件调度
             scope_boxes = excluded_boxes_fn(page)
             removed: list[tuple[int, object]] = []
             kept = []
+            region_active = refs_protected and _ref_region_active(page)
             for idx, paragraph in enumerate(page.pdf_paragraph):
                 label = (getattr(paragraph, "layout_label", "") or "").strip()
                 caption = is_caption_paragraph(paragraph)
-                skip = is_protected_reference_paragraph(paragraph) or (
+                skip = (refs_protected and (region_active or is_protected_reference_paragraph(paragraph))) or (
                     label.replace("_hybrid", "") in excluded and label not in ("figure_caption", "table_caption") and not caption
                 )
                 if not skip and not caption and label not in ("figure_caption", "table_caption") and scope_boxes and getattr(paragraph, "box", None) is not None:
@@ -1537,10 +1744,11 @@ def patch_layout_translation_scope(translate_figures: bool, translate_tables: bo
         scope_boxes = excluded_boxes_fn(page)
         removed = []
         kept = []
+        region_active = refs_protected and _ref_region_active(page)
         for idx, paragraph in enumerate(getattr(page, "pdf_paragraph", [])):
             label = (getattr(paragraph, "layout_label", "") or "").strip()
             caption = is_caption_paragraph(paragraph)
-            skip = is_protected_reference_paragraph(paragraph) or (
+            skip = (refs_protected and (region_active or is_protected_reference_paragraph(paragraph))) or (
                 label.replace("_hybrid", "") in excluded
                 and label.replace("_hybrid", "") not in CAPTION_LAYOUTS
                 and not caption
@@ -1613,7 +1821,7 @@ def patch_layout_translation_scope(translate_figures: bool, translate_tables: bo
         )
 
         def should_translate_scoped(self, paragraph, *args, **kwargs):
-            if is_protected_reference_paragraph(paragraph):
+            if refs_protected and (is_protected_reference_paragraph(paragraph) or id(paragraph) in _ref_state["par_ids"]):
                 return False
             return original_should_translate(self, paragraph, *args, **kwargs)
 
@@ -1624,16 +1832,17 @@ def patch_layout_translation_scope(translate_figures: bool, translate_tables: bo
         llm_params = list(inspect.signature(original_llm_process).parameters)
         if llm_params[:3] != ["self", "page", "executor"]:
             print("翻译范围补丁(LLM 段落层)跳过：引擎签名已变化", file=sys.stderr)
-            return
+            raise _PatchLayerSkip()
 
         def llm_process_page_scoped(self, page, executor, *args, **kwargs):
             removed: list[tuple[int, object]] = []
             kept = []
             scope_boxes = excluded_boxes_fn(page)
+            region_active = refs_protected and _ref_region_active(page)
             for idx, paragraph in enumerate(page.pdf_paragraph):
                 label = (getattr(paragraph, "layout_label", "") or "").strip()
                 caption = is_caption_paragraph(paragraph)
-                skip = is_protected_reference_paragraph(paragraph) or (
+                skip = (refs_protected and (region_active or is_protected_reference_paragraph(paragraph))) or (
                     label.replace("_hybrid", "") in excluded and label not in ("figure_caption", "table_caption") and not caption
                 )
                 if not skip and not caption and label not in ("figure_caption", "table_caption") and scope_boxes and getattr(paragraph, "box", None) is not None:
@@ -1952,7 +2161,15 @@ def _load_translation_cache_map(output_text: str | None = None) -> dict[str, str
 
     mapping: dict[str, str] = {}
     output_key = _pair_text_key(output_text) if output_text is not None else None
-    for db_file in glob.glob(str(Path(CACHE_FOLDER) / "*.db")):
+    # 缓存库跨任务无界累积:按修改时间新→旧读取,条目超上限即停。旧库不删除——
+    # BabelDOC 重试的"已译段落经缓存跳过"仍依赖它们,这里只限制载入的内存峰值
+    db_files = sorted(
+        glob.glob(str(Path(CACHE_FOLDER) / "*.db")),
+        key=lambda f: (os.path.getmtime(f) if os.path.exists(f) else 0.0),
+        reverse=True,
+    )
+    loaded = 0
+    for db_file in db_files:
         try:
             conn = sqlite3.connect(f"file:{db_file}?mode=ro", uri=True)
             try:
@@ -1976,10 +2193,15 @@ def _load_translation_cache_map(output_text: str | None = None) -> dict[str, str
                     ):
                         continue
                     mapping[_pair_text_key(original)] = re.sub(r"[ \t]+", " ", translation).strip()
+                    loaded += 1
+                    if loaded >= 200_000:
+                        break
             finally:
                 conn.close()
         except sqlite3.Error:
             continue
+        if loaded >= 200_000:
+            break
     return mapping
 
 
@@ -2979,7 +3201,36 @@ def main() -> int:
             # 删除旧页后在同一位置插入重译页,其余页保持原样
             doc.delete_page(page_index)
             doc.insert_pdf(temp, from_page=page_index, to_page=page_index, start_at=page_index)
-            doc.save(out_path, garbage=3, deflate=True)
+            # 累积写回时源就是目标(第二次单页重译以 adjusted-output.pdf 为源):
+            # pymupdf 拒绝非增量"保存到原路径",先存临时文件;替换必须在 with 之外做,
+            # doc 还握着目标句柄时 os.replace 在 Windows 上必抛 PermissionError
+            same_target = os.path.normcase(os.path.abspath(out_path)) == os.path.normcase(os.path.abspath(source_pdf))
+            tmp_save = str(out_path) + ".replace.tmp"
+            doc.save(tmp_save if same_target else out_path, garbage=3, deflate=True)
+        if same_target:
+            replaced = False
+            for delay in (0.2, 0.5, 1.0, 2.0, 4.0):
+                try:
+                    os.replace(tmp_save, out_path)
+                    replaced = True
+                    break
+                except PermissionError:
+                    time.sleep(delay)
+            if not replaced:
+                fallback = str(Path(out_path).with_name(Path(out_path).stem + "-replace-new.pdf"))
+                try:
+                    os.replace(tmp_save, fallback)
+                    # 备选文件不是交付目标:不打 ok 标记,让服务端把"目标被占用"作为错误浮出,
+                    # 否则用户拿到的 adjusted-output.pdf 仍是旧页面却显示重译成功
+                    print(f"replace-page: 目标被占用,重译页已写入备选文件 {Path(fallback).name}，关闭阅读器后点重试即可原地更新", file=sys.stderr)
+                    return 1
+                except Exception as exc:
+                    print(f"replace-page: 写回失败（{exc}）", file=sys.stderr)
+                    try:
+                        os.remove(tmp_save)
+                    except OSError:
+                        pass
+                    return 1
         print("YIYE_REPLACE_PAGE: ok", flush=True)
         return 0
     if mode == "render":
@@ -3031,6 +3282,17 @@ def main() -> int:
         print("missing YIYE_API_KEY", file=sys.stderr)
         return 2
 
+    # 与其他模式对齐:三路径须落在 _allowed_roots 白名单内(worker 被手工或
+    # 第三方复用时不得读写白名单之外的路径;docstring 对此已有承诺)
+    glossary_candidate = request.get("glossaryPath")
+    _paths_to_check = [Path(request["inputPath"]).resolve(), Path(request["outputDir"]).resolve()]
+    if glossary_candidate:
+        _paths_to_check.append(Path(glossary_candidate).resolve())
+    _roots = _allowed_roots()
+    if not all(_is_under(p, _roots) for p in _paths_to_check):
+        print("path outside allowed roots", file=sys.stderr)
+        return 2
+
     errors, warnings = preflight(request["inputPath"], bool(request["config"].get("ocr")))
     for line in warnings:
         print(line, flush=True)
@@ -3064,7 +3326,7 @@ def main() -> int:
     # 降级(失去对应增强),不阻断翻译,与排版补丁内部的分层 try/except 一致
     for apply in (
         lambda: patch_progress_output(),
-        lambda: patch_layout_translation_scope(translate_figures=bool(request["config"].get("figure")), translate_tables=bool(request["config"].get("table"))),
+        lambda: patch_layout_translation_scope(translate_figures=bool(request["config"].get("figure")), translate_tables=bool(request["config"].get("table")), translate_refs=bool(request["config"].get("translateRefs"))),
         lambda: patch_translation_integrity(),
         lambda: patch_forced_list_line_breaks(),
         lambda: patch_cjk_line_spacing(),
@@ -3087,6 +3349,17 @@ def main() -> int:
             build_pdf_outline(str(out_pdfs[0]), request["config"]["output"], request["config"].get("dualLayout", "side"))
     except Exception as exc:
         print(f"书签生成失败（{exc}），已跳过", flush=True)
+    # 代码块还原:双栏并排产物中,右半代码块被重排版损坏(行合并/乱序)时,
+    # 用左半原始排版原样修复;失败不影响任务
+    try:
+        if request["config"].get("output") == "dual" and request["config"].get("dualLayout", "side") != "alternating":
+            out_pdfs0 = main_translated_pdfs(request["outputDir"])
+            if out_pdfs0:
+                restored = restore_dual_code_blocks(str(out_pdfs0[0]))
+                if restored:
+                    print(f"代码块还原：{restored} 处", flush=True)
+    except Exception as exc:
+        print(f"代码块还原失败（{exc}），已跳过", flush=True)
     # 图注对照提取(图表速读)提前:术语质检需要图表区域来排除"图内正确保留英文"的词
     captions: list[dict] = []
     try:

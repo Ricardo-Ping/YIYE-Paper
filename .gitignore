@@ -7,6 +7,8 @@ __pycache__/
 data/jobs/
 data/jobs.json
 data-e2e/
+data-guitest/
+data/.yiye-instance-lock
 
 # 依赖
 node_modules/
